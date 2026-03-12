@@ -92,7 +92,7 @@ export class PartyRouter {
       // Activities
       startActivity: this.trpc.protectedProcedure
         .input(startActivitySchema.extend({ roomId: z.string().uuid() }))
-        .mutation(async ({ ctx, input }) => this.partyService.startActivity(input.roomId, ctx.userId, input.activityType, input.configJson)),
+        .mutation(async ({ ctx, input }) => this.partyService.startActivity(input.roomId, ctx.userId, input.activityType, input.config)),
 
       joinActivity: this.trpc.protectedProcedure
         .input(z.object({ roomId: z.string().uuid(), activityId: z.string().uuid() }))

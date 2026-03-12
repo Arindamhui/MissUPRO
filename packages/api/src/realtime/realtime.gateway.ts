@@ -142,7 +142,7 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   // ─── Game Events ───
   @SubscribeMessage(SOCKET_EVENTS.GAME.MOVE)
   handleGameMove(@ConnectedSocket() client: Socket, @MessageBody() data: { sessionId: string; move: any }) {
-    this.server.to(`game:${data.sessionId}`).emit(SOCKET_EVENTS.GAME.STATE_UPDATE, {
+    this.server.to(`game:${data.sessionId}`).emit(SOCKET_EVENTS.GAME.STATE_DELTA, {
       sessionId: data.sessionId,
       move: data.move,
       playerId: (client as any).userId,
@@ -157,15 +157,15 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   // ─── DM Events ───
   @SubscribeMessage(SOCKET_EVENTS.DM.SEND)
   handleDmSend(@ConnectedSocket() client: Socket, @MessageBody() data: { recipientId: string; message: any }) {
-    this.server.to(`user:${data.recipientId}`).emit(SOCKET_EVENTS.DM.RECEIVE, {
+    this.server.to(`user:${data.recipientId}`).emit(SOCKET_EVENTS.DM.MESSAGE, {
       ...data.message,
       senderId: (client as any).userId,
     });
   }
 
-  @SubscribeMessage(SOCKET_EVENTS.DM.TYPING)
+  @SubscribeMessage(SOCKET_EVENTS.DM.TYPING_START)
   handleDmTyping(@ConnectedSocket() client: Socket, @MessageBody() data: { recipientId: string; conversationId: string }) {
-    this.server.to(`user:${data.recipientId}`).emit(SOCKET_EVENTS.DM.TYPING, {
+    this.server.to(`user:${data.recipientId}`).emit(SOCKET_EVENTS.DM.TYPING_START, {
       conversationId: data.conversationId,
       userId: (client as any).userId,
     });
@@ -175,7 +175,7 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   @SubscribeMessage(SOCKET_EVENTS.GROUP_AUDIO.JOIN)
   handleGroupAudioJoin(@ConnectedSocket() client: Socket, @MessageBody() data: { roomId: string }) {
     client.join(`ga:${data.roomId}`);
-    this.server.to(`ga:${data.roomId}`).emit(SOCKET_EVENTS.GROUP_AUDIO.PARTICIPANT_JOINED, {
+    this.server.to(`ga:${data.roomId}`).emit(SOCKET_EVENTS.GROUP_AUDIO.MEMBER_JOINED, {
       userId: (client as any).userId,
     });
   }
@@ -183,14 +183,14 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   @SubscribeMessage(SOCKET_EVENTS.GROUP_AUDIO.LEAVE)
   handleGroupAudioLeave(@ConnectedSocket() client: Socket, @MessageBody() data: { roomId: string }) {
     client.leave(`ga:${data.roomId}`);
-    this.server.to(`ga:${data.roomId}`).emit(SOCKET_EVENTS.GROUP_AUDIO.PARTICIPANT_LEFT, {
+    this.server.to(`ga:${data.roomId}`).emit(SOCKET_EVENTS.GROUP_AUDIO.MEMBER_LEFT, {
       userId: (client as any).userId,
     });
   }
 
-  @SubscribeMessage(SOCKET_EVENTS.GROUP_AUDIO.RAISE_HAND)
+  @SubscribeMessage(SOCKET_EVENTS.GROUP_AUDIO.HAND_RAISE)
   handleGroupAudioRaiseHand(@ConnectedSocket() client: Socket, @MessageBody() data: { roomId: string }) {
-    this.server.to(`ga:${data.roomId}`).emit(SOCKET_EVENTS.GROUP_AUDIO.HAND_RAISED, {
+    this.server.to(`ga:${data.roomId}`).emit(SOCKET_EVENTS.GROUP_AUDIO.HAND_RAISE, {
       userId: (client as any).userId,
     });
   }
@@ -262,17 +262,17 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   }
 
   // ─── Discovery Events ───
-  @SubscribeMessage(SOCKET_EVENTS.DISCOVERY.MODEL_ONLINE)
+  @SubscribeMessage("discovery.model.online")
   handleModelOnline(@ConnectedSocket() client: Socket, @MessageBody() data: { modelId: string }) {
-    this.server.emit(SOCKET_EVENTS.DISCOVERY.MODEL_ONLINE, {
+    this.server.emit("discovery.model.online", {
       modelId: data.modelId,
       userId: (client as any).userId,
     });
   }
 
-  @SubscribeMessage(SOCKET_EVENTS.DISCOVERY.MODEL_OFFLINE)
+  @SubscribeMessage("discovery.model.offline")
   handleModelOffline(@ConnectedSocket() client: Socket, @MessageBody() data: { modelId: string }) {
-    this.server.emit(SOCKET_EVENTS.DISCOVERY.MODEL_OFFLINE, {
+    this.server.emit("discovery.model.offline", {
       modelId: data.modelId,
       userId: (client as any).userId,
     });

@@ -47,16 +47,23 @@ export class GiftService {
       contextType: contextType as any,
       contextId,
       comboCount,
+      economyProfileKeySnapshot: "default",
+      platformCommissionBpsSnapshot: 7500,
+      diamondValueUsdPer100Snapshot: "0.2500",
+      senderDisplayNameSnapshot: senderId,
       idempotencyKey: idempotencyKey ?? `${senderId}_${giftId}_${Date.now()}`,
     }).returning();
 
     if (["LIVE_STREAM", "GROUP_AUDIO", "PARTY", "PK_BATTLE"].includes(contextType)) {
       await db.insert(liveGiftEvents).values({
         giftTransactionId: txn!.id,
+        liveStreamId: contextId,
         roomId: contextId,
         senderUserId: senderId,
         receiverUserId: receiverId,
+        displayMessage: `sent a ${gift.giftCode}!`,
         animationKey: gift.giftCode,
+        broadcastEventId: crypto.randomUUID(),
       });
     }
 

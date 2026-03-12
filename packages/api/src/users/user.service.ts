@@ -67,7 +67,7 @@ export class UserService {
       .insert(accountDeletionRequests)
       .values({
         userId,
-        reason,
+        reason: reason ?? "User requested deletion",
         coolingOffExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       })
       .returning();

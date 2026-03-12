@@ -17,7 +17,7 @@ export class LevelService {
       const firstLevel = await db.select().from(levels).orderBy(asc(levels.levelNumber)).limit(1);
       const [created] = await db
         .insert(userLevels)
-        .values({ userId, levelTrack: "USER" as any, currentLevelId: firstLevel[0]?.id ?? null, currentProgressValue: 0 })
+        .values({ userId, levelTrack: "USER" as any, currentLevelId: firstLevel[0]?.id ?? null, currentProgressValue: 0 } as any)
         .returning();
       return created;
     }
@@ -30,8 +30,10 @@ export class LevelService {
 
     if (!userLevel) {
       const firstLevel = await db.select().from(levels).orderBy(asc(levels.levelNumber)).limit(1);
-      [userLevel] = await db.insert(userLevels).values({ userId, levelTrack: "USER" as any, currentLevelId: firstLevel[0]?.id ?? null, currentProgressValue: 0 }).returning();
+      [userLevel] = await db.insert(userLevels).values({ userId, levelTrack: "USER" as any, currentLevelId: firstLevel[0]?.id ?? null, currentProgressValue: 0 } as any).returning();
     }
+
+    if (!userLevel) throw new Error("Failed to create user level");
 
     const newProgress = (userLevel.currentProgressValue ?? 0) + xpAmount;
 
@@ -70,7 +72,7 @@ export class LevelService {
     const [streak] = await db.select().from(loginStreaks).where(eq(loginStreaks.userId, userId)).limit(1);
 
     if (!streak) {
-      const [created] = await db.insert(loginStreaks).values({ userId, currentStreakDays: 1, lastLoginDate: new Date().toISOString().split("T")[0]! }).returning();
+      const [created] = await db.insert(loginStreaks).values({ userId, currentStreakDays: 1, lastLoginDate: new Date().toISOString().split("T")[0]!, regionCode: "GLOBAL" } as any).returning();
       return created;
     }
 
@@ -81,7 +83,7 @@ export class LevelService {
     let [streak] = await db.select().from(loginStreaks).where(eq(loginStreaks.userId, userId)).limit(1);
 
     if (!streak) {
-      [streak] = await db.insert(loginStreaks).values({ userId, currentStreakDays: 1, lastLoginDate: new Date().toISOString().split("T")[0]! }).returning();
+      [streak] = await db.insert(loginStreaks).values({ userId, currentStreakDays: 1, lastLoginDate: new Date().toISOString().split("T")[0]!, regionCode: "GLOBAL" } as any).returning();
       return { streak, xpAwarded: DEFAULTS.REWARDS.DAILY_LOGIN_XP };
     }
 

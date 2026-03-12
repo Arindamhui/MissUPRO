@@ -29,6 +29,8 @@ export class PartyService {
       } as any)
       .returning();
 
+    if (!room) throw new Error("Failed to create party room");
+
     // Create seats
     for (let i = 1; i <= maxSeats; i++) {
       await db.insert(partySeats).values({

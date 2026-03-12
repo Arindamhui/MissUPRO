@@ -56,11 +56,18 @@ export const getPresenceBulkSchema = z.object({
 
 // ─── Model ───
 export const submitModelApplicationSchema = z.object({
-  bio: z.string().min(10).max(1000),
-  categories: z.array(z.string()).min(1),
+  legalName: z.string().min(1).max(200),
+  displayName: z.string().min(1).max(100),
+  talentDescription: z.string().min(10).max(2000),
+  talentCategories: z.array(z.string()).min(1),
   languages: z.array(z.string()).min(1),
   country: z.string(),
-  demoVideoUrl: z.string().url().optional(),
+  city: z.string(),
+  dob: z.coerce.date(),
+  introVideoUrl: z.string().url(),
+  scheduleJson: z.any().optional(),
+  idDocFrontUrl: z.string().url(),
+  idDocBackUrl: z.string().url(),
 });
 
 export const updateAvailabilitySchema = z.object({

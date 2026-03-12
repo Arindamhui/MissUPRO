@@ -18,6 +18,8 @@ export class GameService {
       stateJson: {},
     }).returning();
 
+    if (!session) throw new Error("Failed to create game session");
+
     // Add the creating user as the first player
     await db.insert(gamePlayers).values({
       gameSessionId: session.id,

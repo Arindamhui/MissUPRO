@@ -15,13 +15,13 @@ export class CmsService {
       title: data.title,
       imageUrl: data.imageUrl,
       linkType: data.linkType as any,
-      linkTarget: data.linkTarget,
+      linkTarget: data.linkTarget ?? "",
       position: data.position ?? 0,
       status: "ACTIVE" as any,
       startDate: data.startDate,
       endDate: data.endDate,
       createdByAdminId: data.createdByAdminId,
-    }).returning();
+    } as any).returning();
     return banner;
   }
 
@@ -41,7 +41,7 @@ export class CmsService {
   }
 
   async createTheme(data: {
-    name: string; description: string;
+    name: string; description?: string;
     primaryColor: string; secondaryColor: string;
     backgroundColor: string; cardBackgroundColor: string;
     textPrimaryColor: string; textSecondaryColor: string;

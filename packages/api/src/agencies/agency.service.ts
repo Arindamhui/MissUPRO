@@ -20,6 +20,8 @@ export class AgencyService {
       })
       .returning();
 
+    if (!agency) throw new Error("Failed to create agency");
+
     // Make the applying user the first host with ACTIVE status
     await db.insert(agencyHosts).values({
       agencyId: agency.id,
