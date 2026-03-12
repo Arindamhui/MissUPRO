@@ -110,7 +110,7 @@ export class AdminRouter {
 
       upsertFeatureFlag: this.trpc.adminProcedure
         .input(createFeatureFlagSchema)
-        .mutation(async ({ ctx, input }) => this.adminService.upsertFeatureFlag(input.key, input.flagType, input.enabled, ctx.userId)),
+        .mutation(async ({ ctx, input }) => this.adminService.upsertFeatureFlag(input.key, input.type, input.isEnabled, ctx.userId)),
 
       // UI / CMS
       listHomepageSections: this.trpc.adminProcedure

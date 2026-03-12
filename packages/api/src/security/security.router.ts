@@ -13,7 +13,7 @@ export class SecurityRouter {
       createIncident: this.trpc.adminProcedure
         .input(createIncidentSchema)
         .mutation(async ({ ctx, input }) =>
-          this.securityService.createIncident({ incidentType: input.incidentType, severity: input.severity, ownerAdminId: ctx.userId }),
+          this.securityService.createIncident({ incidentType: input.type, severity: input.severity, ownerAdminId: ctx.userId }),
         ),
 
       listIncidents: this.trpc.adminProcedure

@@ -12,7 +12,14 @@ export class GroupAudioRouter {
     return this.trpc.router({
       createRoom: this.trpc.protectedProcedure
         .input(createGroupAudioRoomSchema)
-        .mutation(async ({ ctx, input }) => this.groupAudioService.createRoom(ctx.userId, input)),
+        .mutation(async ({ ctx, input }) => this.groupAudioService.createRoom(ctx.userId, {
+          title: input.title,
+          description: input.description,
+          topicTagsJson: input.tags,
+          maxSpeakers: input.maxSpeakers,
+          maxListeners: input.maxListeners,
+          scheduledStartAt: input.scheduledStartAt ? new Date(input.scheduledStartAt) : undefined,
+        })),
 
       startRoom: this.trpc.protectedProcedure
         .input(z.object({ roomId: z.string().uuid() }))

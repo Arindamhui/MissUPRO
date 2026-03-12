@@ -381,7 +381,7 @@ export class AdminService {
     await db.insert(adminLogs).values({
       adminId,
       action: action as any,
-      targetType,
+      targetType: targetType as any,
       targetId: targetId ?? adminId,
       reason: JSON.stringify(details),
       ipAddress: "system",
