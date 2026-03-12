@@ -1,0 +1,188 @@
+// ─── Socket.io Event Constants (flat) ───
+
+export const SocketEvents = {
+  // Gift
+  GIFT_SENT: "gift.sent",
+  GIFT_DELIVERY_ACK: "gift.delivery.ack",
+  GIFT_COMBO_UPDATED: "gift.combo.updated",
+  GIFT_OVERLAY_EXPIRED: "gift.overlay.expired",
+
+  // Call
+  CALL_REQUESTED: "call.requested",
+  CALL_ACCEPTED: "call.accepted",
+  CALL_ENDED: "call.ended",
+  CALL_BILLING_TICK: "call.billing.tick",
+  CALL_BILLING_LOW_BALANCE: "call.billing.low_balance",
+  CALL_BILLING_INSUFFICIENT: "call.billing.insufficient_balance",
+  CALL_BILLING_SESSION_ENDED: "call.billing.session_ended",
+
+  // Game
+  GAME_JOIN: "game.join",
+  GAME_MOVE_SUBMIT: "game.move.submit",
+  GAME_STATE_DELTA: "game.state.delta",
+  GAME_PAUSE: "game.pause",
+  GAME_RESUME: "game.resume",
+  GAME_END: "game.end",
+  GAME_ERROR: "game.error",
+  GAME_SESSION_STARTED: "game.session.started",
+  GAME_MOVE_SUBMITTED: "game.move.submitted",
+  GAME_STATE_SYNCED: "game.state.synced",
+  GAME_SESSION_PAUSED: "game.session.paused",
+  GAME_SESSION_ENDED: "game.session.ended",
+
+  // DM
+  DM_MESSAGE_NEW: "dm.message.new",
+  DM_TYPING_START: "dm.typing.start",
+  DM_TYPING_STOP: "dm.typing.stop",
+  DM_READ_UPDATE: "dm.read.update",
+
+  // PK Battle
+  PK_BATTLE_STARTED: "pk.battle.started",
+  PK_SCORE_UPDATED: "pk.score.updated",
+  PK_BATTLE_ENDED: "pk.battle.ended",
+
+  // Group Audio
+  GROUP_AUDIO_ROOM_CREATED: "group_audio.room.created",
+  GROUP_AUDIO_ROOM_STARTED: "group_audio.room.started",
+  GROUP_AUDIO_ROOM_ENDED: "group_audio.room.ended",
+  GROUP_AUDIO_PARTICIPANT_JOINED: "group_audio.participant.joined",
+  GROUP_AUDIO_PARTICIPANT_LEFT: "group_audio.participant.left",
+  GROUP_AUDIO_PARTICIPANT_ROLE_CHANGED: "group_audio.participant.role_changed",
+  GROUP_AUDIO_PARTICIPANT_MUTED: "group_audio.participant.muted",
+  GROUP_AUDIO_HAND_RAISE_REQUESTED: "group_audio.hand_raise.requested",
+  GROUP_AUDIO_HAND_RAISE_RESOLVED: "group_audio.hand_raise.resolved",
+  GROUP_AUDIO_TOPIC_UPDATED: "group_audio.topic.updated",
+  GROUP_AUDIO_GIFT_SENT: "group_audio.gift.sent",
+  GROUP_AUDIO_BILLING_WARNING: "group_audio.billing.warning",
+  GROUP_AUDIO_BILLING_DISCONNECTED: "group_audio.billing.disconnected",
+  GROUP_AUDIO_REACTION: "group_audio.reaction",
+
+  // Party
+  PARTY_ROOM_OPENED: "party.room.opened",
+  PARTY_ROOM_CLOSED: "party.room.closed",
+  PARTY_ROOM_PAUSED: "party.room.paused",
+  PARTY_ROOM_RESUMED: "party.room.resumed",
+  PARTY_MEMBER_JOINED: "party.member.joined",
+  PARTY_MEMBER_LEFT: "party.member.left",
+  PARTY_MEMBER_KICKED: "party.member.kicked",
+  PARTY_SEAT_CLAIMED: "party.seat.claimed",
+  PARTY_SEAT_VACATED: "party.seat.vacated",
+  PARTY_SEAT_LOCKED: "party.seat.locked",
+  PARTY_SEAT_RESERVED: "party.seat.reserved",
+  PARTY_SPEAKER_MUTED: "party.speaker.muted",
+  PARTY_GIFT_SENT: "party.gift.sent",
+  PARTY_GIFT_ROOM_WIDE: "party.gift.room_wide",
+  PARTY_ACTIVITY_STARTED: "party.activity.started",
+  PARTY_ACTIVITY_UPDATE: "party.activity.update",
+  PARTY_ACTIVITY_ENDED: "party.activity.ended",
+  PARTY_CHAT_MESSAGE: "party.chat.message",
+  PARTY_REACTION: "party.reaction",
+  PARTY_HOST_CHANGED: "party.host.changed",
+  PARTY_THEME_CHANGED: "party.theme.changed",
+
+  // Presence
+  PRESENCE_ONLINE: "presence.online",
+  PRESENCE_OFFLINE: "presence.offline",
+  PRESENCE_STATUS_CHANGED: "presence.status_changed",
+  PRESENCE_HEARTBEAT: "presence.heartbeat",
+
+  // Discovery / System
+  DISCOVERY_TRENDING_UPDATED: "discovery.trending.updated",
+  CAMPAIGN_USER_QUALIFIED: "campaign.user.qualified",
+  NOTIFICATION_DISPATCH_REQUESTED: "notification.dispatch.requested",
+  FRAUD_FLAG_CREATED: "fraud.flag.created",
+  UI_LAYOUT_UPDATED: "ui.layout.updated",
+} as const;
+
+export type SocketEvent = (typeof SocketEvents)[keyof typeof SocketEvents];
+
+// ─── Nested Socket Events (used by gateway & mobile) ───
+
+export const SOCKET_EVENTS = {
+  CALL: {
+    REQUEST: "call.request",
+    INCOMING: "call.incoming",
+    ACCEPT: "call.accept",
+    ACCEPTED: "call.accepted",
+    REJECT: "call.reject",
+    REJECTED: "call.rejected",
+    END: "call.end",
+    ENDED: "call.ended",
+    BILLING_TICK: "call.billing.tick",
+    LOW_BALANCE: "call.billing.low_balance",
+  },
+  GIFT: {
+    SENT: "gift.sent",
+    SENT_LIVE: "gift.sent_live",
+    RECEIVED_LIVE: "gift.received_live",
+    COMBO_UPDATED: "gift.combo.updated",
+    DELIVERY_ACK: "gift.delivery.ack",
+  },
+  STREAM: {
+    JOIN: "stream.join",
+    LEAVE: "stream.leave",
+    CHAT: "stream.chat",
+    CHAT_MESSAGE: "stream.chat.message",
+    VIEWER_JOINED: "stream.viewer.joined",
+    VIEWER_LEFT: "stream.viewer.left",
+    VIEWER_COUNT: "stream.viewer.count",
+    ENDED: "stream.ended",
+  },
+  PK: {
+    REQUEST: "pk.request",
+    ACCEPT: "pk.accept",
+    STARTED: "pk.battle.started",
+    SCORE_UPDATE: "pk.score.updated",
+    ENDED: "pk.battle.ended",
+  },
+  GAME: {
+    JOIN: "game.join",
+    MOVE: "game.move.submit",
+    STATE_DELTA: "game.state.delta",
+    START: "game.session.started",
+    END: "game.session.ended",
+    ERROR: "game.error",
+  },
+  DM: {
+    MESSAGE: "dm.message.new",
+    TYPING_START: "dm.typing.start",
+    TYPING_STOP: "dm.typing.stop",
+    READ_UPDATE: "dm.read.update",
+    SEND: "dm.message.send",
+  },
+  GROUP_AUDIO: {
+    JOIN: "group_audio.join",
+    LEAVE: "group_audio.leave",
+    CHAT: "group_audio.chat",
+    MEMBER_JOINED: "group_audio.participant.joined",
+    MEMBER_LEFT: "group_audio.participant.left",
+    SPEAKER_UPDATE: "group_audio.participant.role_changed",
+    MUTE_TOGGLE: "group_audio.mute_toggle",
+    HAND_RAISE: "group_audio.hand_raise",
+    REACTION: "group_audio.reaction",
+    TOPIC_UPDATED: "group_audio.topic.updated",
+  },
+  PARTY: {
+    JOIN: "party.join",
+    LEAVE: "party.leave",
+    CHAT: "party.chat.message",
+    MEMBER_JOINED: "party.member.joined",
+    MEMBER_LEFT: "party.member.left",
+    SEAT_UPDATE: "party.seat.update",
+    REACTION: "party.reaction",
+    ACTIVITY_START: "party.activity.started",
+    ACTIVITY_UPDATE: "party.activity.update",
+    ACTIVITY_END: "party.activity.ended",
+    GIFT_SENT: "party.gift.sent",
+  },
+  PRESENCE: {
+    STATUS_CHANGED: "presence.status_changed",
+    ONLINE: "presence.online",
+    OFFLINE: "presence.offline",
+    HEARTBEAT: "presence.heartbeat",
+  },
+  DISCOVERY: {
+    SUBSCRIBE: "discovery.subscribe",
+    UPDATE: "discovery.trending.updated",
+  },
+} as const;

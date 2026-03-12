@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "MissUPRO",
+    "slug": "missu-pro",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "missupro",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#6C5CE7"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "bundleIdentifier": "com.missupro.app",
+      "supportsTablet": false
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#6C5CE7"
+      },
+      "package": "com.missupro.app"
+    },
+    "plugins": [
+      "expo-router"
+    ]
+  }
+}

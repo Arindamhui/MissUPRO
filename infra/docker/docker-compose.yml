@@ -1,0 +1,75 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL (local dev, production uses Neon) ───────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: missu
+      POSTGRES_PASSWORD: missu_dev_password
+      POSTGRES_DB: missu
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U missu"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ──────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --requirepass missu_redis_dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "missu_redis_dev", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── NestJS API ─────────────────────────────────────────────
+  api:
+    build:
+      context: ../../
+      dockerfile: infra/docker/Dockerfile.api
+    ports:
+      - "4000:4000"
+    env_file:
+      - ../../.env
+    environment:
+      DATABASE_URL: postgresql://missu:missu_dev_password@postgres:5432/missu?sslmode=disable
+      REDIS_URL: redis://:missu_redis_dev@redis:6379
+      NODE_ENV: production
+      PORT: "4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Next.js Admin Panel ────────────────────────────────────
+  web:
+    build:
+      context: ../../
+      dockerfile: infra/docker/Dockerfile.web
+    ports:
+      - "3000:3000"
+    env_file:
+      - ../../.env
+    environment:
+      NEXT_PUBLIC_API_URL: http://api:4000
+      NODE_ENV: production
+      PORT: "3000"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:

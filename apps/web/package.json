@@ -1,0 +1,38 @@
+{
+  "name": "@missu/web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3001",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "^14.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "@clerk/nextjs": "^5.0.0",
+    "@tanstack/react-query": "^5.50.0",
+    "@trpc/client": "^10.45.0",
+    "@trpc/react-query": "^10.45.0",
+    "@trpc/next": "^10.45.0",
+    "superjson": "^2.2.1",
+    "recharts": "^2.12.0",
+    "lucide-react": "^0.400.0",
+    "tailwind-merge": "^2.3.0",
+    "clsx": "^2.1.1",
+    "class-variance-authority": "^0.7.0",
+    "date-fns": "^3.6.0",
+    "zod": "^3.23.0",
+    "@missu/types": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "tailwindcss": "^3.4.0",
+    "postcss": "^8.4.0",
+    "autoprefixer": "^10.4.0"
+  }
+}
