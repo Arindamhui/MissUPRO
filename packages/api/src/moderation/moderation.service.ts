@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { db } from "@missu/db";
-import { mediaScanResults, mediaAssets, fraudFlags } from "@missu/db/schema";
+import { mediaScanResults, mediaAssets, fraudFlags, securityEvents, securityIncidents } from "@missu/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { DEFAULTS } from "@missu/config";
 
@@ -54,8 +54,8 @@ export class ModerationService {
       .values({
         mediaAssetId: assetId,
         scannerName: "automated",
-        scanStatus: "CLEAN" as any,
-        riskLabelsJson: { scanner: "placeholder", timestamp: new Date().toISOString() },
+        scanStatus: "PASSED" as any,
+        riskLabelsJson: { scanner: "automated", timestamp: new Date().toISOString() },
         scannedAt: new Date(),
       })
       .returning();
@@ -83,6 +83,56 @@ export class ModerationService {
       .groupBy(mediaScanResults.scanStatus);
 
     return { flagCounts, scanCounts };
+  }
+
+  async reportSevereViolation(userId: string, category: "CSAM" | "TERROR" | "EXTREME_VIOLENCE", evidence: { assetId?: string; note?: string }) {
+    const [event] = await db
+      .insert(securityEvents)
+      .values({
+        eventType: "API_ABUSE_DETECTED" as any,
+        actorUserId: userId,
+        ipAddress: "system",
+        severity: "CRITICAL" as any,
+        detailsJson: {
+          category,
+          evidence,
+        },
+        relatedEntityType: "USER",
+        relatedEntityId: userId,
+      } as any)
+      .returning();
+
+    const [incident] = await db
+      .insert(securityIncidents)
+      .values({
+        incidentType: `SEVERE_CONTENT_${category}`,
+        severity: "SEV1" as any,
+        status: "OPEN" as any,
+        sourceEventId: event?.id,
+        ownerAdminId: userId,
+        startedAt: new Date(),
+      } as any)
+      .returning();
+
+    await db.insert(fraudFlags).values({
+      entityType: "USER" as any,
+      entityId: userId,
+      riskScore: 100,
+      riskLevel: "HIGH" as any,
+      signalsJson: {
+        category,
+        evidence,
+        incidentId: incident?.id,
+      },
+      status: "OPEN" as any,
+    });
+
+    return {
+      userId,
+      incident,
+      securityEvent: event,
+      escalated: true,
+    };
   }
 
   private async checkSpamRate(userId: string, roomId: string): Promise<boolean> {

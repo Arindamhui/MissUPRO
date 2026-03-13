@@ -26,6 +26,17 @@ export class LevelRouter {
 
       listAllLevels: this.trpc.protectedProcedure
         .query(async () => this.levelService.listAllLevels()),
+
+      recalculateModelLevel: this.trpc.adminProcedure
+        .input(z.object({ modelUserId: z.string().uuid() }))
+        .mutation(async ({ input }) => this.levelService.recalculateModelLevel(input.modelUserId, "ADMIN_OVERRIDE")),
+
+      recalculateAllModelLevels: this.trpc.adminProcedure
+        .input(z.object({ limit: z.number().int().min(1).max(1000).default(200) }).optional())
+        .mutation(async ({ input }) => this.levelService.recalculateAllModelLevels(input?.limit ?? 200)),
+
+      getModelLevelDistribution: this.trpc.adminProcedure
+        .query(async () => this.levelService.getModelLevelDistribution()),
     });
   }
 }

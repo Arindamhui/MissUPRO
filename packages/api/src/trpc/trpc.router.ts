@@ -32,6 +32,7 @@ import { ConfigRouter } from "../config/config.router";
 import { PresenceRouter } from "../presence/presence.router";
 import { SupportRouter } from "../support/support.router";
 import { ComplianceRouter } from "../compliance/compliance.router";
+import { PayoutsRouter } from "../payouts/payouts.router";
 
 @Injectable()
 export class TrpcRouter {
@@ -69,6 +70,7 @@ export class TrpcRouter {
     private readonly presence: PresenceRouter,
     private readonly support: SupportRouter,
     private readonly compliance: ComplianceRouter,
+    private readonly payouts: PayoutsRouter,
   ) {}
 
   get appRouter() {
@@ -105,6 +107,7 @@ export class TrpcRouter {
       presence: this.presence.router,
       support: this.support.router,
       compliance: this.compliance.router,
+      payouts: this.payouts.router,
     } as any);
   }
 }

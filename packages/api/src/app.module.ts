@@ -35,6 +35,8 @@ import { ConfigModule } from "./config/config.module";
 import { PresenceModule } from "./presence/presence.module";
 import { SupportModule } from "./support/support.module";
 import { ComplianceModule } from "./compliance/compliance.module";
+import { PayoutsModule } from "./payouts/payouts.module";
+import { MetricsModule } from "./metrics/metrics.module";
 
 @Module({
   imports: [
@@ -42,7 +44,9 @@ import { ComplianceModule } from "./compliance/compliance.module";
     TrpcCoreModule,
     TrpcModule,
     HealthModule,
+    MetricsModule,
     ConfigModule,
+    PayoutsModule,
     PresenceModule,
     SupportModule,
     ComplianceModule,

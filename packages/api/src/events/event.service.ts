@@ -131,8 +131,48 @@ export class EventService {
     return db.select().from(leaderboards).orderBy(desc(leaderboards.createdAt));
   }
 
-  async createLeaderboard(data: { title: string; leaderboardType: string; scoringMetric: string; windowType: string }) {
-    const [leaderboard] = await db.insert(leaderboards).values({ ...data, status: "ACTIVE" as any } as any).returning();
+  async createLeaderboard(data: { title: string; leaderboardType: string; scoringMetric: string; windowType: string }, createdByAdminId: string) {
+    const [leaderboard] = await db
+      .insert(leaderboards)
+      .values({ ...data, status: "ACTIVE" as any, maxEntries: 100, refreshIntervalSeconds: 300, createdByAdminId } as any)
+      .returning();
     return leaderboard;
+  }
+
+  async recomputeLeaderboard(leaderboardId: string) {
+    const [board] = await db.select().from(leaderboards).where(eq(leaderboards.id, leaderboardId)).limit(1);
+    if (!board) throw new Error("Leaderboard not found");
+    const ranked = await db
+      .select({ userId: eventParticipants.userId, score: eventParticipants.score })
+      .from(eventParticipants)
+      .orderBy(desc(eventParticipants.score))
+      .limit(board.maxEntries ?? 100);
+
+    await db.transaction(async (tx) => {
+      await tx.delete(leaderboardEntries).where(eq(leaderboardEntries.leaderboardId, leaderboardId));
+
+      for (let i = 0; i < ranked.length; i++) {
+        const row = ranked[i]!;
+        await tx.insert(leaderboardEntries).values({
+          leaderboardId,
+          userId: row.userId,
+          rankPosition: i + 1,
+          scoreValue: row.score,
+          scoreDelta: "0",
+          snapshotAt: new Date(),
+        } as any);
+      }
+
+      await tx.insert(leaderboardSnapshots).values({
+        leaderboardId,
+        snapshotDate: new Date().toISOString().slice(0, 10) as any,
+        entriesJson: ranked,
+        totalParticipants: ranked.length,
+      } as any);
+
+      await tx.update(leaderboards).set({ updatedAt: new Date() }).where(eq(leaderboards.id, leaderboardId));
+    });
+
+    return { leaderboardId, updated: ranked.length };
   }
 }

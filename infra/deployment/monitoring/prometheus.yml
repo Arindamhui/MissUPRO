@@ -7,6 +7,51 @@ scrape_configs:
     static_configs:
       - targets: ["api:4000"]
 
+  - job_name: service-streaming
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["streaming:4101"]
+
+  - job_name: service-chat
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["chat:4102"]
+
+  - job_name: service-presence
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["presence:4103"]
+
+  - job_name: service-notifications
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["notifications:4104"]
+
+  - job_name: service-payments
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["payments:4105"]
+
+  - job_name: service-fraud
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["fraud:4106"]
+
+  - job_name: service-analytics
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["analytics:4107"]
+
+  - job_name: service-games
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["games:4108"]
+
+  - job_name: service-moderation
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["moderation:4109"]
+
   - job_name: node-exporter
     static_configs:
       - targets: ["node-exporter:9100"]

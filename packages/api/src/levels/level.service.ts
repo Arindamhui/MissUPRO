@@ -1,6 +1,18 @@
 import { Injectable } from "@nestjs/common";
 import { db } from "@missu/db";
-import { levels, userLevels, levelRewards, loginStreaks, badges, userBadges } from "@missu/db/schema";
+import {
+  levels,
+  userLevels,
+  levelRewards,
+  loginStreaks,
+  badges,
+  userBadges,
+  modelStats,
+  modelLevelRules,
+  modelLevelHistory,
+  giftTransactions,
+  callSessions,
+} from "@missu/db/schema";
 import { eq, and, desc, asc, sql } from "drizzle-orm";
 import { DEFAULTS } from "@missu/config";
 
@@ -146,5 +158,117 @@ export class LevelService {
   async listAllLevels() {
     const allLevels = await db.select().from(levels).orderBy(asc(levels.levelNumber));
     return allLevels;
+  }
+
+  async recalculateModelLevel(modelUserId: string, changeReason: "AUTO_RECALC" | "EVENT_TRIGGERED" | "ADMIN_OVERRIDE" = "AUTO_RECALC") {
+    const [stats] = await db.select().from(modelStats).where(eq(modelStats.modelUserId, modelUserId)).limit(1);
+    if (!stats) {
+      throw new Error("Model stats not found");
+    }
+
+    const [giftAgg] = await db
+      .select({ totalDiamonds: sql<number>`coalesce(sum(${giftTransactions.diamondCredit}), 0)` })
+      .from(giftTransactions)
+      .where(eq(giftTransactions.receiverUserId, modelUserId));
+
+    const [callAgg] = await db
+      .select({
+        totalAudio: sql<number>`coalesce(sum(case when ${callSessions.callType} = 'AUDIO' then ${callSessions.billableMinutes} else 0 end), 0)`,
+        totalVideo: sql<number>`coalesce(sum(case when ${callSessions.callType} = 'VIDEO' then ${callSessions.billableMinutes} else 0 end), 0)`,
+      })
+      .from(callSessions)
+      .where(eq(callSessions.modelUserId, modelUserId));
+
+    const totalDiamonds = Number(giftAgg?.totalDiamonds ?? 0);
+    const totalAudio = Number(callAgg?.totalAudio ?? 0);
+    const totalVideo = Number(callAgg?.totalVideo ?? 0);
+
+    const rules = await db
+      .select()
+      .from(modelLevelRules)
+      .where(eq(modelLevelRules.isActive, true))
+      .orderBy(asc(modelLevelRules.levelNumber));
+
+    let resolvedLevel = 1;
+    for (const rule of rules) {
+      if (
+        totalDiamonds >= (rule.diamondsRequired ?? 0) &&
+        totalAudio >= (rule.audioMinutesRequired ?? 0) &&
+        totalVideo >= (rule.videoMinutesRequired ?? 0)
+      ) {
+        resolvedLevel = Math.max(resolvedLevel, rule.levelNumber);
+      }
+    }
+
+    const oldLevel = stats.currentLevel ?? 1;
+
+    const [updated] = await db
+      .update(modelStats)
+      .set({
+        totalDiamonds,
+        totalAudioMinutes: totalAudio,
+        totalVideoMinutes: totalVideo,
+        currentLevel: resolvedLevel,
+        levelUpdatedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(modelStats.id, stats.id))
+      .returning();
+
+    if (oldLevel !== resolvedLevel) {
+      await db.insert(modelLevelHistory).values({
+        modelUserId,
+        oldLevel,
+        newLevel: resolvedLevel,
+        changeReason: changeReason as any,
+        statsSnapshotJson: {
+          totalDiamonds,
+          totalAudioMinutes: totalAudio,
+          totalVideoMinutes: totalVideo,
+        },
+      });
+    }
+
+    return {
+      modelUserId,
+      oldLevel,
+      newLevel: resolvedLevel,
+      changed: oldLevel !== resolvedLevel,
+      stats: updated,
+    };
+  }
+
+  async recalculateAllModelLevels(limit = 200) {
+    const rows = await db.select({ modelUserId: modelStats.modelUserId }).from(modelStats).limit(limit);
+    const results = [] as Array<{ modelUserId: string; changed: boolean; oldLevel: number; newLevel: number }>;
+
+    for (const row of rows) {
+      const recalculated = await this.recalculateModelLevel(row.modelUserId, "AUTO_RECALC");
+      results.push({
+        modelUserId: row.modelUserId,
+        changed: recalculated.changed,
+        oldLevel: recalculated.oldLevel,
+        newLevel: recalculated.newLevel,
+      });
+    }
+
+    return {
+      processed: results.length,
+      changed: results.filter((r) => r.changed).length,
+      results,
+    };
+  }
+
+  async getModelLevelDistribution() {
+    const dist = await db
+      .select({
+        level: modelStats.currentLevel,
+        count: sql<number>`count(*)`,
+      })
+      .from(modelStats)
+      .groupBy(modelStats.currentLevel)
+      .orderBy(asc(modelStats.currentLevel));
+
+    return dist.map((row) => ({ level: row.level, count: Number(row.count ?? 0) }));
   }
 }

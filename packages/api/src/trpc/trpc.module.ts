@@ -30,6 +30,7 @@ import { GroupAudioModule } from "../group-audio/group-audio.module";
 import { PartyModule } from "../party/party.module";
 import { SocialModule } from "../social/social.module";
 import { ConfigModule } from "../config/config.module";
+import { PayoutsModule } from "../payouts/payouts.module";
 
 // Global module: makes TrpcService available to all modules without explicit import
 @Global()
@@ -71,6 +72,7 @@ export class TrpcCoreModule {}
     PartyModule,
     SocialModule,
     ConfigModule,
+    PayoutsModule,
   ],
   providers: [TrpcRouter],
   exports: [TrpcRouter],

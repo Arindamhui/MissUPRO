@@ -44,7 +44,11 @@ export class EventRouter {
 
       createLeaderboard: this.trpc.adminProcedure
         .input(z.object({ title: z.string(), leaderboardType: z.string(), scoringMetric: z.string(), windowType: z.string() }))
-        .mutation(async ({ input }) => this.eventService.createLeaderboard(input)),
+        .mutation(async ({ ctx, input }) => this.eventService.createLeaderboard(input, ctx.userId)),
+
+      recomputeLeaderboard: this.trpc.adminProcedure
+        .input(z.object({ leaderboardId: z.string().uuid() }))
+        .mutation(async ({ input }) => this.eventService.recomputeLeaderboard(input.leaderboardId)),
     });
   }
 }

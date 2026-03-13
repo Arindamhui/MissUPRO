@@ -23,6 +23,18 @@ export class ModerationRouter {
         .query(async ({ input }) =>
           this.moderationService.getContentReport(input.startDate, input.endDate),
         ),
+
+      reportSevereViolation: this.trpc.adminProcedure
+        .input(
+          z.object({
+            userId: z.string().uuid(),
+            category: z.enum(["CSAM", "TERROR", "EXTREME_VIOLENCE"]),
+            evidence: z.object({ assetId: z.string().uuid().optional(), note: z.string().max(1000).optional() }).optional(),
+          }),
+        )
+        .mutation(async ({ input }) =>
+          this.moderationService.reportSevereViolation(input.userId, input.category, input.evidence ?? {}),
+        ),
     });
   }
 }
