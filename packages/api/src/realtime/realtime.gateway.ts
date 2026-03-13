@@ -1,25 +1,53 @@
 import {
   WebSocketGateway, WebSocketServer, SubscribeMessage,
   OnGatewayConnection, OnGatewayDisconnect, MessageBody, ConnectedSocket,
+  OnGatewayInit,
 } from "@nestjs/websockets";
 import { Server, Socket } from "socket.io";
-import { UseGuards } from "@nestjs/common";
-import { RealtimeAuthGuard } from "./realtime-auth.guard";
+import { Logger, OnModuleDestroy } from "@nestjs/common";
 import { PresenceService } from "./presence.service";
 import { SOCKET_EVENTS } from "@missu/types";
+import { createAdapter } from "@socket.io/redis-adapter";
+import { getRedis } from "@missu/utils";
+import type Redis from "ioredis";
 
 @WebSocketGateway({
   cors: { origin: "*", credentials: true },
   namespace: "/",
   transports: ["websocket", "polling"],
 })
-export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleDestroy {
   @WebSocketServer()
   server!: Server;
 
+  private readonly logger = new Logger(RealtimeGateway.name);
+  private redisPubClient: Redis | null = null;
+  private redisSubClient: Redis | null = null;
   private userSockets = new Map<string, Set<string>>();
 
   constructor(private readonly presenceService: PresenceService) {}
+
+  async afterInit() {
+    const redis = getRedis();
+    await redis.connect();
+
+    this.redisPubClient = redis;
+    this.redisSubClient = redis.duplicate();
+    await this.redisSubClient.connect();
+
+    this.server.adapter(createAdapter(this.redisPubClient, this.redisSubClient));
+    this.logger.log("Socket.io Redis adapter initialized");
+  }
+
+  async onModuleDestroy() {
+    try {
+      if (this.redisSubClient) {
+        await this.redisSubClient.quit();
+      }
+    } catch {
+      this.logger.warn("Failed to close Socket.io Redis sub client cleanly");
+    }
+  }
 
   async handleConnection(client: Socket) {
     const userId = client.handshake.auth?.userId;

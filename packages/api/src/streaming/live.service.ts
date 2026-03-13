@@ -4,9 +4,12 @@ import { liveRooms, liveStreams, liveViewers, pkSessions, pkScores } from "@miss
 import { eq, and, desc, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { calculateTrendingScore } from "@missu/utils";
+import { RtcTokenService } from "./rtc-token.service";
 
 @Injectable()
 export class LiveService {
+  constructor(private readonly rtcTokenService: RtcTokenService) {}
+
   async createRoom(hostUserId: string, roomName: string, category: string, roomType = "PUBLIC") {
     const [room] = await db.insert(liveRooms).values({
       hostUserId,
@@ -29,7 +32,44 @@ export class LiveService {
       rtcChannelId,
       startedAt: new Date(),
     }).returning();
-    return stream!;
+
+    const tokenPayload = this.rtcTokenService.issueToken(rtcChannelId, 0, "publisher", 3600);
+
+    return {
+      ...stream!,
+      agoraToken: tokenPayload.token,
+      agoraAppId: tokenPayload.appId,
+      expiresAt: tokenPayload.expiresAt,
+    };
+  }
+
+  async getActiveStreams(limit = 50) {
+    const streams = await db.select().from(liveStreams)
+      .where(eq(liveStreams.status, "LIVE"))
+      .orderBy(desc(liveStreams.startedAt))
+      .limit(limit);
+
+    return { streams };
+  }
+
+  async issueViewerToken(streamId: string, userId: string) {
+    const [stream] = await db.select().from(liveStreams)
+      .where(eq(liveStreams.id, streamId))
+      .limit(1);
+
+    if (!stream || stream.status !== "LIVE") {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Stream not live" });
+    }
+
+    const tokenPayload = this.rtcTokenService.issueToken(stream.rtcChannelId, 0, "subscriber", 1800);
+
+    return {
+      streamId,
+      channel: stream.rtcChannelId,
+      agoraToken: tokenPayload.token,
+      agoraAppId: tokenPayload.appId,
+      expiresAt: tokenPayload.expiresAt,
+    };
   }
 
   async endStream(streamId: string, reason?: string) {

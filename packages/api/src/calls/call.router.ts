@@ -36,6 +36,12 @@ export class CallRouter {
         .query(async ({ input }) => {
           return this.callService.getBillingState(input.callSessionId);
         }),
+
+      refreshRtcToken: this.trpc.protectedProcedure
+        .input(z.object({ callSessionId: z.string().uuid(), role: z.enum(["publisher", "subscriber"]).default("subscriber") }))
+        .mutation(async ({ input }) => {
+          return this.callService.refreshRtcToken(input.callSessionId, input.role);
+        }),
     });
   }
 }

@@ -5,9 +5,12 @@ import { eq, and } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { calculateCallPrice } from "@missu/utils";
 import { CALL_PRICING, LEVEL_PRICING } from "@missu/config";
+import { RtcTokenService } from "../streaming/rtc-token.service";
 
 @Injectable()
 export class CallService {
+  constructor(private readonly rtcTokenService: RtcTokenService) {}
+
   async requestCall(
     callerUserId: string,
     modelUserId: string,
@@ -65,7 +68,40 @@ export class CallService {
       startedAt: new Date(),
     }).where(eq(callSessions.id, sessionId));
 
-    return { sessionId, agoraChannel: `call_${sessionId}` };
+    const agoraChannel = `call_${sessionId}`;
+    const tokenPayload = this.rtcTokenService.issueToken(agoraChannel, 0, "publisher", 3600);
+
+    return {
+      sessionId,
+      agoraChannel,
+      agoraToken: tokenPayload.token,
+      agoraAppId: tokenPayload.appId,
+      expiresAt: tokenPayload.expiresAt,
+    };
+  }
+
+  async refreshRtcToken(sessionId: string, role: "publisher" | "subscriber" = "subscriber") {
+    const [session] = await db.select().from(callSessions)
+      .where(eq(callSessions.id, sessionId)).limit(1);
+
+    if (!session) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Call session not found" });
+    }
+
+    if (session.status !== "ACTIVE" && session.status !== "REQUESTED") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Call session is not active" });
+    }
+
+    const agoraChannel = `call_${sessionId}`;
+    const tokenPayload = this.rtcTokenService.issueToken(agoraChannel, 0, role, 1800);
+
+    return {
+      sessionId,
+      agoraChannel,
+      agoraToken: tokenPayload.token,
+      agoraAppId: tokenPayload.appId,
+      expiresAt: tokenPayload.expiresAt,
+    };
   }
 
   async endCall(sessionId: string, reason?: string) {

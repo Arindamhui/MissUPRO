@@ -1,0 +1,41 @@
+import { Injectable } from "@nestjs/common";
+import { getEnv } from "@missu/config";
+
+@Injectable()
+export class RtcTokenService {
+  issueToken(channelName: string, uid: number, role: "publisher" | "subscriber" = "publisher", ttlSeconds = 3600) {
+    const env = getEnv();
+    const appId = env.AGORA_APP_ID;
+    const appCertificate = env.AGORA_APP_CERTIFICATE;
+    const expiresAt = Math.floor(Date.now() / 1000) + ttlSeconds;
+
+    if (!appId || !appCertificate) {
+      return {
+        token: `dev-${channelName}-${uid}-${expiresAt}`,
+        appId: appId || "",
+        expiresAt,
+      };
+    }
+
+    // Use runtime require to keep compatibility with the current dependency package exports.
+    const AgoraToken = require("agora-token");
+    const RtcTokenBuilder = AgoraToken.RtcTokenBuilder;
+    const RtcRole = AgoraToken.RtcRole;
+
+    const agoraRole = role === "subscriber" ? RtcRole.SUBSCRIBER : RtcRole.PUBLISHER;
+    const token = RtcTokenBuilder.buildTokenWithUid(
+      appId,
+      appCertificate,
+      channelName,
+      uid,
+      agoraRole,
+      expiresAt,
+    );
+
+    return {
+      token,
+      appId,
+      expiresAt,
+    };
+  }
+}

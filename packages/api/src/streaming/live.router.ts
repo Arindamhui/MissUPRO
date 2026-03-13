@@ -13,6 +13,45 @@ export class LiveRouter {
 
   get router() {
     return this.trpc.router({
+      createRoom: this.trpc.protectedProcedure
+        .input(z.object({ roomName: z.string().min(1), category: z.string().min(1), roomType: z.string().default("PUBLIC") }))
+        .mutation(async ({ ctx, input }) => {
+          return this.liveService.createRoom(ctx.userId, input.roomName, input.category, input.roomType);
+        }),
+
+      startStream: this.trpc.protectedProcedure
+        .input(z.object({ roomId: z.string().uuid(), title: z.string().min(1), streamType: z.string().default("SOLO") }))
+        .mutation(async ({ ctx, input }) => {
+          return this.liveService.startStream(input.roomId, ctx.userId, input.title, input.streamType);
+        }),
+
+      endStream: this.trpc.protectedProcedure
+        .input(z.object({ streamId: z.string().uuid(), reason: z.string().optional() }))
+        .mutation(async ({ input }) => {
+          return this.liveService.endStream(input.streamId, input.reason);
+        }),
+
+      joinStream: this.trpc.protectedProcedure
+        .input(z.object({ streamId: z.string().uuid() }))
+        .mutation(async ({ ctx, input }) => {
+          return this.liveService.joinStream(input.streamId, ctx.userId);
+        }),
+
+      leaveStream: this.trpc.protectedProcedure
+        .input(z.object({ streamId: z.string().uuid() }))
+        .mutation(async ({ ctx, input }) => {
+          return this.liveService.leaveStream(input.streamId, ctx.userId);
+        }),
+
+      activeStreams: this.trpc.procedure
+        .query(async () => this.liveService.getActiveStreams(50)),
+
+      issueViewerToken: this.trpc.protectedProcedure
+        .input(z.object({ streamId: z.string().uuid() }))
+        .mutation(async ({ ctx, input }) => {
+          return this.liveService.issueViewerToken(input.streamId, ctx.userId);
+        }),
+
       requestPKBattle: this.trpc.protectedProcedure
         .input(requestPKBattleSchema)
         .mutation(async ({ ctx, input }) => {
