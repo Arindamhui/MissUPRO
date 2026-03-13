@@ -146,6 +146,7 @@ export const sendGiftSchema = z.object({
   contextId: z.string().uuid(),
   quantity: z.number().int().min(1).max(99).default(1),
   comboGroupId: z.string().uuid().optional(),
+  idempotencyKey: z.string().min(8).max(128).optional(),
 });
 
 export const previewSendGiftSchema = z.object({

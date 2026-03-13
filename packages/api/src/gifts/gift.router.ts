@@ -24,7 +24,7 @@ export class GiftRouter {
         .mutation(async ({ ctx, input }) => {
           return this.giftService.sendGift(
             ctx.userId, input.giftId, input.receiverUserId,
-            input.contextType, input.contextId, input.quantity, input.comboGroupId,
+            input.contextType, input.contextId, input.quantity, input.comboGroupId, input.idempotencyKey,
           );
         }),
 

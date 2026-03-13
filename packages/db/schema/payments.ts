@@ -98,6 +98,7 @@ export const webhookEvents = pgTable("webhook_events", {
   failureReason: text("failure_reason"),
 }, (t) => [
   index("webhook_provider_event_idx").on(t.provider, t.providerEventId),
+  uniqueIndex("webhook_provider_event_unique_idx").on(t.provider, t.providerEventId),
 ]);
 
 // ─── Relations ───
