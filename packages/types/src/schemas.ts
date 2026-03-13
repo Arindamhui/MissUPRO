@@ -167,7 +167,7 @@ export const getCoinPackagesSchema = z.object({
 export const requestWithdrawalSchema = z.object({
   amountDiamonds: z.number().int().min(1),
   payoutMethod: z.enum(["PAYPAL", "BANK_TRANSFER", "PAYONEER", "CRYPTO"]),
-  payoutDetails: z.record(z.string()),
+  payoutDetails: z.record(z.string(), z.string()),
 });
 
 // ─── Payment ───
@@ -367,7 +367,7 @@ export const lockSeatSchema = z.object({
 export const startActivitySchema = z.object({
   roomId: z.string().uuid(),
   activityType: z.enum(["DICE_GAME", "LUCKY_DRAW", "GIFTING_WAR", "TRUTH_OR_DARE"]),
-  config: z.record(z.unknown()),
+  config: z.record(z.string(), z.unknown()),
 });
 
 export const joinActivitySchema = z.object({
@@ -394,7 +394,7 @@ export const createIncidentSchema = z.object({
   type: z.string(),
   severity: z.enum(["INFO", "WARNING", "HIGH", "CRITICAL"]),
   description: z.string().max(2000),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 // ─── Config ───

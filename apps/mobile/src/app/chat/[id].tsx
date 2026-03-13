@@ -28,7 +28,7 @@ export default function ChatScreen() {
   }, [history.data]);
 
   useEffect(() => {
-    const unsub = on(SOCKET_EVENTS.DM.RECEIVE, (msg: any) => {
+    const unsub = on(SOCKET_EVENTS.DM.MESSAGE, (msg: any) => {
       setMessages((prev) => [...prev, msg]);
       flatListRef.current?.scrollToEnd();
     });
@@ -50,7 +50,7 @@ export default function ChatScreen() {
   };
 
   const handleTyping = () => {
-    emit(SOCKET_EVENTS.DM.TYPING, { recipientId: id, conversationId: id });
+    emit(SOCKET_EVENTS.DM.TYPING_START, { recipientId: id, conversationId: id });
   };
 
   return (

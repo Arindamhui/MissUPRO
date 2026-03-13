@@ -86,15 +86,17 @@ export const AGENCY_COMMISSION_TIERS = [
 // ─── Engagement / Rewards ───
 export const REWARDS = {
   DAILY_LOGIN_COINS: 10,
+  DAILY_LOGIN_XP: 10,
   SEVEN_DAY_STREAK_COINS: 50,
+  STREAK_BONUS_XP: 50,
   MAX_BONUS_COINS_PER_LEVEL: 1000,
 } as const;
 
 // ─── Referral Tiers ───
 export const REFERRAL_TIERS = [
-  { usersReferred: 1, rewardCoins: 20 },
-  { usersReferred: 10, rewardCoins: 100 },
-  { usersReferred: 50, rewardType: "VIP_BADGE" as const },
+  { usersReferred: 1, rewardCoins: 20, referrerReward: 100, referredReward: 50 },
+  { usersReferred: 10, rewardCoins: 100, referrerReward: 200, referredReward: 100 },
+  { usersReferred: 50, rewardType: "VIP_BADGE" as const, referrerReward: 500, referredReward: 200 },
 ] as const;
 
 // ─── Moderation ───
@@ -105,6 +107,7 @@ export const MODERATION = {
     { strike: 3, action: "7D_BAN" },
     { strike: 4, action: "PERMANENT_BAN" },
   ],
+  MAX_MESSAGE_LENGTH: 2000,
 } as const;
 
 // ─── Discovery ───
@@ -140,6 +143,7 @@ export const GROUP_AUDIO = {
   DEFAULT_COINS_PER_MINUTE: 15,
   MIN_COINS_PER_MINUTE: 5,
   MAX_COINS_PER_MINUTE: 100,
+  COST_PER_MINUTE_PER_SPEAKER: 15,
   LOW_BALANCE_WARNING_THRESHOLD_MINUTES: 2,
   ZERO_BALANCE_BEHAVIOR: "DISCONNECT" as const,
   MAX_ROOMS_PER_USER: 1,
@@ -151,6 +155,8 @@ export const GROUP_AUDIO = {
 
 // ─── Party ───
 export const PARTY = {
+  DEFAULT_SEATS: 8,
+  MAX_MEMBERS: 20,
   MAX_SEATS_PER_ROOM: 8,
   MAX_AUDIENCE_PER_ROOM: 500,
   MAX_ROOMS_PER_USER: 1,

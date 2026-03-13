@@ -66,7 +66,7 @@ export class AdminRouter {
         .mutation(async ({ ctx, input }) => this.adminService.createGift(input, ctx.userId)),
 
       updateGift: this.trpc.adminProcedure
-        .input(z.object({ giftId: z.string().uuid(), data: z.record(z.any()) }))
+        .input(z.object({ giftId: z.string().uuid(), data: z.record(z.string(), z.any()) }))
         .mutation(async ({ ctx, input }) => this.adminService.updateGift(input.giftId, input.data, ctx.userId)),
 
       // VIP
@@ -141,7 +141,7 @@ export class AdminRouter {
         .query(async () => this.adminService.listCallPricingRules()),
 
       upsertCallPricingRule: this.trpc.adminProcedure
-        .input(z.object({ id: z.string().uuid().optional(), data: z.record(z.any()) }))
+        .input(z.object({ id: z.string().uuid().optional(), data: z.record(z.string(), z.any()) }))
         .mutation(async ({ ctx, input }) => this.adminService.upsertCallPricingRule({ id: input.id, ...input.data }, ctx.userId)),
 
       // Model Level Rules
@@ -149,7 +149,7 @@ export class AdminRouter {
         .query(async () => this.adminService.listModelLevelRules()),
 
       upsertModelLevelRule: this.trpc.adminProcedure
-        .input(z.object({ id: z.string().uuid().optional(), data: z.record(z.any()) }))
+        .input(z.object({ id: z.string().uuid().optional(), data: z.record(z.string(), z.any()) }))
         .mutation(async ({ ctx, input }) => this.adminService.upsertModelLevelRule({ id: input.id, ...input.data }, ctx.userId)),
 
       // DM Management

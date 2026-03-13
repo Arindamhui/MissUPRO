@@ -10,7 +10,7 @@ export class AnalyticsRouter {
   get router() {
     return this.trpc.router({
       trackEvent: this.trpc.protectedProcedure
-        .input(z.object({ eventType: z.string(), properties: z.record(z.any()).default({}) }))
+        .input(z.object({ eventType: z.string(), properties: z.record(z.string(), z.any()).default({}) }))
         .mutation(async ({ ctx, input }) =>
           this.analyticsService.trackEvent(ctx.userId, input.eventType, input.properties),
         ),

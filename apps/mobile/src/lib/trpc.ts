@@ -1,15 +1,13 @@
 import { createTRPCReact, httpBatchLink } from "@trpc/react-query";
-import type { AppRouter } from "@missu/api/trpc/trpc.router";
-import superjson from "superjson";
 
-export const trpc = createTRPCReact<AppRouter>();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const trpc: any = createTRPCReact();
 
 export function createTrpcClient(token?: string) {
   return trpc.createClient({
     links: [
       httpBatchLink({
         url: process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000/trpc",
-        transformer: superjson,
         headers: () => (token ? { Authorization: `Bearer ${token}` } : {}),
       }),
     ],

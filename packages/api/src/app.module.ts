@@ -31,6 +31,10 @@ import { PartyModule } from "./party/party.module";
 import { SocialModule } from "./social/social.module";
 import { RealtimeModule } from "./realtime/realtime.module";
 import { HealthModule } from "./health/health.module";
+import { ConfigModule } from "./config/config.module";
+import { PresenceModule } from "./presence/presence.module";
+import { SupportModule } from "./support/support.module";
+import { ComplianceModule } from "./compliance/compliance.module";
 
 @Module({
   imports: [
@@ -38,6 +42,10 @@ import { HealthModule } from "./health/health.module";
     TrpcCoreModule,
     TrpcModule,
     HealthModule,
+    ConfigModule,
+    PresenceModule,
+    SupportModule,
+    ComplianceModule,
     AuthModule,
     UsersModule,
     ModelsModule,

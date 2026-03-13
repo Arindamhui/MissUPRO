@@ -24,7 +24,7 @@ Complete step-by-step guide to run the MissUPRO platform locally and deploy to p
 | Tool         | Minimum Version | Install Link                                     |
 | ------------ | --------------- | ------------------------------------------------ |
 | Node.js      | 20 LTS          | https://nodejs.org/                               |
-| pnpm         | 9.x             | `corepack enable && corepack prepare pnpm@9`      |
+| npm          | 10.x            | Bundled with Node.js (see `packageManager` field)  |
 | Git          | 2.x             | https://git-scm.com/                              |
 | Docker       | 24.x (optional) | https://docs.docker.com/get-docker/               |
 | Redis        | 7.x             | https://redis.io/docs/install/ or use Docker      |
@@ -40,11 +40,8 @@ Complete step-by-step guide to run the MissUPRO platform locally and deploy to p
 git clone <repository-url> MissUPRO
 cd MissUPRO
 
-# Enable corepack for pnpm
-corepack enable
-
 # Install all workspace dependencies
-pnpm install
+npm install --legacy-peer-deps --ignore-scripts
 ```
 
 This installs dependencies for all packages:
@@ -124,15 +121,14 @@ docker run -d --name missu-pg \
 # DATABASE_URL=postgresql://missu:missu_dev_password@localhost:5432/missu
 
 # Push schema
-pnpm turbo db:push --filter=@missu/db
+npm run db:migrate
 ```
 
 ### Generate Drizzle migrations (optional)
 
 ```bash
-cd packages/db
-pnpm drizzle-kit generate
-pnpm drizzle-kit migrate
+npm run db:generate
+npm run db:migrate
 ```
 
 ---
@@ -143,7 +139,7 @@ pnpm drizzle-kit migrate
 
 ```bash
 # Start everything (API + Web admin)
-pnpm dev
+npm run dev
 ```
 
 This runs:
@@ -154,13 +150,13 @@ This runs:
 
 ```bash
 # API only
-pnpm turbo dev --filter=@missu/api
+cd packages/api && npm run dev
 
 # Web admin only
-pnpm turbo dev --filter=@missu/web
+cd apps/web && npm run dev
 
 # Build all packages
-pnpm turbo build
+npm run build
 ```
 
 ### Redis
@@ -224,9 +220,6 @@ Services:
 ```bash
 cd apps/mobile
 
-# Install dependencies (if not already)
-pnpm install
-
 # Start the Expo dev server
 npx expo start
 
@@ -242,7 +235,7 @@ npx expo start --tunnel
 
 ### Environment
 
-Set `API_URL` in the mobile app to point to your API:
+Set `EXPO_PUBLIC_API_URL` in the mobile app to point to your API:
 - Local development: `http://<your-ip>:4000` (not `localhost` — the device needs your machine's IP)
 - Production: Your deployed API URL
 
@@ -361,11 +354,9 @@ To enable:
 
 ### Common Issues
 
-**pnpm install fails**
+**pnpm/npm install fails**
 ```bash
-corepack enable
-corepack prepare pnpm@9 --activate
-pnpm install
+npm install --legacy-peer-deps --ignore-scripts
 ```
 
 **Database connection error**
@@ -395,7 +386,7 @@ npx expo run:android
 
 **Turbo build cache issues**
 ```bash
-pnpm turbo build --force
+npx turbo build --force
 ```
 
 **Type errors after schema changes**

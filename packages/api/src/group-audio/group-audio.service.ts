@@ -25,6 +25,8 @@ export class GroupAudioService {
       } as any)
       .returning();
 
+    if (!room) throw new Error("Failed to create group audio room");
+
     // Auto-add host as speaker
     await db.insert(groupAudioParticipants).values({
       roomId: room.id,

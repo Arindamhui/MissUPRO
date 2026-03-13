@@ -19,7 +19,7 @@ export class EventRouter {
         .mutation(async ({ ctx, input }) => this.eventService.createEvent(input, ctx.userId)),
 
       updateEvent: this.trpc.adminProcedure
-        .input(z.object({ eventId: z.string().uuid(), data: z.record(z.any()) }))
+        .input(z.object({ eventId: z.string().uuid(), data: z.record(z.string(), z.any()) }))
         .mutation(async ({ input }) => this.eventService.updateEvent(input.eventId, input.data)),
 
       getEventDetail: this.trpc.protectedProcedure

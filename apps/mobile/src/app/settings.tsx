@@ -8,7 +8,7 @@ import { useAuthStore } from "@/store";
 type SettingRow = { label: string; type: "toggle" | "link" | "action"; value?: boolean; onPress?: () => void; onToggle?: (v: boolean) => void; danger?: boolean };
 
 export default function SettingsScreen() {
-  const signOut = useAuthStore((s) => s.signOut);
+  const signOut = useAuthStore((s) => s.clearAuth);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [callNotifications, setCallNotifications] = useState(true);
   const [messageNotifications, setMessageNotifications] = useState(true);
@@ -94,7 +94,7 @@ export default function SettingsScreen() {
                     borderBottomColor: COLORS.border,
                   }}
                 >
-                  <Text style={{ fontSize: 15, color: row.danger ? COLORS.error : COLORS.text, fontWeight: row.danger ? "600" : "400" }}>
+                  <Text style={{ fontSize: 15, color: row.danger ? COLORS.danger : COLORS.text, fontWeight: row.danger ? "600" : "400" }}>
                     {row.label}
                   </Text>
 

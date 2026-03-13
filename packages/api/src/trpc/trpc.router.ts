@@ -28,6 +28,10 @@ import { LevelRouter } from "../levels/level.router";
 import { GroupAudioRouter } from "../group-audio/group-audio.router";
 import { PartyRouter } from "../party/party.router";
 import { SocialRouter } from "../social/social.router";
+import { ConfigRouter } from "../config/config.router";
+import { PresenceRouter } from "../presence/presence.router";
+import { SupportRouter } from "../support/support.router";
+import { ComplianceRouter } from "../compliance/compliance.router";
 
 @Injectable()
 export class TrpcRouter {
@@ -61,6 +65,10 @@ export class TrpcRouter {
     private readonly groupAudio: GroupAudioRouter,
     private readonly party: PartyRouter,
     private readonly social: SocialRouter,
+    private readonly config: ConfigRouter,
+    private readonly presence: PresenceRouter,
+    private readonly support: SupportRouter,
+    private readonly compliance: ComplianceRouter,
   ) {}
 
   get appRouter() {
@@ -93,8 +101,12 @@ export class TrpcRouter {
       groupAudio: this.groupAudio.router,
       party: this.party.router,
       social: this.social.router,
+      config: this.config.router,
+      presence: this.presence.router,
+      support: this.support.router,
+      compliance: this.compliance.router,
     } as any);
   }
 }
 
-export type AppRouter = ReturnType<TrpcRouter["appRouter"]>;
+export type AppRouter = TrpcRouter["appRouter"];

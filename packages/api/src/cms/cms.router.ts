@@ -15,7 +15,7 @@ export class CmsRouter {
         .input(z.object({ title: z.string(), imageUrl: z.string().url(), linkType: z.string(), linkTarget: z.string().optional(), position: z.number().int().optional(), startDate: z.coerce.date().optional(), endDate: z.coerce.date().optional() }))
         .mutation(async ({ ctx, input }) => this.cmsService.createBanner({ ...input, createdByAdminId: ctx.userId })),
       updateBanner: this.trpc.adminProcedure
-        .input(z.object({ bannerId: z.string().uuid(), data: z.record(z.any()) }))
+        .input(z.object({ bannerId: z.string().uuid(), data: z.record(z.string(), z.any()) }))
         .mutation(async ({ input }) => this.cmsService.updateBanner(input.bannerId, input.data)),
       deleteBanner: this.trpc.adminProcedure
         .input(z.object({ bannerId: z.string().uuid() }))
@@ -27,7 +27,7 @@ export class CmsRouter {
         .input(z.object({ name: z.string(), description: z.string().optional(), primaryColor: z.string(), secondaryColor: z.string(), backgroundColor: z.string(), cardBackgroundColor: z.string(), textPrimaryColor: z.string(), textSecondaryColor: z.string(), accentGradientStart: z.string(), accentGradientEnd: z.string() }))
         .mutation(async ({ ctx, input }) => this.cmsService.createTheme({ ...input, createdByAdminId: ctx.userId })),
       updateTheme: this.trpc.adminProcedure
-        .input(z.object({ themeId: z.string().uuid(), data: z.record(z.any()) }))
+        .input(z.object({ themeId: z.string().uuid(), data: z.record(z.string(), z.any()) }))
         .mutation(async ({ input }) => this.cmsService.updateTheme(input.themeId, input.data)),
       getThemeAssets: this.trpc.adminProcedure
         .input(z.object({ themeId: z.string().uuid() }))
@@ -42,7 +42,7 @@ export class CmsRouter {
         .input(z.object({ name: z.string(), description: z.string().optional(), promotionType: z.string(), startDate: z.coerce.date(), endDate: z.coerce.date(), targetAudience: z.string().optional(), rewardRulesJson: z.any().optional() }))
         .mutation(async ({ ctx, input }) => this.cmsService.createPromotion({ ...input, createdByAdminId: ctx.userId })),
       updatePromotion: this.trpc.adminProcedure
-        .input(z.object({ promotionId: z.string().uuid(), data: z.record(z.any()) }))
+        .input(z.object({ promotionId: z.string().uuid(), data: z.record(z.string(), z.any()) }))
         .mutation(async ({ input }) => this.cmsService.updatePromotion(input.promotionId, input.data)),
       getActivePromotions: this.trpc.protectedProcedure
         .query(async () => this.cmsService.getActivePromotions()),
@@ -53,7 +53,7 @@ export class CmsRouter {
         .input(z.object({ levelNumber: z.number().int().min(1), levelName: z.string(), levelTrack: z.string(), thresholdValue: z.number().int().min(0), iconUrl: z.string().optional() }))
         .mutation(async ({ ctx, input }) => this.cmsService.createLevel({ ...input, createdByAdminId: ctx.userId })),
       updateLevel: this.trpc.adminProcedure
-        .input(z.object({ levelId: z.string().uuid(), data: z.record(z.any()) }))
+        .input(z.object({ levelId: z.string().uuid(), data: z.record(z.string(), z.any()) }))
         .mutation(async ({ input }) => this.cmsService.updateLevel(input.levelId, input.data)),
       getLevelRewards: this.trpc.adminProcedure
         .input(z.object({ levelId: z.string().uuid() }))

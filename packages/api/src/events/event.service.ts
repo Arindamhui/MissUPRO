@@ -80,7 +80,7 @@ export class EventService {
 
     if (!participant) throw new Error("Not a participant");
 
-    const newScore = (participant.score ?? 0) + scoreDelta;
+    const newScore = (Number(participant.score) ?? 0) + scoreDelta;
     const [updated] = await db
       .update(eventParticipants)
       .set({ score: String(newScore), updatedAt: new Date() })

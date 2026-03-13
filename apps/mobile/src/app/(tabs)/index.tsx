@@ -10,8 +10,10 @@ export default function HomeScreen() {
   const coins = useWalletStore((s) => s.coinBalance);
   const homeFeed = trpc.discovery.homeFeed.useQuery(undefined, { retry: false });
   const onlineModels = trpc.discovery.onlineModels.useQuery({ limit: 10 }, { retry: false });
+  const configBootstrap = trpc.config.getBootstrap.useQuery(undefined, { retry: false });
 
   const models = (onlineModels.data?.models ?? []) as any[];
+  const runtimeConfigCount = (configBootstrap.data?.systemSettings ?? []).length;
 
   return (
     <Screen scroll>
@@ -29,9 +31,9 @@ export default function HomeScreen() {
       <View style={{ flexDirection: "row", justifyContent: "space-around", marginBottom: SPACING.lg }}>
         {[
           { icon: "📺", label: "Live", route: "/(tabs)/live" },
-          { icon: "🎉", label: "Party", route: "/(tabs)/discover" },
-          { icon: "🎙️", label: "Audio", route: "/(tabs)/discover" },
-          { icon: "🎮", label: "Games", route: "/(tabs)/discover" },
+          { icon: "🎉", label: "Party", route: "/events" },
+          { icon: "🎙️", label: "Audio", route: "/creator-dashboard" },
+          { icon: "🎮", label: "Games", route: "/games" },
         ].map((item) => (
           <TouchableOpacity
             key={item.label}
@@ -74,6 +76,13 @@ export default function HomeScreen() {
       <SectionHeader title="Trending" action="See All" />
       <Card>
         <Text style={{ color: COLORS.textSecondary, fontSize: 14 }}>Trending content loaded from discovery.trending</Text>
+      </Card>
+
+      <SectionHeader title="Runtime Config" action="View" onAction={() => router.push("/settings")} />
+      <Card>
+        <Text style={{ color: COLORS.textSecondary, fontSize: 14 }}>
+          Loaded {runtimeConfigCount} published system settings from backend config APIs.
+        </Text>
       </Card>
 
       {/* Recommendations */}

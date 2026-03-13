@@ -34,6 +34,11 @@ export default function RootLayout() {
           <Stack.Screen name="profile/[id]" options={{ title: "Profile" }} />
           <Stack.Screen name="chat/[id]" options={{ title: "Chat" }} />
           <Stack.Screen name="wallet" options={{ title: "Wallet" }} />
+          <Stack.Screen name="gifts" options={{ title: "Gifts" }} />
+          <Stack.Screen name="notifications" options={{ title: "Notifications" }} />
+          <Stack.Screen name="creator-dashboard" options={{ title: "Creator Dashboard" }} />
+          <Stack.Screen name="events" options={{ title: "Events" }} />
+          <Stack.Screen name="games" options={{ title: "Games" }} />
           <Stack.Screen name="vip" options={{ title: "VIP" }} />
           <Stack.Screen name="settings" options={{ title: "Settings" }} />
         </Stack>

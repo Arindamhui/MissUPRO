@@ -187,18 +187,7 @@ export function generateIdempotencyKey(...parts: string[]): string {
     .digest("hex");
 }
 
-/**
- * Generate idempotency key for financial operations.
- */
-export function generateIdempotencyKey(
-  userId: string,
-  operation: string,
-  ...params: string[]
-): string {
-  return createHash("sha256")
-    .update([userId, operation, ...params].join(":"))
-    .digest("hex");
-}
+
 
 /**
  * Calculate model level from their stats vs level rules.

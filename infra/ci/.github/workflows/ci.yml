@@ -12,7 +12,6 @@ concurrency:
 
 env:
   NODE_VERSION: "20"
-  PNPM_VERSION: "9"
   TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
   TURBO_TEAM: ${{ vars.TURBO_TEAM }}
 
@@ -26,22 +25,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
+          cache: npm
 
-      - run: pnpm install --frozen-lockfile
+      - run: npm ci --ignore-scripts
 
       - name: Lint
-        run: pnpm turbo lint
+        run: npm run lint
 
       - name: Type Check
-        run: pnpm turbo typecheck
+        run: npm run build
 
   # ── Unit & Integration Tests ─────────────────────────────
   test:
@@ -77,22 +72,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
+          cache: npm
 
-      - run: pnpm install --frozen-lockfile
+      - run: npm ci --ignore-scripts
 
       - name: Run DB Migrations
-        run: pnpm turbo db:push --filter=@missu/db
+        run: npm run db:migrate
 
       - name: Run Tests
-        run: pnpm turbo test
+        run: npm run test
 
   # ── Build ────────────────────────────────────────────────
   build:
@@ -102,19 +93,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
+          cache: npm
 
-      - run: pnpm install --frozen-lockfile
+      - run: npm ci --ignore-scripts
 
       - name: Build All Packages
-        run: pnpm turbo build
+        run: npm run build
 
   # ── Docker Build & Push (main only) ─────────────────────
   docker:

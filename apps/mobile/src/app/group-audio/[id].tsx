@@ -65,7 +65,7 @@ export default function GroupAudioScreen() {
             <Text style={{ fontSize: 13, color: COLORS.textSecondary }}>{state?.topic ?? ""}</Text>
           </View>
           <TouchableOpacity onPress={() => router.back()} style={{
-            paddingHorizontal: 14, paddingVertical: 6, backgroundColor: COLORS.error,
+            paddingHorizontal: 14, paddingVertical: 6, backgroundColor: COLORS.danger,
             borderRadius: RADIUS.full,
           }}>
             <Text style={{ color: COLORS.white, fontWeight: "600", fontSize: 13 }}>Leave</Text>
@@ -88,7 +88,7 @@ export default function GroupAudioScreen() {
                 {s.isMuted && (
                   <View style={{
                     position: "absolute", bottom: -2, right: -2, width: 20, height: 20,
-                    borderRadius: 10, backgroundColor: COLORS.error, alignItems: "center", justifyContent: "center",
+                    borderRadius: 10, backgroundColor: COLORS.danger, alignItems: "center", justifyContent: "center",
                   }}>
                     <Text style={{ fontSize: 10, color: COLORS.white }}>🔇</Text>
                   </View>
@@ -97,7 +97,7 @@ export default function GroupAudioScreen() {
               <Text style={{ fontSize: 11, color: COLORS.text, marginTop: 4, fontWeight: "500" }} numberOfLines={1}>
                 {s.displayName ?? `Speaker ${i + 1}`}
               </Text>
-              {s.isHost && <Badge label="Host" variant="primary" />}
+              {s.isHost && <Badge text="Host" color={COLORS.primary} />}
             </View>
           ))}
         </View>
@@ -139,7 +139,7 @@ export default function GroupAudioScreen() {
       <View style={{ flexDirection: "row", padding: SPACING.md, gap: 12, borderTopWidth: 1, borderTopColor: COLORS.border, alignItems: "center" }}>
         <TouchableOpacity onPress={toggleMute} style={{
           width: 48, height: 48, borderRadius: 24,
-          backgroundColor: isMuted ? COLORS.error : COLORS.surface,
+          backgroundColor: isMuted ? COLORS.danger : COLORS.surface,
           alignItems: "center", justifyContent: "center",
         }}>
           <Text style={{ fontSize: 22 }}>{isMuted ? "🔇" : "🎙"}</Text>

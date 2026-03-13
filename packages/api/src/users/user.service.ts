@@ -112,7 +112,7 @@ export class UserService {
   }
 
   async getModelReviews(modelUserId: string, limit: number, cursor?: string) {
-    let query = db
+    const query = db
       .select()
       .from(modelReviews)
       .where(

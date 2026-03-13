@@ -42,7 +42,7 @@ export default function ModerationPage() {
               { key: "reporterId", label: "Reporter" },
               { key: "targetId", label: "Target" },
               { key: "reason", label: "Reason" },
-              { key: "status", label: "Status", render: (r) => <StatusBadge status={String(r.status ?? "pending")} /> },
+              { key: "status", label: "Status", render: (r: Record<string, any>) => <StatusBadge status={String(r.status ?? "pending")} /> },
               { key: "actions", label: "", render: (r) => (
                 <div className="flex gap-2">
                   <Button variant="ghost" size="sm" onClick={() => setSelectedReport(r)}>Review</Button>

@@ -2,8 +2,16 @@
   "name": "@missu/service-fraud",
   "version": "0.0.1",
   "private": true,
+  "main": "./dist/main.js",
   "scripts": {
-    "build": "echo 'stub'",
-    "dev": "echo 'stub'"
+    "build": "rimraf dist tsconfig.tsbuildinfo && tsc -p tsconfig.json",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "rimraf": "^5.0.7",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.3"
   }
 }

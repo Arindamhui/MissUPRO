@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { z } from "zod";
 
 const envSchema = z.object({
@@ -5,7 +6,9 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
 
   // Neon PostgreSQL
-  DATABASE_URL: z.string().min(1),
+  DATABASE_URL: z
+    .string()
+    .default("postgresql://missu:missu_dev_password@localhost:5432/missu"),
 
   // Redis
   REDIS_URL: z.string().default("redis://127.0.0.1:6379"),
@@ -42,6 +45,7 @@ const envSchema = z.object({
   R2_SECRET_ACCESS_KEY: z.string().default(""),
   R2_BUCKET_NAME: z.string().default(""),
   R2_PUBLIC_URL: z.string().default("https://placeholder.r2.dev"),
+  R2_ENDPOINT: z.string().default(""),
 
   // Sentry
   SENTRY_DSN: z.string().optional(),

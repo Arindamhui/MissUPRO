@@ -34,20 +34,21 @@ export class LevelService {
     }
 
     if (!userLevel) throw new Error("Failed to create user level");
+    const ul = userLevel;
 
-    const newProgress = (userLevel.currentProgressValue ?? 0) + xpAmount;
+    const newProgress = (ul.currentProgressValue ?? 0) + xpAmount;
 
     // Check for level up
-    const allLevels = await db.select().from(levels).where(eq(levels.levelTrack, userLevel.levelTrack as any)).orderBy(asc(levels.levelNumber));
-    const currentLevelIdx = allLevels.findIndex((l) => l.id === userLevel.currentLevelId);
-    let newLevelId = userLevel.currentLevelId;
+    const allLevels = await db.select().from(levels).where(eq(levels.levelTrack, ul.levelTrack as any)).orderBy(asc(levels.levelNumber));
+    const currentLevelIdx = allLevels.findIndex((l) => l.id === ul.currentLevelId);
+    let newLevelId = ul.currentLevelId;
     let remainingProgress = newProgress;
     let leveledUp = false;
 
     for (let i = currentLevelIdx + 1; i < allLevels.length; i++) {
-      if (remainingProgress >= (allLevels[i].thresholdValue ?? 0)) {
-        newLevelId = allLevels[i].id;
-        remainingProgress -= allLevels[i].thresholdValue ?? 0;
+      if (remainingProgress >= (allLevels[i]!.thresholdValue ?? 0)) {
+        newLevelId = allLevels[i]!.id;
+        remainingProgress -= allLevels[i]!.thresholdValue ?? 0;
         leveledUp = true;
       } else {
         break;
@@ -56,8 +57,8 @@ export class LevelService {
 
     const [updated] = await db
       .update(userLevels)
-      .set({ currentLevelId: newLevelId, currentProgressValue: remainingProgress, levelUpAt: leveledUp ? new Date() : userLevel.levelUpAt, updatedAt: new Date() })
-      .where(eq(userLevels.id, userLevel.id))
+      .set({ currentLevelId: newLevelId, currentProgressValue: remainingProgress, levelUpAt: leveledUp ? new Date() : ul.levelUpAt, updatedAt: new Date() })
+      .where(eq(userLevels.id, ul.id))
       .returning();
 
     let rewards: any[] = [];

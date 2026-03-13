@@ -29,6 +29,7 @@ import { LevelsModule } from "../levels/levels.module";
 import { GroupAudioModule } from "../group-audio/group-audio.module";
 import { PartyModule } from "../party/party.module";
 import { SocialModule } from "../social/social.module";
+import { ConfigModule } from "../config/config.module";
 
 // Global module: makes TrpcService available to all modules without explicit import
 @Global()
@@ -69,6 +70,7 @@ export class TrpcCoreModule {}
     GroupAudioModule,
     PartyModule,
     SocialModule,
+    ConfigModule,
   ],
   providers: [TrpcRouter],
   exports: [TrpcRouter],

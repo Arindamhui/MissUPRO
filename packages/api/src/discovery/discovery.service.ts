@@ -11,7 +11,7 @@ import { DEFAULTS } from "@missu/config";
 
 @Injectable()
 export class DiscoveryService {
-  async searchModels(query: string, filters: { gender?: string; minAge?: number; maxAge?: number; language?: string; country?: string; isOnline?: boolean }, cursor?: string, limit = 20) {
+  async searchModels(query: string, filters: Record<string, any>, cursor?: string, limit = 20) {
     const offset = cursor ? decodeCursor(cursor) : 0;
 
     const conditions: any[] = [isNotNull(models.approvedAt)];
