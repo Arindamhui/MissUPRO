@@ -3,6 +3,7 @@ import { db } from "@missu/db";
 import { mediaScanResults, mediaAssets, fraudFlags, securityEvents, securityIncidents } from "@missu/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { DEFAULTS } from "@missu/config";
+import { getRedis } from "@missu/utils";
 
 @Injectable()
 export class ModerationService {
@@ -136,7 +137,26 @@ export class ModerationService {
   }
 
   private async checkSpamRate(userId: string, roomId: string): Promise<boolean> {
-    return false;
+    const key = `moderation:spam:${roomId}:${userId}`;
+    const now = Date.now();
+    const windowMs = 60_000;
+    const maxMessagesPerWindow = 20;
+
+    try {
+      const redis = getRedis();
+      await redis
+        .multi()
+        .zadd(key, now, String(now))
+        .zremrangebyscore(key, 0, now - windowMs)
+        .expire(key, Math.ceil(windowMs / 1000))
+        .exec();
+
+      const count = await redis.zcard(key);
+      return count > maxMessagesPerWindow;
+    } catch {
+      // Fail open if Redis is unavailable to avoid blocking chat flow.
+      return false;
+    }
   }
 
   private sanitizeMessage(message: string): string {
