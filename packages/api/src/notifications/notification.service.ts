@@ -7,6 +7,7 @@ import {
 import { eq, and, desc, sql, gte, isNull, or } from "drizzle-orm";
 import { decodeCursor, encodeCursor } from "@missu/utils";
 import { DEFAULTS } from "@missu/config";
+import { getRedis } from "@missu/utils";
 
 @Injectable()
 export class NotificationService {
@@ -75,7 +76,11 @@ export class NotificationService {
       })
       .returning();
 
-    await this.sendPushNotification(userId, title, body, data);
+    if (!notification) {
+      return null;
+    }
+
+    await this.sendPushNotification(notification.id, userId, title, body, data);
 
     return notification;
   }
@@ -128,16 +133,44 @@ export class NotificationService {
     return { success: true };
   }
 
-  private async sendPushNotification(userId: string, title: string, body: string, data?: Record<string, any>) {
+  private async sendPushNotification(notificationId: string, userId: string, title: string, body: string, data?: Record<string, any>) {
     const tokens = await db
       .select()
       .from(pushTokens)
       .where(eq(pushTokens.userId, userId));
 
-    for (const token of tokens) {
-      // FCM / APNs push implementation delegated to external service
-      // This is where we'd call Firebase Admin SDK or APNs
-      console.log(`[PUSH] ${token.platform}:${token.token.substring(0, 8)}... -> ${title}`);
+    if (tokens.length === 0) {
+      await db
+        .update(notifications)
+        .set({ deliveryStatus: "FAILED" as any })
+        .where(eq(notifications.id, notificationId));
+      return;
     }
+
+    const redis = getRedis();
+    const queueKey = process.env["NOTIFICATION_QUEUE_KEY"] ?? "notifications:dispatch:queue";
+
+    for (const token of tokens) {
+      await redis.lpush(
+        queueKey,
+        JSON.stringify({
+          notificationId,
+          userId,
+          title,
+          body,
+          data,
+          channel: "PUSH",
+          platform: token.platform,
+          token: token.token,
+          attempt: 1,
+          queuedAt: new Date().toISOString(),
+        }),
+      );
+    }
+
+    await db
+      .update(notifications)
+      .set({ deliveryStatus: "SENT" as any })
+      .where(eq(notifications.id, notificationId));
   }
 }

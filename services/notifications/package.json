@@ -8,6 +8,9 @@
     "dev": "tsx watch src/main.ts",
     "start": "node dist/main.js"
   },
+  "dependencies": {
+    "ioredis": "^5.10.0"
+  },
   "devDependencies": {
     "@types/node": "^20.12.12",
     "rimraf": "^5.0.7",
