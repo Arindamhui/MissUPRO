@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { z } from "zod";
 import { TrpcService } from "../trpc/trpc.service";
 import { AdminService } from "./admin.service";
-import { createFeatureFlagSchema } from "@missu/types";
+import { createFeatureFlagSchema, upsertSystemSettingSchema } from "@missu/types";
 
 @Injectable()
 export class AdminRouter {
@@ -101,8 +101,8 @@ export class AdminRouter {
         .query(async () => this.adminService.getSystemSettings()),
 
       upsertSystemSetting: this.trpc.adminProcedure
-        .input(z.object({ key: z.string(), value: z.any() }))
-        .mutation(async ({ ctx, input }) => this.adminService.upsertSystemSetting(input.key, input.value, ctx.userId)),
+        .input(upsertSystemSettingSchema)
+        .mutation(async ({ ctx, input }) => this.adminService.upsertSystemSetting(input, ctx.userId)),
 
       // Feature Flags
       listFeatureFlags: this.trpc.adminProcedure
@@ -110,7 +110,7 @@ export class AdminRouter {
 
       upsertFeatureFlag: this.trpc.adminProcedure
         .input(createFeatureFlagSchema)
-        .mutation(async ({ ctx, input }) => this.adminService.upsertFeatureFlag(input.key, input.type, input.isEnabled, ctx.userId)),
+        .mutation(async ({ ctx, input }) => this.adminService.upsertFeatureFlag(input, ctx.userId)),
 
       // UI / CMS
       listHomepageSections: this.trpc.adminProcedure

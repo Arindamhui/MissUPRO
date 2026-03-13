@@ -19,6 +19,7 @@ type ScopeInput = {
   environment?: string;
   regionCode?: string;
   segmentCode?: string;
+  userId?: string;
 };
 
 @Injectable()
@@ -59,6 +60,45 @@ export class ConfigService {
   async getFeatureFlag(flagKey: string) {
     const rows = await db.select().from(featureFlags).where(eq(featureFlags.flagKey, flagKey)).limit(1);
     return rows[0] ?? null;
+  }
+
+  private stablePercent(input: string) {
+    let hash = 0;
+    for (let i = 0; i < input.length; i++) {
+      hash = (hash * 31 + input.charCodeAt(i)) >>> 0;
+    }
+    return hash % 100;
+  }
+
+  async evaluateFeatureFlag(flagKey: string, scope: ScopeInput = {}) {
+    const flag = await this.getFeatureFlag(flagKey);
+    if (!flag) return { key: flagKey, enabled: false, reason: "NOT_FOUND" as const };
+    if (!flag.enabled) return { key: flagKey, enabled: false, reason: "DISABLED" as const };
+
+    if (flag.flagType === "BOOLEAN") {
+      return { key: flagKey, enabled: true, reason: "BOOLEAN_ENABLED" as const };
+    }
+
+    if (flag.flagType === "REGION") {
+      const allowList = (flag.regionCodesJson as string[] | null) ?? [];
+      const enabled = !!scope.regionCode && allowList.includes(scope.regionCode);
+      return { key: flagKey, enabled, reason: enabled ? "REGION_MATCH" as const : "REGION_MISS" as const };
+    }
+
+    if (flag.flagType === "USER_LIST") {
+      const allowList = (flag.userIdsJson as string[] | null) ?? [];
+      const enabled = !!scope.userId && allowList.includes(scope.userId);
+      return { key: flagKey, enabled, reason: enabled ? "USER_MATCH" as const : "USER_MISS" as const };
+    }
+
+    if (flag.flagType === "PERCENTAGE") {
+      const percentage = Math.max(0, Math.min(100, Number(flag.percentageValue ?? 0)));
+      const token = scope.userId ?? scope.regionCode ?? "global";
+      const enabled = this.stablePercent(`${flagKey}:${token}`) < percentage;
+      return { key: flagKey, enabled, reason: "PERCENTAGE" as const, percentage };
+    }
+
+    return { key: flagKey, enabled: false, reason: "UNSUPPORTED_FLAG_TYPE" as const };
   }
 
   async listFeatureFlags() {

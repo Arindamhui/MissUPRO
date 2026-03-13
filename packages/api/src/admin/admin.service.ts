@@ -15,7 +15,7 @@ import {
 } from "@missu/db/schema";
 import { eq, and, desc, asc, sql, gte, lte, count, sum, between, like, isNull, not, inArray, isNotNull } from "drizzle-orm";
 import { decodeCursor, encodeCursor } from "@missu/utils";
-import { cacheDel } from "@missu/utils";
+import { cacheDel, getRedis } from "@missu/utils";
 
 @Injectable()
 export class AdminService {
@@ -197,20 +197,72 @@ export class AdminService {
 
   // ─── System Settings ───
   async getSystemSettings() {
-    return db.select().from(systemSettings).orderBy(asc(systemSettings.key));
+    return db
+      .select()
+      .from(systemSettings)
+      .orderBy(asc(systemSettings.namespace), asc(systemSettings.key), desc(systemSettings.version));
   }
 
-  async upsertSystemSetting(key: string, value: any, adminId: string) {
-    const [existing] = await db.select().from(systemSettings).where(eq(systemSettings.key, key)).limit(1);
-    let result;
-    if (existing) {
-      [result] = await db.update(systemSettings).set({ valueJson: value, updatedAt: new Date(), updatedByAdminId: adminId }).where(eq(systemSettings.id, existing.id)).returning();
-    } else {
-      [result] = await db.insert(systemSettings).values({ key, valueJson: value, updatedByAdminId: adminId } as any).returning();
-    }
-    await cacheDel(`settings:${key}`);
-    await this.logAction(adminId, "system_setting_update", { key });
-    return result;
+  async upsertSystemSetting(
+    input: {
+      namespace: string;
+      key: string;
+      value: unknown;
+      environment?: "production" | "staging" | "development";
+      regionCode?: string;
+      segmentCode?: string;
+      status?: "DRAFT" | "PUBLISHED" | "ROLLED_BACK";
+      effectiveFrom?: Date;
+      effectiveTo?: Date | null;
+      changeReason: string;
+    },
+    adminId: string,
+  ) {
+    const environment = input.environment ?? ((process.env.NODE_ENV as "production" | "staging" | "development") ?? "development");
+
+    const [latest] = await db
+      .select()
+      .from(systemSettings)
+      .where(
+        and(
+          eq(systemSettings.namespace, input.namespace),
+          eq(systemSettings.key, input.key),
+          eq(systemSettings.environment, environment),
+          input.regionCode ? eq(systemSettings.regionCode, input.regionCode) : isNull(systemSettings.regionCode),
+          input.segmentCode ? eq(systemSettings.segmentCode, input.segmentCode) : isNull(systemSettings.segmentCode),
+        ),
+      )
+      .orderBy(desc(systemSettings.version))
+      .limit(1);
+
+    const nextVersion = (latest?.version ?? 0) + 1;
+
+    const [created] = await db
+      .insert(systemSettings)
+      .values({
+        namespace: input.namespace,
+        key: input.key,
+        valueJson: input.value as any,
+        environment,
+        regionCode: input.regionCode,
+        segmentCode: input.segmentCode,
+        version: nextVersion,
+        status: (input.status ?? "PUBLISHED") as any,
+        effectiveFrom: input.effectiveFrom ?? new Date(),
+        effectiveTo: input.effectiveTo ?? null,
+        changeReason: input.changeReason,
+        updatedByAdminId: adminId,
+      } as any)
+      .returning();
+
+    await cacheDel(`settings:${input.namespace}:${input.key}:${environment}`);
+    await this.logAction(adminId, "system_setting_update", {
+      namespace: input.namespace,
+      key: input.key,
+      version: nextVersion,
+      environment,
+    });
+    return created;
   }
 
   // ─── Feature Flags ───
@@ -218,16 +270,63 @@ export class AdminService {
     return db.select().from(featureFlags).orderBy(asc(featureFlags.flagKey));
   }
 
-  async upsertFeatureFlag(key: string, flagType: string, enabled: boolean, adminId?: string) {
-    const [existing] = await db.select().from(featureFlags).where(eq(featureFlags.flagKey, key)).limit(1);
+  async upsertFeatureFlag(
+    input: {
+      key: string;
+      type: "BOOLEAN" | "PERCENTAGE" | "USER_LIST" | "REGION";
+      isEnabled: boolean;
+      description?: string;
+      value?: unknown;
+      percentageValue?: number;
+      userIds?: string[];
+      regionCodes?: string[];
+    },
+    adminId?: string,
+  ) {
+    const [existing] = await db.select().from(featureFlags).where(eq(featureFlags.flagKey, input.key)).limit(1);
+
+    const percentageValue = input.type === "PERCENTAGE"
+      ? (input.percentageValue ?? (typeof input.value === "number" ? Number(input.value) : null))
+      : null;
+    const userIdsJson = input.type === "USER_LIST"
+      ? (input.userIds ?? (Array.isArray(input.value) ? input.value : null))
+      : null;
+    const regionCodesJson = input.type === "REGION"
+      ? (input.regionCodes ?? (Array.isArray(input.value) ? input.value : null))
+      : null;
+
     let result;
     if (existing) {
-      [result] = await db.update(featureFlags).set({ flagType: flagType as any, enabled, updatedAt: new Date() }).where(eq(featureFlags.id, existing.id)).returning();
+      [result] = await db
+        .update(featureFlags)
+        .set({
+          flagType: input.type as any,
+          enabled: input.isEnabled,
+          description: input.description ?? existing.description,
+          percentageValue: percentageValue == null ? null : Math.max(0, Math.min(100, Math.round(percentageValue))),
+          userIdsJson: userIdsJson as any,
+          regionCodesJson: regionCodesJson as any,
+          updatedAt: new Date(),
+        })
+        .where(eq(featureFlags.id, existing.id))
+        .returning();
     } else {
-      [result] = await db.insert(featureFlags).values({ flagKey: key, flagType: flagType as any, enabled, createdByAdminId: adminId } as any).returning();
+      [result] = await db
+        .insert(featureFlags)
+        .values({
+          flagKey: input.key,
+          flagType: input.type as any,
+          enabled: input.isEnabled,
+          description: input.description ?? "",
+          percentageValue: percentageValue == null ? null : Math.max(0, Math.min(100, Math.round(percentageValue))),
+          userIdsJson: userIdsJson as any,
+          regionCodesJson: regionCodesJson as any,
+          createdByAdminId: adminId,
+        } as any)
+        .returning();
     }
-    await cacheDel(`feature_flag:${key}`);
-    if (adminId) await this.logAction(adminId, "feature_flag_update", { key, enabled });
+    await cacheDel(`feature_flag:${input.key}`);
+    if (adminId) await this.logAction(adminId, "feature_flag_update", { key: input.key, enabled: input.isEnabled, type: input.type });
     return result;
   }
 
@@ -343,9 +442,20 @@ export class AdminService {
 
   // ─── Cache Management ───
   async clearCache(pattern: string, adminId: string) {
-    await cacheDel(pattern);
-    await this.logAction(adminId, "cache_clear", { pattern });
-    return { success: true };
+    const redis = getRedis();
+    let cursor = "0";
+    let deleted = 0;
+
+    do {
+      const [nextCursor, keys] = await redis.scan(cursor, "MATCH", pattern, "COUNT", 200);
+      cursor = nextCursor;
+      if (keys.length > 0) {
+        deleted += await redis.del(...keys);
+      }
+    } while (cursor !== "0");
+
+    await this.logAction(adminId, "cache_clear", { pattern, deleted });
+    return { success: true, deleted };
   }
 
   // ─── Admin Audit Log ───

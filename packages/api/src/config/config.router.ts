@@ -27,6 +27,12 @@ export class ConfigRouter {
         .input(z.object({ key: z.string().min(1) }))
         .query(async ({ input }) => this.configService.getFeatureFlag(input.key)),
 
+      evaluateFeatureFlag: this.trpc.procedure
+        .input(z.object({ key: z.string().min(1), userId: z.string().uuid().optional(), regionCode: z.string().optional() }))
+        .query(async ({ input }) =>
+          this.configService.evaluateFeatureFlag(input.key, { userId: input.userId, regionCode: input.regionCode }),
+        ),
+
       listFeatureFlags: this.trpc.procedure
         .query(async () => this.configService.listFeatureFlags()),
 

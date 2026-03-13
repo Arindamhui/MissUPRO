@@ -404,16 +404,24 @@ export const upsertSystemSettingSchema = z.object({
   key: z.string(),
   value: z.unknown(),
   environment: z.enum(["production", "staging", "development"]).optional(),
-  region: z.string().optional(),
+  regionCode: z.string().optional(),
+  segmentCode: z.string().optional(),
+  status: z.enum(["DRAFT", "PUBLISHED", "ROLLED_BACK"]).optional(),
+  effectiveFrom: z.coerce.date().optional(),
+  effectiveTo: z.coerce.date().nullable().optional(),
+  changeReason: z.string().min(3).max(500),
 });
 
 // ─── Feature Flag ───
 export const createFeatureFlagSchema = z.object({
   key: z.string().min(1).max(100),
-  name: z.string().min(1).max(200),
-  description: z.string().max(1000).optional(),
+  name: z.string().min(1).max(200).optional(),
+  description: z.string().max(1000).default(""),
   type: z.enum(["BOOLEAN", "PERCENTAGE", "USER_LIST", "REGION"]),
-  value: z.unknown(),
+  value: z.unknown().optional(),
+  percentageValue: z.number().int().min(0).max(100).optional(),
+  userIds: z.array(z.string().uuid()).max(500).optional(),
+  regionCodes: z.array(z.string().min(2).max(10)).max(100).optional(),
   isEnabled: z.boolean().default(false),
 });
 
