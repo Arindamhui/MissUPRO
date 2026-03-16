@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, ScrollView, TouchableOpacity } from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { Screen, Avatar, Badge, Card, Button, CoinDisplay, SectionHeader } from "@/components/ui";
@@ -11,29 +11,61 @@ import { SOCKET_EVENTS } from "@missu/types";
 export default function ProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { emit } = useSocket();
+  const requestCall = trpc.call.requestModelCall.useMutation();
 
   const profile = trpc.discovery.modelCard.useQuery({ modelId: id! }, { retry: false, enabled: !!id });
   const model = profile.data as any;
+  const modelUserId = String(model?.userId ?? "");
+
+  const availability = trpc.user.getModelAvailability.useQuery(
+    { modelUserId },
+    { retry: false, enabled: !!model?.userId },
+  );
+  const reviews = trpc.user.getModelReviews.useQuery(
+    { modelUserId, limit: 5 },
+    { retry: false, enabled: !!model?.userId },
+  );
+  const demoVideos = trpc.user.getModelDemoVideos.useQuery(
+    { modelUserId, status: "APPROVED" },
+    { retry: false, enabled: !!model?.userId },
+  );
+
+  const availabilitySummary = availability.data as any;
+  const reviewItems = (reviews.data?.items ?? []) as any[];
+  const approvedVideos = (demoVideos.data ?? []) as any[];
+  const averageRating = model?.avgRating
+    ? Number(model.avgRating)
+    : reviewItems.length > 0
+      ? reviewItems.reduce((sum, review) => sum + Number(review.rating ?? 0), 0) / reviewItems.length
+      : 0;
+  const isCallable = availabilitySummary?.availabilityStatus === "AVAILABLE_NOW";
 
   const startCall = (type: "audio" | "video") => {
-    const callId = `call_${Date.now()}`;
-    useCallStore.getState().startCall(callId, type, id!);
-    emit(SOCKET_EVENTS.CALL.REQUEST, { targetUserId: id, callType: type, callSessionId: callId });
-    router.push(`/call/${callId}`);
+    requestCall.mutate({ modelUserId, callType: type.toUpperCase() as "AUDIO" | "VIDEO" }, {
+      onSuccess: (session: any) => {
+        useCallStore.getState().startCall(session.id, type, modelUserId);
+        emit(SOCKET_EVENTS.CALL.REQUEST, { targetUserId: modelUserId, callType: type, callSessionId: session.id });
+        router.push(`/call/${session.id}`);
+      },
+    });
   };
 
   return (
     <Screen scroll>
-      {/* Profile Header */}
       <View style={{ alignItems: "center", paddingVertical: SPACING.lg }}>
-        <Avatar uri={model?.profileImage} size={120} online={model?.isOnline} />
+        <Avatar uri={model?.avatarUrl ?? model?.profileImage} size={120} online={model?.isOnline} />
         <Text style={{ fontSize: 24, fontWeight: "700", color: COLORS.text, marginTop: SPACING.md }}>
           {model?.displayName ?? "Model"}
         </Text>
-        <View style={{ flexDirection: "row", gap: SPACING.sm, marginTop: SPACING.sm }}>
+        <View style={{ flexDirection: "row", gap: SPACING.sm, marginTop: SPACING.sm, flexWrap: "wrap", justifyContent: "center" }}>
           {model?.isOnline && <Badge text="Online" color={COLORS.success} />}
           <Badge text={`Lv.${model?.level ?? 1}`} color={COLORS.primary} />
-          {model?.isVerified && <Badge text="Verified" color={COLORS.primary} />}
+          {availabilitySummary?.availabilityStatus && (
+            <Badge
+              text={String(availabilitySummary.availabilityStatus).replaceAll("_", " ")}
+              color={availabilitySummary.availabilityStatus === "AVAILABLE_NOW" ? COLORS.success : COLORS.warning}
+            />
+          )}
         </View>
         {model?.bio && (
           <Text style={{ color: COLORS.textSecondary, fontSize: 14, marginTop: SPACING.sm, textAlign: "center", paddingHorizontal: SPACING.lg }}>
@@ -42,12 +74,11 @@ export default function ProfileScreen() {
         )}
       </View>
 
-      {/* Stats */}
       <View style={{ flexDirection: "row", justifyContent: "space-around", marginBottom: SPACING.lg }}>
         {[
           { label: "Followers", value: model?.followerCount ?? 0 },
-          { label: "Rating", value: model?.avgRating ? `${model.avgRating.toFixed(1)} ★` : "N/A" },
-          { label: "Calls", value: model?.totalCalls ?? 0 },
+          { label: "Rating", value: averageRating > 0 ? `${averageRating.toFixed(1)} / 5` : "N/A" },
+          { label: "Minutes", value: (model?.audioMinutesTotal ?? 0) + (model?.videoMinutesTotal ?? 0) },
         ].map((stat) => (
           <View key={stat.label} style={{ alignItems: "center" }}>
             <Text style={{ fontSize: 20, fontWeight: "700", color: COLORS.text }}>{stat.value}</Text>
@@ -56,23 +87,32 @@ export default function ProfileScreen() {
         ))}
       </View>
 
-      {/* Call Actions */}
       <View style={{ flexDirection: "row", gap: SPACING.sm, paddingHorizontal: SPACING.md, marginBottom: SPACING.lg }}>
         <Button
-          title="🎙️ Audio Call"
+          title="Audio Call"
           onPress={() => startCall("audio")}
           style={{ flex: 1 }}
           variant="primary"
+          disabled={!isCallable || requestCall.isPending}
         />
         <Button
-          title="📹 Video Call"
+          title="Video Call"
           onPress={() => startCall("video")}
           style={{ flex: 1 }}
           variant="outline"
+          disabled={!isCallable || requestCall.isPending}
         />
       </View>
 
-      {/* Pricing */}
+      {availabilitySummary?.nextSlot && (
+        <Card>
+          <Text style={{ fontSize: 16, fontWeight: "600", marginBottom: SPACING.sm }}>Availability</Text>
+          <Text style={{ color: COLORS.textSecondary }}>
+            Next slot: {availabilitySummary.nextSlot.dayOfWeek} {availabilitySummary.nextSlot.startTime} ({availabilitySummary.nextSlot.timezone})
+          </Text>
+        </Card>
+      )}
+
       <Card>
         <Text style={{ fontSize: 16, fontWeight: "600", marginBottom: SPACING.sm }}>Call Pricing</Text>
         <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
@@ -89,35 +129,73 @@ export default function ProfileScreen() {
         </View>
       </Card>
 
-      {/* Gift */}
       <TouchableOpacity
-        onPress={() => useUIStore.getState().openGiftDrawer({ userId: id!, context: "profile" })}
+        onPress={() => useUIStore.getState().openGiftDrawer({ userId: modelUserId, context: "profile" })}
         style={{
           marginTop: SPACING.sm,
-          padding: SPACING.md, borderRadius: RADIUS.lg,
-          backgroundColor: COLORS.primaryLight, alignItems: "center",
+          padding: SPACING.md,
+          borderRadius: RADIUS.lg,
+          backgroundColor: COLORS.primaryLight,
+          alignItems: "center",
         }}
       >
-        <Text style={{ fontSize: 22 }}>🎁</Text>
+        <Text style={{ fontSize: 22 }}>Gift</Text>
         <Text style={{ color: COLORS.primary, fontWeight: "600", marginTop: 4 }}>Send Gift</Text>
       </TouchableOpacity>
 
-      {/* Follow / DM */}
       <View style={{ flexDirection: "row", gap: SPACING.sm, marginTop: SPACING.md }}>
         <Button title="Follow" variant="secondary" onPress={() => {}} style={{ flex: 1 }} />
-        <Button title="Message" variant="ghost" onPress={() => router.push(`/chat/${id}`)} style={{ flex: 1 }} />
+        <Button title="Message" variant="ghost" onPress={() => router.push(`/chat/${modelUserId}?recipientId=${modelUserId}`)} style={{ flex: 1 }} />
       </View>
 
-      {/* Gallery placeholder */}
-      <SectionHeader title="Gallery" />
+      <SectionHeader title="Demo Videos" />
       <Card>
-        <Text style={{ color: COLORS.textSecondary }}>Photo and video gallery</Text>
+        {approvedVideos.length > 0 ? (
+          approvedVideos.map((video) => (
+            <View
+              key={String(video.id)}
+              style={{
+                paddingVertical: SPACING.sm,
+                borderBottomWidth: 1,
+                borderBottomColor: COLORS.border,
+              }}
+            >
+              <Text style={{ fontSize: 15, fontWeight: "600", color: COLORS.text }}>
+                {video.title ?? "Demo video"}
+              </Text>
+              <Text style={{ color: COLORS.textSecondary, marginTop: 4 }}>
+                {video.durationSeconds}s
+              </Text>
+            </View>
+          ))
+        ) : (
+          <Text style={{ color: COLORS.textSecondary }}>No approved demo videos yet.</Text>
+        )}
       </Card>
 
-      {/* Reviews placeholder */}
       <SectionHeader title="Reviews" />
       <Card>
-        <Text style={{ color: COLORS.textSecondary }}>User reviews and ratings</Text>
+        {reviewItems.length > 0 ? (
+          reviewItems.map((review) => (
+            <View
+              key={String(review.id)}
+              style={{
+                paddingVertical: SPACING.sm,
+                borderBottomWidth: 1,
+                borderBottomColor: COLORS.border,
+              }}
+            >
+              <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.text }}>
+                {`${Number(review.rating ?? 0).toFixed(1)} / 5`}
+              </Text>
+              <Text style={{ color: COLORS.textSecondary, marginTop: 4 }}>
+                {review.reviewText ?? "No written review provided."}
+              </Text>
+            </View>
+          ))
+        ) : (
+          <Text style={{ color: COLORS.textSecondary }}>No reviews yet.</Text>
+        )}
       </Card>
     </Screen>
   );

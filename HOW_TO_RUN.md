@@ -80,6 +80,8 @@ Open `.env` and fill in the values:
 | `CLERK_SECRET_KEY`                  | Clerk backend API key        |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk frontend key (Web)     |
 | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk frontend key (Mobile)  |
+| `EXPO_PUBLIC_API_URL`               | Mobile API base URL, usually `http://localhost:4000/trpc` |
+| `EXPO_PUBLIC_WS_URL`                | Mobile Socket.io URL, usually `http://localhost:4000` |
 | `STRIPE_SECRET_KEY`                 | Stripe secret API key        |
 | `STRIPE_WEBHOOK_SECRET`            | Stripe webhook signing secret |
 | `RAZORPAY_KEY_ID`                  | Razorpay key ID              |
@@ -217,6 +219,8 @@ Services:
 
 ## 7. Mobile App (Expo)
 
+Install dependencies from the repository root, not from `apps/mobile`. This workspace uses npm workspaces, and running `npm install` inside `apps/mobile` can leave you with duplicate React Native versions between the root and mobile app trees.
+
 ```bash
 cd apps/mobile
 
@@ -269,6 +273,8 @@ eas submit --platform ios
 2. Copy API keys to `.env`
 3. Configure sign-in methods (email, phone, social)
 4. Set webhook URL: `https://your-api.com/webhooks/clerk`
+5. Enable the Google social connection if you want mobile Google sign-in
+6. Add `missupro://sso-callback` as an allowed redirect URI for the Expo mobile app
 
 ### Stripe (Payments)
 

@@ -26,3 +26,4 @@ export * from "./group-audio";
 export * from "./party";
 export * from "./config-engine";
 export * from "./support";
+export * from "./compliance";

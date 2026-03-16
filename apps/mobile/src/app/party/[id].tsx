@@ -11,7 +11,7 @@ import { useAuthStore } from "@/store";
 export default function PartyScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const userId = useAuthStore((s) => s.userId);
-  const { emit, on } = useSocket();
+  const { emit, emitWithAck, on } = useSocket();
   const [messages, setMessages] = useState<any[]>([]);
   const [inputText, setInputText] = useState("");
 
@@ -21,6 +21,7 @@ export default function PartyScreen() {
 
   useEffect(() => {
     emit(SOCKET_EVENTS.PARTY.JOIN, { roomId: id });
+    emit(SOCKET_EVENTS.PARTY.SYNC_REQUEST, { roomId: id, limit: 30 });
 
     const unsub1 = on(SOCKET_EVENTS.PARTY.CHAT, (msg: any) => {
       setMessages((prev) => [...prev.slice(-200), msg]);
@@ -28,16 +29,26 @@ export default function PartyScreen() {
     const unsub2 = on(SOCKET_EVENTS.PARTY.MEMBER_JOINED, () => { room.refetch(); });
     const unsub3 = on(SOCKET_EVENTS.PARTY.MEMBER_LEFT, () => { room.refetch(); });
     const unsub4 = on(SOCKET_EVENTS.PARTY.SEAT_UPDATE, () => { room.refetch(); });
+    const unsub5 = on(SOCKET_EVENTS.PARTY.SYNC_STATE, (payload: { roomState?: any; recentEvents?: any[] }) => {
+      if (payload?.roomState) {
+        room.refetch();
+      }
+      const replayed = (payload?.recentEvents ?? [])
+        .filter((event) => event.event === SOCKET_EVENTS.PARTY.CHAT)
+        .map((event) => event.payload);
+      setMessages(replayed.slice(-200));
+    });
 
     return () => {
       emit(SOCKET_EVENTS.PARTY.LEAVE, { roomId: id });
-      unsub1?.(); unsub2?.(); unsub3?.(); unsub4?.();
+      unsub1?.(); unsub2?.(); unsub3?.(); unsub4?.(); unsub5?.();
     };
   }, [id]);
 
-  const sendChat = () => {
+  const sendChat = async () => {
     if (!inputText.trim()) return;
-    emit(SOCKET_EVENTS.PARTY.CHAT, { roomId: id, message: inputText.trim() });
+    const response = await emitWithAck<{ ok: boolean }>(SOCKET_EVENTS.PARTY.CHAT, { roomId: id, message: inputText.trim() }).catch(() => ({ ok: false }));
+    if (!response?.ok) return;
     setInputText("");
   };
 

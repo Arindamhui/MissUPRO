@@ -1,56 +1,58 @@
 "use client";
+
 import { trpc } from "@/lib/trpc";
 import { KpiCard, PageHeader, Card, DataTable, StatusBadge } from "@/components/ui";
-import { formatCurrency, formatNumber } from "@/lib/utils";
-import { Users, UserCog, DollarSign, Tv, TrendingUp, CreditCard, Gift, PhoneCall } from "lucide-react";
+import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { Users, UserCog, DollarSign, Tv, CreditCard, Gift, PhoneCall } from "lucide-react";
 import {
-  LineChart, Line, AreaChart, Area, BarChart, Bar,
+  AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 
-// Revenue chart mock (will be replaced with real API data)
-const revenueData = Array.from({ length: 30 }, (_, i) => ({
-  day: `Day ${i + 1}`,
-  revenue: Math.round(5000 + Math.random() * 15000),
-  users: Math.round(200 + Math.random() * 800),
-}));
-
-const activityData = Array.from({ length: 24 }, (_, i) => ({
-  hour: `${i}:00`,
-  calls: Math.round(10 + Math.random() * 90),
-  streams: Math.round(5 + Math.random() * 50),
-  gifts: Math.round(20 + Math.random() * 100),
-}));
-
 export default function DashboardPage() {
-  const stats = trpc.admin.dashboardStats.useQuery(undefined, { retry: false });
+  const stats = trpc.admin.getDashboardStats.useQuery(undefined, { retry: false });
+  const revenueQuery = trpc.analytics.getRevenueAnalytics.useQuery(
+    { startDate: new Date(Date.now() - 30 * 86400000), endDate: new Date() },
+    { retry: false },
+  );
+  const engagementQuery = trpc.analytics.getEngagementMetrics.useQuery(
+    { startDate: new Date(Date.now() - 86400000), endDate: new Date() },
+    { retry: false },
+  );
 
-  const s = stats.data ?? {
-    totalUsers: 0, activeModels: 0, todayRevenue: 0, liveRooms: 0,
-    pendingModelApps: 0, pendingWithdrawals: 0, todayGifts: 0, todayCalls: 0,
+  const summary = stats.data ?? {
+    totalUsers: 0,
+    activeModels: 0,
+    todayRevenue: 0,
+    liveRooms: 0,
+    pendingModelApps: 0,
+    pendingWithdrawals: 0,
+    todayGifts: 0,
+    todayCalls: 0,
   };
+
+  const revenueData = (revenueQuery.data as { dailyRevenue?: unknown[] } | undefined)?.dailyRevenue ?? [];
+  const activityData = (engagementQuery.data as { hourlyActivity?: unknown[] } | undefined)?.hourlyActivity ?? [];
 
   return (
     <>
       <PageHeader title="Dashboard" description="Platform overview and real-time metrics" />
 
-      {/* KPI Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <KpiCard label="Total Users" value={formatNumber(s.totalUsers)} icon={Users} trend="+12% vs last week" />
-        <KpiCard label="Active Models" value={formatNumber(s.activeModels)} icon={UserCog} />
-        <KpiCard label="Today's Revenue" value={formatCurrency(s.todayRevenue)} icon={DollarSign} trend="+8% vs yesterday" />
-        <KpiCard label="Live Rooms" value={formatNumber(s.liveRooms)} icon={Tv} />
+      <div className="grid grid-cols-1 gap-4 mb-6 md:grid-cols-2 lg:grid-cols-4">
+        <KpiCard label="Total Users" value={formatNumber(summary.totalUsers)} icon={Users} trend="+12% vs last week" />
+        <KpiCard label="Active Models" value={formatNumber(summary.activeModels)} icon={UserCog} />
+        <KpiCard label="Today's Revenue" value={formatCurrency(summary.todayRevenue)} icon={DollarSign} trend="+8% vs yesterday" />
+        <KpiCard label="Live Rooms" value={formatNumber(summary.liveRooms)} icon={Tv} />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <KpiCard label="Pending Model Apps" value={s.pendingModelApps} icon={UserCog} />
-        <KpiCard label="Pending Withdrawals" value={s.pendingWithdrawals} icon={CreditCard} />
-        <KpiCard label="Today's Gifts" value={formatNumber(s.todayGifts)} icon={Gift} />
-        <KpiCard label="Today's Calls" value={formatNumber(s.todayCalls)} icon={PhoneCall} />
+      <div className="grid grid-cols-1 gap-4 mb-6 md:grid-cols-2 lg:grid-cols-4">
+        <KpiCard label="Pending Model Apps" value={formatNumber(summary.pendingModelApps)} icon={UserCog} />
+        <KpiCard label="Pending Withdrawals" value={formatNumber(summary.pendingWithdrawals)} icon={CreditCard} />
+        <KpiCard label="Today's Gifts" value={formatNumber(summary.todayGifts)} icon={Gift} />
+        <KpiCard label="Today's Calls" value={formatNumber(summary.todayCalls)} icon={PhoneCall} />
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 gap-6 mb-6 lg:grid-cols-2">
         <Card title="Revenue (30 days)">
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={revenueData}>
@@ -78,8 +80,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Priority Queues */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card title="Pending Model Applications">
           <ModelAppQueue />
         </Card>
@@ -92,15 +93,42 @@ export default function DashboardPage() {
 }
 
 function ModelAppQueue() {
-  const apps = trpc.admin.listModelApplications.useQuery({ status: "submitted", limit: 5 }, { retry: false });
-  const rows = (apps.data?.applications ?? []) as Record<string, unknown>[];
+  const apps = trpc.admin.listModelApplications.useQuery({ status: "PENDING", limit: 5 }, { retry: false });
+  const approveMut = trpc.admin.approveModelApplication.useMutation({ onSuccess: () => void apps.refetch() });
+  const rejectMut = trpc.admin.rejectModelApplication.useMutation({ onSuccess: () => void apps.refetch() });
+  const rows = (apps.data?.items ?? []) as Record<string, unknown>[];
+
   return (
     <DataTable
       columns={[
-        { key: "id", label: "ID" },
-        { key: "userId", label: "User" },
-        { key: "status", label: "Status", render: (r) => <StatusBadge status={String(r.status)} /> },
-        { key: "createdAt", label: "Applied" },
+        { key: "id", label: "ID", render: (row) => String(row.id).slice(0, 8) },
+        { key: "userId", label: "User", render: (row) => String(row.userId).slice(0, 8) },
+        { key: "status", label: "Status", render: (row) => <StatusBadge status={String(row.status)} /> },
+        {
+          key: "submittedAt",
+          label: "Applied",
+          render: (row) => row.submittedAt ? formatDate(String(row.submittedAt)) : "-",
+        },
+        {
+          key: "actions",
+          label: "Actions",
+          render: (row) => (
+            <div className="flex gap-2">
+              <button
+                className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+                onClick={() => approveMut.mutate({ applicationId: String(row.id) })}
+              >
+                Approve
+              </button>
+              <button
+                className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                onClick={() => rejectMut.mutate({ applicationId: String(row.id), reason: "Does not meet verification requirements" })}
+              >
+                Reject
+              </button>
+            </div>
+          ),
+        },
       ]}
       data={rows}
     />
@@ -108,15 +136,50 @@ function ModelAppQueue() {
 }
 
 function WithdrawalQueue() {
-  const withdrawals = trpc.admin.listWithdrawals.useQuery({ status: "pending", limit: 5 }, { retry: false });
-  const rows = (withdrawals.data?.requests ?? []) as Record<string, unknown>[];
+  const withdrawals = trpc.admin.listWithdrawRequests.useQuery({ status: "PENDING", limit: 5 }, { retry: false });
+  const processMut = trpc.admin.processWithdrawRequest.useMutation({ onSuccess: () => void withdrawals.refetch() });
+  const rows = (withdrawals.data?.items ?? []) as Record<string, unknown>[];
+
   return (
     <DataTable
       columns={[
-        { key: "id", label: "ID" },
-        { key: "userId", label: "User" },
-        { key: "amount", label: "Amount", render: (r) => formatCurrency(Number(r.amount ?? 0)) },
-        { key: "status", label: "Status", render: (r) => <StatusBadge status={String(r.status)} /> },
+        { key: "id", label: "ID", render: (row) => String(row.id).slice(0, 8) },
+        {
+          key: "modelUserId",
+          label: "Model",
+          render: (row) => String(row.modelUserId ?? row.userId ?? "").slice(0, 8),
+        },
+        {
+          key: "totalPayoutAmount",
+          label: "Amount",
+          render: (row) => formatCurrency(Number(row.totalPayoutAmount ?? row.amount ?? 0)),
+        },
+        { key: "status", label: "Status", render: (row) => <StatusBadge status={String(row.status)} /> },
+        {
+          key: "createdAt",
+          label: "Requested",
+          render: (row) => row.createdAt ? formatDate(String(row.createdAt)) : "-",
+        },
+        {
+          key: "actions",
+          label: "Actions",
+          render: (row) => (
+            <div className="flex gap-2">
+              <button
+                className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+                onClick={() => processMut.mutate({ requestId: String(row.id), action: "approve" })}
+              >
+                Approve
+              </button>
+              <button
+                className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                onClick={() => processMut.mutate({ requestId: String(row.id), action: "reject", reason: "Insufficient documentation" })}
+              >
+                Reject
+              </button>
+            </div>
+          ),
+        },
       ]}
       data={rows}
     />

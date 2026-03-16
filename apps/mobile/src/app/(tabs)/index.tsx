@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, ScrollView, TouchableOpacity, FlatList } from "react-native";
+import { View, Text, TouchableOpacity, FlatList } from "react-native";
 import { trpc } from "@/lib/trpc";
 import { Screen, Avatar, Card, SectionHeader, CoinDisplay, Badge } from "@/components/ui";
 import { COLORS, SPACING, RADIUS } from "@/theme";
@@ -8,12 +8,24 @@ import { router } from "expo-router";
 
 export default function HomeScreen() {
   const coins = useWalletStore((s) => s.coinBalance);
-  const homeFeed = trpc.discovery.homeFeed.useQuery(undefined, { retry: false });
   const onlineModels = trpc.discovery.onlineModels.useQuery({ limit: 10 }, { retry: false });
   const configBootstrap = trpc.config.getBootstrap.useQuery(undefined, { retry: false });
+  const bannersQuery = trpc.cms.listPublicBanners.useQuery(undefined, { retry: false });
 
   const models = (onlineModels.data?.models ?? []) as any[];
   const runtimeConfigCount = (configBootstrap.data?.systemSettings ?? []).length;
+  const banners = (bannersQuery.data ?? []) as any[];
+
+  const openBanner = (banner: any) => {
+    const target = String(banner.linkTarget ?? "");
+    if (banner.linkType === "MODEL_PROFILE" && target) {
+      router.push(`/profile/${target}`);
+      return;
+    }
+    if (target.startsWith("/")) {
+      router.push(target as any);
+    }
+  };
 
   return (
     <Screen scroll>
@@ -48,6 +60,40 @@ export default function HomeScreen() {
         ))}
       </View>
 
+      {banners.length > 0 && (
+        <>
+          <SectionHeader title="Campaign Banners" action="Explore" onAction={() => router.push("/(tabs)/discover")} />
+          <FlatList
+            data={banners}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                onPress={() => openBanner(item)}
+                activeOpacity={0.85}
+                style={{
+                  width: 240,
+                  marginRight: SPACING.sm,
+                  borderRadius: RADIUS.lg,
+                  backgroundColor: COLORS.primary,
+                  padding: SPACING.md,
+                }}
+              >
+                <Text style={{ color: COLORS.white, fontSize: 18, fontWeight: "700", marginBottom: 6 }}>
+                  {item.title}
+                </Text>
+                <Text style={{ color: COLORS.white, opacity: 0.9, fontSize: 13 }}>
+                  {item.linkType === "PROMOTION" ? "Promotion campaign" : "Tap to open"}
+                </Text>
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={null}
+            style={{ marginBottom: SPACING.md }}
+          />
+        </>
+      )}
+
       {/* Online Models */}
       <SectionHeader title="Online Now" action="See All" onAction={() => router.push("/(tabs)/discover")} />
       <FlatList
@@ -57,10 +103,10 @@ export default function HomeScreen() {
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <TouchableOpacity
-            onPress={() => router.push(`/profile/${item.id}`)}
+            onPress={() => router.push(`/profile/${item.userId ?? item.modelId ?? item.id}`)}
             style={{ alignItems: "center", marginRight: SPACING.md }}
           >
-            <Avatar uri={item.profileImage} size={72} online />
+            <Avatar uri={item.avatarUrl ?? item.profileImage} size={72} online />
             <Text style={{ fontSize: 13, fontWeight: "500", color: COLORS.text, marginTop: 6 }}>{item.displayName ?? "Model"}</Text>
             <Badge text="Online" color={COLORS.success} />
           </TouchableOpacity>

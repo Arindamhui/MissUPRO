@@ -31,6 +31,8 @@ import { PartyModule } from "../party/party.module";
 import { SocialModule } from "../social/social.module";
 import { ConfigModule } from "../config/config.module";
 import { PayoutsModule } from "../payouts/payouts.module";
+import { PkModule } from "../pk/pk.module";
+import { LeaderboardsModule } from "../leaderboards/leaderboards.module";
 
 // Global module: makes TrpcService available to all modules without explicit import
 @Global()
@@ -73,6 +75,8 @@ export class TrpcCoreModule {}
     SocialModule,
     ConfigModule,
     PayoutsModule,
+    PkModule,
+    LeaderboardsModule,
   ],
   providers: [TrpcRouter],
   exports: [TrpcRouter],

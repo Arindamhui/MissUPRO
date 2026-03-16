@@ -7,9 +7,24 @@ import { formatDate } from "@/lib/utils";
 export default function NotificationsPage() {
   const [tab, setTab] = useState("campaigns");
   const [showCreate, setShowCreate] = useState(false);
+  const [formName, setFormName] = useState("");
+  const [formType, setFormType] = useState("push");
+  const [formSchedule, setFormSchedule] = useState("");
 
   const campaigns = trpc.admin.listNotificationCampaigns.useQuery(undefined, { retry: false });
-  const rows = (campaigns.data?.campaigns ?? []) as Record<string, unknown>[];
+  const createMut = trpc.admin.createNotificationCampaign.useMutation({
+    onSuccess: () => { campaigns.refetch(); setShowCreate(false); setFormName(""); },
+  });
+  const rows = (campaigns.data?.items ?? []) as Record<string, unknown>[];
+
+  const handleCreate = () => {
+    if (!formName.trim()) return;
+    createMut.mutate({
+      name: formName,
+      campaignType: formType,
+      scheduledAt: formSchedule ? new Date(formSchedule) : undefined,
+    });
+  };
 
   return (
     <>
@@ -32,18 +47,13 @@ export default function NotificationsPage() {
       {tab === "campaigns" && (
         <DataTable
           columns={[
-            { key: "id", label: "ID" },
-            { key: "title", label: "Title" },
-            { key: "targetAudience", label: "Audience" },
-            { key: "sentCount", label: "Sent" },
+            { key: "id", label: "ID", render: (r) => String(r.id).slice(0, 8) },
+            { key: "name", label: "Name" },
+            { key: "campaignType", label: "Type" },
+            { key: "deliveredCount", label: "Delivered" },
+            { key: "openedCount", label: "Opened" },
             { key: "status", label: "Status" },
             { key: "scheduledAt", label: "Scheduled", render: (r) => r.scheduledAt ? formatDate(String(r.scheduledAt)) : "-" },
-            { key: "actions", label: "", render: () => (
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm">Edit</Button>
-                <Button variant="primary" size="sm">Send</Button>
-              </div>
-            )},
           ]}
           data={rows}
         />
@@ -51,30 +61,28 @@ export default function NotificationsPage() {
 
       {tab === "system" && (
         <Card title="System Alerts">
-          <p className="text-sm text-muted-foreground">System-wide alert configuration and history</p>
+          <p className="text-sm text-muted-foreground">System alerts are managed via the Settings page under Feature Flags. Enable or disable platform-wide banners and maintenance notices there.</p>
         </Card>
       )}
 
       {tab === "templates" && (
         <Card title="Notification Templates">
-          <p className="text-sm text-muted-foreground">Reusable notification templates for campaigns</p>
+          <p className="text-sm text-muted-foreground">Templates are defined as campaign types. Create a new campaign and select the appropriate type to use a template.</p>
         </Card>
       )}
 
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Create Notification Campaign">
         <div className="space-y-4">
-          <Input label="Campaign Title" placeholder="Enter title" />
-          <Input label="Message Body" placeholder="Notification content..." />
-          <Select label="Target Audience" options={[
-            { value: "all", label: "All Users" },
-            { value: "new", label: "New Users (< 7 days)" },
-            { value: "returning", label: "Returning Users" },
-            { value: "vip", label: "VIP Users" },
-            { value: "inactive", label: "Inactive Users" },
+          <Input label="Campaign Name" placeholder="Enter campaign name" value={formName} onChange={(e: any) => setFormName(e.target.value)} />
+          <Select label="Campaign Type" value={formType} onChange={(v: any) => setFormType(v)} options={[
+            { value: "push", label: "Push Notification" },
+            { value: "in_app", label: "In-App Notification" },
+            { value: "email", label: "Email" },
+            { value: "sms", label: "SMS" },
           ]} />
-          <Input label="Schedule" type="datetime-local" />
+          <Input label="Schedule (optional)" type="datetime-local" value={formSchedule} onChange={(e: any) => setFormSchedule(e.target.value)} />
           <div className="flex gap-2 pt-2">
-            <Button>Create</Button>
+            <Button onClick={handleCreate}>Create</Button>
             <Button variant="secondary" onClick={() => setShowCreate(false)}>Cancel</Button>
           </div>
         </div>

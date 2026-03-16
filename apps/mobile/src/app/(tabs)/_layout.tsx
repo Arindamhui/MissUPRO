@@ -1,6 +1,9 @@
-import { Tabs } from "expo-router";
+import { useAuth } from "@clerk/clerk-expo";
+import { Tabs, Redirect } from "expo-router";
 import { COLORS } from "@/theme";
-import { Text, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
+import { useAuthStore } from "@/store";
+import { useCallSocket } from "@/hooks/useSocket";
 
 function TabIcon({ icon, label, focused }: { icon: string; label: string; focused: boolean }) {
   return (
@@ -15,6 +18,33 @@ function TabIcon({ icon, label, focused }: { icon: string; label: string; focuse
 }
 
 export default function TabsLayout() {
+  const { isLoaded, isSignedIn } = useAuth();
+  const userId = useAuthStore((s) => s.userId);
+  const authMode = useAuthStore((s) => s.authMode);
+  useCallSocket();
+
+  const hasAppAccess = isSignedIn || authMode === "guest";
+
+  if (!isLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: COLORS.background }}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
+
+  if (!hasAppAccess) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
+  if (!userId) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: COLORS.background }}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
+
   return (
     <Tabs
       screenOptions={{

@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Users, UserCog, Gift, Layers, BarChart3, DollarSign,
   CreditCard, Shield, Bell, Settings, Tv, Gamepad2, AudioLines, PartyPopper,
-  Megaphone, Calendar, ChevronLeft, ChevronRight, Crown, Trophy,
+  Megaphone, Calendar, ChevronLeft, ChevronRight, Crown, Trophy, KeyRound,
+  Landmark, Building2, Home, Palette,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -15,6 +16,7 @@ const NAV = [
   { label: "Model Verification", href: "/admin/models", icon: UserCog },
   { label: "Wallet & Economy Settings", href: "/admin/finance", icon: DollarSign },
   { label: "Coin Packages", href: "/admin/finance", icon: CreditCard },
+  { label: "Payout Control", href: "/admin/payouts", icon: Landmark },
   { label: "Gift Catalog", href: "/admin/gifts", icon: Gift },
   { label: "Live Stream Moderation", href: "/admin/live", icon: Tv },
   { label: "Events Management", href: "/admin/events", icon: Calendar },
@@ -24,10 +26,15 @@ const NAV = [
   { label: "Group Audio Rooms", href: "/admin/group-audio", icon: AudioLines },
   { label: "Party Rooms", href: "/admin/party", icon: PartyPopper },
   { label: "Campaign Management", href: "/admin/campaigns", icon: Megaphone },
+  { label: "Agency Management", href: "/admin/agencies", icon: Building2 },
+  { label: "Fraud Monitoring", href: "/admin/fraud", icon: Shield },
+  { label: "Homepage Layout", href: "/admin/homepage", icon: Home },
+  { label: "Themes", href: "/admin/themes", icon: Palette },
   { label: "Analytics Dashboards", href: "/admin/analytics", icon: BarChart3 },
   { label: "System Settings Editor", href: "/admin/settings", icon: Settings },
   { label: "Feature Flags", href: "/admin/settings", icon: Layers },
   { label: "Moderation", href: "/admin/moderation", icon: Shield },
+  { label: "Sessions", href: "/admin/sessions", icon: KeyRound },
   { label: "Notifications", href: "/admin/notifications", icon: Bell },
 ];
 
@@ -52,7 +59,7 @@ export function Sidebar() {
           const active = currentPath.startsWith(item.href);
           return (
             <Link
-              key={item.href}
+              key={`${item.href}-${item.label}`}
               href={item.href}
               className={cn(
                 "flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg mx-2 transition-colors",

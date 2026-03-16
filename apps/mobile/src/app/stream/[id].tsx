@@ -5,6 +5,7 @@ import { useSocket } from "@/hooks/useSocket";
 import { Avatar, Badge, CoinDisplay } from "@/components/ui";
 import { COLORS, SPACING, RADIUS } from "@/theme";
 import { useUIStore } from "@/store";
+import { SOCKET_EVENTS } from "@missu/types";
 
 const { width, height } = Dimensions.get("window");
 
@@ -16,39 +17,69 @@ interface ChatMessage {
   timestamp: number;
 }
 
+type StreamSyncEvent = {
+  event: string;
+  payload: Record<string, any>;
+};
+
 export default function StreamScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { emit, on } = useSocket();
+  const { emit, emitWithAck, on } = useSocket();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [viewerCount, setViewerCount] = useState(0);
 
   useEffect(() => {
-    emit("stream:join", { roomId: id });
+    emit(SOCKET_EVENTS.STREAM.JOIN, { roomId: id });
+    emit(SOCKET_EVENTS.STREAM.SYNC_REQUEST, { roomId: id, limit: 30 });
 
-    const unsub1 = on("stream:chat_message", (msg: ChatMessage) => {
-      setMessages((prev) => [...prev.slice(-100), { ...msg, id: Date.now().toString() }]);
+    const pushMessage = (msg: any) => {
+      setMessages((prev) => [...prev.slice(-100), { ...msg, id: String(msg.id ?? Date.now()) }]);
+    };
+
+    const unsub1 = on(SOCKET_EVENTS.STREAM.CHAT_MESSAGE, (msg: ChatMessage) => {
+      pushMessage(msg);
     });
 
-    const unsub2 = on("stream:viewer_joined", () => {
+    const unsub2 = on(SOCKET_EVENTS.STREAM.VIEWER_JOINED, (payload: { viewerCount?: number }) => {
+      if (typeof payload?.viewerCount === "number") {
+        setViewerCount(payload.viewerCount);
+        return;
+      }
       setViewerCount((c) => c + 1);
     });
 
-    const unsub3 = on("stream:viewer_left", () => {
+    const unsub3 = on(SOCKET_EVENTS.STREAM.VIEWER_LEFT, (payload: { viewerCount?: number }) => {
+      if (typeof payload?.viewerCount === "number") {
+        setViewerCount(payload.viewerCount);
+        return;
+      }
       setViewerCount((c) => Math.max(0, c - 1));
     });
 
+    const unsub4 = on(SOCKET_EVENTS.STREAM.SYNC_STATE, (payload: { viewerCount: number; recentEvents: StreamSyncEvent[]; recentMessages?: ChatMessage[] }) => {
+      setViewerCount(payload.viewerCount ?? 0);
+      const replayedMessages = (payload.recentMessages?.length
+        ? payload.recentMessages
+        : (payload.recentEvents ?? [])
+          .filter((event) => event.event === SOCKET_EVENTS.STREAM.CHAT_MESSAGE)
+          .map((event, index) => ({ ...(event.payload as ChatMessage), id: String((event.payload as any).id ?? `replay-${index}`) }))) as ChatMessage[];
+      setMessages(replayedMessages.slice(-100));
+    });
+
     return () => {
-      emit("stream:leave", { roomId: id });
+      emit(SOCKET_EVENTS.STREAM.LEAVE, { roomId: id });
       unsub1?.();
       unsub2?.();
       unsub3?.();
+      unsub4?.();
     };
   }, [id]);
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (!inputText.trim()) return;
-    emit("stream:chat", { roomId: id, message: inputText.trim() });
+    const response = await emitWithAck<{ ok: boolean }>(SOCKET_EVENTS.STREAM.CHAT, { roomId: id, message: inputText.trim() }).catch(() => ({ ok: false }));
+    if (!response?.ok) return;
     setInputText("");
   };
 

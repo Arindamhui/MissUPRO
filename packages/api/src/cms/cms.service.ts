@@ -1,13 +1,28 @@
 import { Injectable } from "@nestjs/common";
 import { db } from "@missu/db";
 import { banners, themes, themeAssets, promotions, homepageSections, levels, levelRewards } from "@missu/db/schema";
-import { eq, and, desc, asc, gte, lte } from "drizzle-orm";
+import { eq, and, desc, asc, gte, lte, isNull, or } from "drizzle-orm";
 
 @Injectable()
 export class CmsService {
   // ─── Banners ───
   async listBanners() {
     return db.select().from(banners).orderBy(asc(banners.position));
+  }
+
+  async listPublicBanners() {
+    const now = new Date();
+    return db
+      .select()
+      .from(banners)
+      .where(
+        and(
+          or(eq(banners.status, "ACTIVE" as any), eq(banners.status, "SCHEDULED" as any)),
+          or(isNull(banners.startDate), lte(banners.startDate, now)),
+          or(isNull(banners.endDate), gte(banners.endDate, now)),
+        ),
+      )
+      .orderBy(asc(banners.position), desc(banners.updatedAt));
   }
 
   async createBanner(data: { title: string; imageUrl: string; linkType: string; linkTarget?: string; position?: number; startDate?: Date; endDate?: Date; createdByAdminId: string }) {
@@ -71,13 +86,47 @@ export class CmsService {
     return db.select().from(promotions).orderBy(desc(promotions.createdAt));
   }
 
-  async createPromotion(data: { name: string; description?: string; promotionType: string; startDate: Date; endDate: Date; targetAudience?: string; createdByAdminId: string; rewardRulesJson?: any }) {
-    const [promo] = await db.insert(promotions).values({ ...data, status: "ACTIVE" as any } as any).returning();
+  async createPromotion(data: {
+    name: string;
+    description?: string;
+    promotionType: string;
+    startDate: Date;
+    endDate: Date;
+    status?: string;
+    targetAudience?: string;
+    targetRegion?: string;
+    bannerImageUrl?: string;
+    maxBudget?: number;
+    createdByAdminId: string;
+    rewardRulesJson?: any;
+  }) {
+    const now = new Date();
+    const status = data.status
+      ?? (data.startDate > now ? "SCHEDULED" : data.endDate < now ? "ENDED" : "ACTIVE");
+    const [promo] = await db.insert(promotions).values({
+      name: data.name,
+      description: data.description ?? "",
+      promotionType: data.promotionType as any,
+      status: status as any,
+      targetAudience: (data.targetAudience ?? "ALL_USERS") as any,
+      targetRegion: data.targetRegion ?? null,
+      bannerImageUrl: data.bannerImageUrl ?? null,
+      maxBudget: data.maxBudget?.toString(),
+      startDate: data.startDate,
+      endDate: data.endDate,
+      rewardRulesJson: data.rewardRulesJson ?? {},
+      createdByAdminId: data.createdByAdminId,
+    } as any).returning();
     return promo;
   }
 
   async updatePromotion(promotionId: string, data: Record<string, any>) {
-    const [updated] = await db.update(promotions).set({ ...data, updatedAt: new Date() }).where(eq(promotions.id, promotionId)).returning();
+    const payload = {
+      ...data,
+      maxBudget: data.maxBudget !== undefined && data.maxBudget !== null ? String(data.maxBudget) : data.maxBudget,
+      updatedAt: new Date(),
+    };
+    const [updated] = await db.update(promotions).set(payload).where(eq(promotions.id, promotionId)).returning();
     return updated;
   }
 

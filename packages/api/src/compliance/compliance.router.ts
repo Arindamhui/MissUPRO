@@ -16,9 +16,30 @@ export class ComplianceRouter {
       getMyDeletionRequest: this.trpc.protectedProcedure
         .query(async ({ ctx }) => this.complianceService.getMyDeletionRequest(ctx.userId)),
 
+      requestDataExport: this.trpc.protectedProcedure
+        .mutation(async ({ ctx }) => this.complianceService.requestDataExport(ctx.userId)),
+
+      listMyDataExports: this.trpc.protectedProcedure
+        .query(async ({ ctx }) => this.complianceService.listMyDataExports(ctx.userId)),
+
+      getMyDataExport: this.trpc.protectedProcedure
+        .input(z.object({ requestId: z.string().uuid() }))
+        .query(async ({ ctx, input }) => this.complianceService.getMyDataExport(ctx.userId, input.requestId)),
+
       listDeletionRequests: this.trpc.adminProcedure
         .input(z.object({ status: z.string().optional() }).optional())
         .query(async ({ input }) => this.complianceService.listDeletionRequests(input?.status)),
+
+      listDataExportRequests: this.trpc.adminProcedure
+        .input(z.object({ status: z.string().optional() }).optional())
+        .query(async ({ input }) => this.complianceService.listDataExportRequests(input?.status)),
+
+      processDataExportRequest: this.trpc.adminProcedure
+        .input(z.object({ requestId: z.string().uuid() }))
+        .mutation(async ({ ctx, input }) => this.complianceService.processDataExportRequest(input.requestId, ctx.userId)),
+
+      runRetentionSweep: this.trpc.adminProcedure
+        .mutation(async () => this.complianceService.runRetentionSweep()),
 
       processDeletionRequest: this.trpc.adminProcedure
         .input(

@@ -83,6 +83,29 @@ export const setOnlineOverrideSchema = z.object({
   isOnline: z.boolean(),
 });
 
+export const getModelAvailabilitySchema = z.object({
+  modelUserId: z.string().uuid(),
+});
+
+export const createModelDemoVideoSchema = z.object({
+  videoUrl: z.string().url(),
+  thumbnailUrl: z.string().url(),
+  title: z.string().min(1).max(120).optional(),
+  durationSeconds: z.number().int().min(1).max(3600),
+  displayOrder: z.number().int().min(0).max(100).default(0),
+});
+
+export const getModelDemoVideosSchema = z.object({
+  modelUserId: z.string().uuid(),
+  status: z.enum(["PENDING_REVIEW", "APPROVED", "REJECTED", "ARCHIVED"]).optional(),
+});
+
+export const reviewModelDemoVideoSchema = z.object({
+  demoVideoId: z.string().uuid(),
+  status: z.enum(["APPROVED", "REJECTED", "ARCHIVED"]),
+  rejectionReason: z.string().max(500).optional(),
+});
+
 // ─── Call ───
 export const requestModelCallSchema = z.object({
   modelUserId: z.string().uuid(),
@@ -176,6 +199,12 @@ export const verifyWebhookEventSchema = z.object({
   provider: z.enum(["STRIPE", "RAZORPAY", "APPLE_IAP", "GOOGLE_PLAY"]),
   payload: z.string(),
   signature: z.string(),
+});
+
+export const createPaymentIntentSchema = z.object({
+  coinPackageId: z.string().uuid(),
+  provider: z.enum(["STRIPE", "RAZORPAY", "APPLE_IAP", "GOOGLE_PLAY"]),
+  idempotencyKey: z.string().min(8).max(128).optional(),
 });
 
 // ─── Discovery ───

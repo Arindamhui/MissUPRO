@@ -36,6 +36,7 @@ export const diamondTransactionTypeEnum = pgEnum("diamond_transaction_type", [
 ]);
 export const paymentProviderEnum = pgEnum("payment_provider", ["STRIPE", "RAZORPAY", "APPLE_IAP", "GOOGLE_PLAY"]);
 export const paymentStatusEnum = pgEnum("payment_status", ["PENDING", "COMPLETED", "FAILED", "REFUNDED", "DISPUTED"]);
+export const paymentDisputeStatusEnum = pgEnum("payment_dispute_status", ["OPEN", "UNDER_REVIEW", "WON", "LOST", "RESOLVED"]);
 export const payoutMethodEnum = pgEnum("payout_method", ["PAYPAL", "BANK_TRANSFER", "PAYONEER", "CRYPTO"]);
 export const withdrawStatusEnum = pgEnum("withdraw_status", [
   "PENDING", "APPROVED", "REJECTED", "PROCESSING", "COMPLETED", "ON_HOLD",
@@ -202,6 +203,9 @@ export const idempotencyStatusEnum = pgEnum("idempotency_status", ["IN_PROGRESS"
 export const accountDeletionStatusEnum = pgEnum("account_deletion_status", [
   "REQUESTED", "COOLING_OFF", "CANCELLED", "COMPLETED", "LEGAL_HOLD",
 ]);
+export const dataExportStatusEnum = pgEnum("data_export_status", [
+  "REQUESTED", "PROCESSING", "COMPLETED", "FAILED", "EXPIRED",
+]);
 
 // === Group Audio ===
 export const groupAudioRoomTypeEnum = pgEnum("group_audio_room_type", ["FREE", "PAID", "VIP_ONLY", "INVITE_ONLY"]);
@@ -228,3 +232,5 @@ export const partyActivityResultEnum = pgEnum("party_activity_result", ["WON", "
 
 // === Agency ===
 export const agencyHostStatusEnum = pgEnum("agency_host_status", ["ACTIVE", "REMOVED"]);
+export const agencyApplicationStatusEnum = pgEnum("agency_application_status", ["PENDING", "APPROVED", "REJECTED"]);
+export const agencyCommissionStatusEnum = pgEnum("agency_commission_status", ["PENDING", "APPROVED", "PAID", "VOID"]);

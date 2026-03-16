@@ -9,48 +9,75 @@ import { SOCKET_EVENTS } from "@missu/types";
 import { useAuthStore } from "@/store";
 
 export default function ChatScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, recipientId } = useLocalSearchParams<{ id: string; recipientId?: string }>();
   const userId = useAuthStore((s) => s.userId);
-  const { emit, on } = useSocket();
+  const { emit, emitWithAck, on } = useSocket();
   const [inputText, setInputText] = useState("");
   const [messages, setMessages] = useState<any[]>([]);
   const flatListRef = useRef<FlatList>(null);
 
-  const history = trpc.social.getMessages.useQuery(
-    { conversationId: id!, limit: 50 },
-    { retry: false, enabled: !!id },
+  const conversationLookup = trpc.social.getOrCreateConversation.useQuery(
+    { otherUserId: recipientId! },
+    { retry: false, enabled: !!recipientId },
   );
+
+  const conversationId = recipientId ? conversationLookup.data?.conversation.id : id;
+
+  const history = trpc.social.getMessages.useQuery(
+    { conversationId: conversationId!, limit: 50 },
+    { retry: false, enabled: !!conversationId },
+  );
+
+  const resolvedRecipientId = recipientId ?? history.data?.conversation?.otherUserId ?? null;
 
   useEffect(() => {
     if (history.data?.messages) {
-      setMessages(history.data.messages as any[]);
+      setMessages([...(history.data.messages as any[])].reverse());
     }
   }, [history.data]);
 
   useEffect(() => {
     const unsub = on(SOCKET_EVENTS.DM.MESSAGE, (msg: any) => {
+      if (msg?.conversationId && conversationId && msg.conversationId !== conversationId) {
+        return;
+      }
+      if (msg?.deliveryId) {
+        emit(SOCKET_EVENTS.DELIVERY.ACK, { deliveryId: msg.deliveryId });
+      }
       setMessages((prev) => [...prev, msg]);
       flatListRef.current?.scrollToEnd();
     });
     return () => { unsub?.(); };
-  }, [on]);
+  }, [conversationId, emit, on]);
 
-  const sendMessage = () => {
-    if (!inputText.trim()) return;
-    const msg = {
-      id: Date.now().toString(),
-      senderId: userId,
+  useEffect(() => {
+    if (!conversationId) return;
+
+    emitWithAck(SOCKET_EVENTS.DM.READ_UPDATE, { conversationId }).catch(() => undefined);
+  }, [conversationId, emitWithAck]);
+
+  const sendMessage = async () => {
+    if (!inputText.trim() || !resolvedRecipientId) return;
+
+    const response = await emitWithAck<{ ok: boolean; message?: any }>(SOCKET_EVENTS.DM.SEND, {
+      recipientId: resolvedRecipientId,
+      conversationId,
       content: inputText.trim(),
-      createdAt: new Date().toISOString(),
-    };
-    emit(SOCKET_EVENTS.DM.SEND, { recipientId: id, message: msg });
-    setMessages((prev) => [...prev, msg]);
+      messageType: "TEXT",
+    }).catch(() => ({ ok: false }));
+
+    if (!response?.ok || !response.message) {
+      return;
+    }
+
+    setMessages((prev) => [...prev, response.message]);
     setInputText("");
     flatListRef.current?.scrollToEnd();
   };
 
   const handleTyping = () => {
-    emit(SOCKET_EVENTS.DM.TYPING_START, { recipientId: id, conversationId: id });
+    if (!resolvedRecipientId || !conversationId) return;
+    emit(SOCKET_EVENTS.DM.TYPING_START, { recipientId: resolvedRecipientId, conversationId });
   };
 
   return (

@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { db } from "@missu/db";
 import { games, gameSessions, gamePlayers, gameMoves, gameResults } from "@missu/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, isNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { createHash } from "crypto";
 
@@ -30,6 +30,36 @@ export class GameService {
     return session;
   }
 
+  async joinSession(sessionId: string, userId: string) {
+    const [session] = await db.select().from(gameSessions).where(eq(gameSessions.id, sessionId)).limit(1);
+    if (!session) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Game session not found" });
+    }
+
+    const [existingPlayer] = await db.select().from(gamePlayers)
+      .where(and(eq(gamePlayers.gameSessionId, sessionId), eq(gamePlayers.userId, userId), isNull(gamePlayers.leftAt)))
+      .limit(1);
+
+    if (!existingPlayer) {
+      const players = await db.select().from(gamePlayers).where(eq(gamePlayers.gameSessionId, sessionId));
+      const nextSeat = `PLAYER_${players.length + 1}`;
+      await db.insert(gamePlayers).values({
+        gameSessionId: sessionId,
+        userId,
+        roleOrSeat: nextSeat,
+      });
+    }
+
+    if (session.status === "CREATED") {
+      await db.update(gameSessions).set({
+        status: "ACTIVE" as any,
+        startedAt: session.startedAt ?? new Date(),
+      }).where(eq(gameSessions.id, sessionId));
+    }
+
+    return this.getRealtimeState(sessionId, 20);
+  }
+
   async submitMove(sessionId: string, userId: string, moveData: unknown) {
     const [session] = await db.select().from(gameSessions).where(eq(gameSessions.id, sessionId)).limit(1);
     if (!session || session.status !== "ACTIVE") {
@@ -52,7 +82,25 @@ export class GameService {
       movePayloadJson,
       moveHash,
     }).returning();
-    return move;
+
+    await db.update(gameSessions).set({
+      stateJson: {
+        ...(session.stateJson as Record<string, unknown> | null ?? {}),
+        lastMoveSequence: moveSequence,
+        lastMoveAt: new Date().toISOString(),
+        lastMoveBy: userId,
+      },
+    }).where(eq(gameSessions.id, sessionId));
+
+    return {
+      id: move!.id,
+      sessionId,
+      actorUserId: userId,
+      moveSequence,
+      move: move!.movePayloadJson,
+      moveHash: move!.moveHash,
+      createdAt: move!.createdAt.toISOString(),
+    };
   }
 
   async getGameState(sessionId: string) {
@@ -60,6 +108,39 @@ export class GameService {
     const players = await db.select().from(gamePlayers).where(eq(gamePlayers.gameSessionId, sessionId));
     const moves = await db.select().from(gameMoves).where(eq(gameMoves.gameSessionId, sessionId));
     return { session, players, moves };
+  }
+
+  async getRealtimeState(sessionId: string, limit = 20) {
+    const [session] = await db.select().from(gameSessions).where(eq(gameSessions.id, sessionId)).limit(1);
+    if (!session) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Game session not found" });
+    }
+
+    const [players, moves] = await Promise.all([
+      db.select().from(gamePlayers).where(eq(gamePlayers.gameSessionId, sessionId)),
+      db.select().from(gameMoves)
+        .where(eq(gameMoves.gameSessionId, sessionId))
+        .orderBy(desc(gameMoves.moveSequence))
+        .limit(limit),
+    ]);
+
+    const recentMoves = moves
+      .reverse()
+      .map((move) => ({
+        id: move.id,
+        sessionId,
+        actorUserId: move.actorUserId,
+        moveSequence: move.moveSequence,
+        move: move.movePayloadJson,
+        moveHash: move.moveHash,
+        createdAt: move.createdAt.toISOString(),
+      }));
+
+    return {
+      session,
+      players,
+      recentMoves,
+    };
   }
 
   async endSession(sessionId: string, winnerUserId?: string, durationSeconds = 0) {

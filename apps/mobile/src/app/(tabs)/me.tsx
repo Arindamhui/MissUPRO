@@ -1,3 +1,4 @@
+import { useClerk, useUser } from "@clerk/clerk-expo";
 import React from "react";
 import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { trpc } from "@/lib/trpc";
@@ -7,10 +8,15 @@ import { useAuthStore, useWalletStore } from "@/store";
 import { router } from "expo-router";
 
 export default function MeScreen() {
+  const { signOut } = useClerk();
+  const { user } = useUser();
   const userId = useAuthStore((s) => s.userId);
+  const authMode = useAuthStore((s) => s.authMode);
+  const guestName = useAuthStore((s) => s.guestName);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
   const coins = useWalletStore((s) => s.coinBalance);
   const diamonds = useWalletStore((s) => s.diamondBalance);
-  const level = trpc.level.myLevel.useQuery(undefined, { retry: false });
+  const level = trpc.level.myLevel.useQuery(undefined, { retry: false, enabled: authMode === "authenticated" });
 
   const menuItems = [
     { icon: "🪙", label: "Wallet", route: "/wallet" },
@@ -27,12 +33,12 @@ export default function MeScreen() {
       <View style={{ alignItems: "center", paddingVertical: SPACING.lg }}>
         <Avatar size={96} />
         <Text style={{ fontSize: 22, fontWeight: "700", color: COLORS.text, marginTop: SPACING.md }}>
-          {userId ? "User" : "Guest"}
+          {user?.fullName || user?.primaryEmailAddress?.emailAddress || guestName || (userId ? "User" : "Guest")}
         </Text>
         <View style={{ flexDirection: "row", gap: SPACING.sm, marginTop: SPACING.sm }}>
           <View style={{ backgroundColor: COLORS.primaryLight, paddingHorizontal: 12, paddingVertical: 4, borderRadius: RADIUS.full }}>
             <Text style={{ color: COLORS.primary, fontSize: 13, fontWeight: "600" }}>
-              Lv.{level.data?.level ?? 1}
+              {authMode === "guest" ? "Guest Access" : `Lv.${level.data?.level ?? 1}`}
             </Text>
           </View>
         </View>
@@ -68,15 +74,24 @@ export default function MeScreen() {
       ))}
 
       {/* Logout */}
-      <Button
-        title="Sign Out"
-        variant="outline"
-        onPress={() => {
-          useAuthStore.getState().clearAuth();
-          router.replace("/(auth)/login");
-        }}
-        style={{ marginTop: SPACING.lg }}
-      />
+      {authMode === "guest" ? (
+        <Button
+          title="Sign In To Sync Progress"
+          variant="outline"
+          onPress={() => {
+            clearAuth();
+            router.replace("/(auth)/login");
+          }}
+          style={{ marginTop: SPACING.lg }}
+        />
+      ) : (
+        <Button
+          title="Sign Out"
+          variant="outline"
+          onPress={() => void signOut().then(() => router.replace("/(auth)/login"))}
+          style={{ marginTop: SPACING.lg }}
+        />
+      )}
     </Screen>
   );
 }

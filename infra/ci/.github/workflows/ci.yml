@@ -154,19 +154,40 @@ jobs:
     needs: docker
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment: production
+    outputs:
+      deployed_sha: ${{ steps.meta.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set deployment metadata
+        id: meta
+        run: |
+          echo "sha=${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "Deploying API and Web with commit ${{ github.sha }}"
 
       - name: Deploy API
+        env:
+          IMAGE_URI: ghcr.io/${{ github.repository }}/api:${{ github.sha }}
         run: |
-          echo "Deploy API image ghcr.io/${{ github.repository }}/api:${{ github.sha }}"
-          # Add your deployment command here, e.g.:
-          # - Railway: railway up
-          # - Fly.io: fly deploy --image ghcr.io/${{ github.repository }}/api:${{ github.sha }}
-          # - AWS ECS: aws ecs update-service ...
-          # - Kubernetes: kubectl set image ...
+          echo "Deploying API image $IMAGE_URI"
+          if [ -f infra/scripts/deploy-api.sh ]; then
+            chmod +x infra/scripts/deploy-api.sh
+            ./infra/scripts/deploy-api.sh
+          else
+            echo "Create infra/scripts/deploy-api.sh (use env IMAGE_URI) for Railway/Fly/k8s deploy"
+          fi
 
       - name: Deploy Web
+        env:
+          IMAGE_URI: ghcr.io/${{ github.repository }}/web:${{ github.sha }}
         run: |
-          echo "Deploy Web image ghcr.io/${{ github.repository }}/web:${{ github.sha }}"
-          # Add your deployment command here
+          echo "Deploying Web image $IMAGE_URI"
+          if [ -f infra/scripts/deploy-web.sh ]; then
+            chmod +x infra/scripts/deploy-web.sh
+            ./infra/scripts/deploy-web.sh
+          else
+            echo "Create infra/scripts/deploy-web.sh (use env IMAGE_URI) for Web deploy"
+          fi
+

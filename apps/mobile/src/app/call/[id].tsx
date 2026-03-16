@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, Dimensions } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { useCallStore } from "@/store";
+import { trpc } from "@/lib/trpc";
+import { useAuthStore, useCallStore, useWalletStore } from "@/store";
 import { useSocket } from "@/hooks/useSocket";
 import { Avatar, Button } from "@/components/ui";
 import { COLORS, SPACING, RADIUS } from "@/theme";
@@ -11,16 +12,93 @@ const { width, height } = Dimensions.get("window");
 
 export default function CallScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { isInCall, callType, otherUserId, agoraChannel } = useCallStore();
-  const { emit } = useSocket();
+  const userId = useAuthStore((s) => s.userId);
+  const coinBalance = useWalletStore((s) => s.coinBalance);
+  const { isInCall, isCalling, callType, callStatus, callDirection, otherUserId, agoraChannel, lowBalance, syncCall, setLowBalance } = useCallStore();
+  const { emit, emitWithAck, on } = useSocket();
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
+
+  const billingState = trpc.call.getBillingState.useQuery(
+    { callSessionId: id! },
+    { retry: false, enabled: !!id },
+  );
+
+  useEffect(() => {
+    const totalSeconds = billingState.data?.session?.totalDurationSeconds ?? 0;
+    if (totalSeconds > 0) {
+      setDuration(totalSeconds);
+    }
+  }, [billingState.data?.session?.totalDurationSeconds]);
+
+  useEffect(() => {
+    if (!id || !userId) return;
+
+    emitWithAck<{ ok: boolean; state?: any }>(SOCKET_EVENTS.CALL.SYNC_REQUEST, { callSessionId: id, role: "publisher" })
+      .then((response) => {
+        if (!response?.ok || !response.state?.session) return;
+        const session = response.state.session;
+        const peerUserId = session.callerUserId === userId ? session.modelUserId : session.callerUserId;
+        syncCall({
+          callId: session.id,
+          callType: session.callType === "VIDEO" ? "video" : "audio",
+          otherUserId: peerUserId,
+          status: session.status,
+          direction: session.callerUserId === userId ? "outgoing" : "incoming",
+          channel: response.state.rtc?.agoraChannel,
+          token: response.state.rtc?.agoraToken,
+          agoraAppId: response.state.rtc?.agoraAppId,
+          expiresAt: response.state.rtc?.expiresAt,
+        });
+      })
+      .catch(() => undefined);
+
+    const unsubLow = on(SOCKET_EVENTS.CALL.LOW_BALANCE, () => {
+      setLowBalance(true);
+    });
+    const unsubInsufficient = on(SOCKET_EVENTS.CALL.INSUFFICIENT_BALANCE, () => {
+      setLowBalance(true);
+      useCallStore.getState().endCall();
+      router.back();
+    });
+    const unsubEnded = on(SOCKET_EVENTS.CALL.SESSION_ENDED, () => {
+      useCallStore.getState().endCall();
+      router.back();
+    });
+
+    return () => {
+      unsubLow?.();
+      unsubInsufficient?.();
+      unsubEnded?.();
+    };
+  }, [emitWithAck, id, on, setLowBalance, syncCall, userId]);
 
   useEffect(() => {
     if (!isInCall) return;
     const interval = setInterval(() => setDuration((d) => d + 1), 1000);
     return () => clearInterval(interval);
   }, [isInCall]);
+
+  useEffect(() => {
+    if (!id || !isInCall || callDirection !== "outgoing") return;
+
+    const coinsPerMinute = billingState.data?.session?.coinsPerMinuteSnapshot ?? 0;
+    const initialTicks = billingState.data?.totalTicks ?? 0;
+    let nextTickNumber = initialTicks + 1;
+
+    const interval = setInterval(() => {
+      const estimatedBalanceAfter = Math.max(coinBalance - (coinsPerMinute * nextTickNumber), 0);
+      emitWithAck(SOCKET_EVENTS.CALL.BILLING_TICK, {
+        callSessionId: id,
+        tickNumber: nextTickNumber,
+        userBalanceAfter: estimatedBalanceAfter,
+        otherUserId,
+      }).catch(() => undefined);
+      nextTickNumber += 1;
+    }, 60_000);
+
+    return () => clearInterval(interval);
+  }, [billingState.data?.session?.coinsPerMinuteSnapshot, billingState.data?.totalTicks, callDirection, coinBalance, emitWithAck, id, isInCall, otherUserId]);
 
   const formatDuration = (s: number) => {
     const m = Math.floor(s / 60);
@@ -30,6 +108,25 @@ export default function CallScreen() {
 
   const handleEnd = () => {
     emit(SOCKET_EVENTS.CALL.END, { callSessionId: id, otherUserId });
+    useCallStore.getState().endCall();
+    router.back();
+  };
+
+  const handleAccept = async () => {
+    if (!otherUserId) return;
+    const response = await emitWithAck<{ ok: boolean; accepted?: { agoraChannel: string; agoraToken: string; agoraAppId?: string; expiresAt?: string } }>(
+      SOCKET_EVENTS.CALL.ACCEPT,
+      { callSessionId: id, callerId: otherUserId },
+    ).catch(() => ({ ok: false }));
+
+    if (!response?.ok || !response.accepted) return;
+
+    useCallStore.getState().acceptCall(id!, response.accepted.agoraChannel, response.accepted.agoraToken, response.accepted.agoraAppId, response.accepted.expiresAt);
+  };
+
+  const handleReject = async () => {
+    if (!otherUserId) return;
+    await emitWithAck(SOCKET_EVENTS.CALL.REJECT, { callSessionId: id, callerId: otherUserId }).catch(() => undefined);
     useCallStore.getState().endCall();
     router.back();
   };
@@ -48,6 +145,11 @@ export default function CallScreen() {
         <Text style={{ color: COLORS.white, opacity: 0.7, fontSize: 16, marginTop: 8 }}>
           {isInCall ? formatDuration(duration) : "Connecting..."}
         </Text>
+        {lowBalance && (
+          <Text style={{ color: COLORS.warning, fontSize: 13, marginTop: 8 }}>
+            Low balance. Call may end soon.
+          </Text>
+        )}
         <View style={{
           backgroundColor: callType === "video" ? COLORS.primary : COLORS.success,
           paddingHorizontal: 16, paddingVertical: 6, borderRadius: RADIUS.full, marginTop: 12,
@@ -59,6 +161,12 @@ export default function CallScreen() {
       </View>
 
       {/* Controls */}
+      {callDirection === "incoming" && !isInCall && callStatus === "REQUESTED" ? (
+        <View style={{ flexDirection: "row", gap: SPACING.lg }}>
+          <Button title="Decline" variant="outline" onPress={handleReject} />
+          <Button title="Accept" variant="primary" onPress={handleAccept} />
+        </View>
+      ) : (
       <View style={{ flexDirection: "row", gap: SPACING.xl }}>
         <TouchableOpacity
           onPress={() => setIsMuted(!isMuted)}
@@ -91,6 +199,7 @@ export default function CallScreen() {
           <Text style={{ fontSize: 26 }}>🔊</Text>
         </TouchableOpacity>
       </View>
+      )}
 
       {/* Gift Button */}
       <TouchableOpacity

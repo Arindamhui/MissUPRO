@@ -1,0 +1,52 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: "Commit SHA or tag to deploy (e.g. previous SHA for rollback)"
+        required: true
+        type: string
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  rollback:
+    name: Rollback to Revision
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Rollback API
+        env:
+          IMAGE_URI: ghcr.io/${{ github.repository }}/api:${{ inputs.revision }}
+        run: |
+          echo "Rolling back API to image $IMAGE_URI"
+          if [ -f infra/scripts/deploy-api.sh ]; then
+            chmod +x infra/scripts/deploy-api.sh
+            ./infra/scripts/deploy-api.sh
+          else
+            echo "Create infra/scripts/deploy-api.sh (use env IMAGE_URI) for rollback"
+          fi
+
+      - name: Rollback Web
+        env:
+          IMAGE_URI: ghcr.io/${{ github.repository }}/web:${{ inputs.revision }}
+        run: |
+          echo "Rolling back Web to image $IMAGE_URI"
+          if [ -f infra/scripts/deploy-web.sh ]; then
+            chmod +x infra/scripts/deploy-web.sh
+            ./infra/scripts/deploy-web.sh
+          else
+            echo "Create infra/scripts/deploy-web.sh (use env IMAGE_URI) for rollback"
+          fi
+
+      - name: Summary
+        run: |
+          echo "Rollback requested to revision ${{ inputs.revision }}"
+          echo "API image: ghcr.io/${{ github.repository }}/api:${{ inputs.revision }}"
+          echo "Web image: ghcr.io/${{ github.repository }}/web:${{ inputs.revision }}"

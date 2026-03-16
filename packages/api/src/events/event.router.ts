@@ -34,6 +34,18 @@ export class EventRouter {
         .input(z.object({ eventId: z.string().uuid(), limit: z.number().int().min(1).max(100).default(50) }))
         .query(async ({ input }) => this.eventService.getEventLeaderboard(input.eventId, input.limit)),
 
+      updateParticipantScore: this.trpc.adminProcedure
+        .input(z.object({ eventId: z.string().uuid(), userId: z.string().uuid(), scoreDelta: z.number() }))
+        .mutation(async ({ input }) => this.eventService.updateParticipantScore(input.eventId, input.userId, input.scoreDelta)),
+
+      getEventAnalytics: this.trpc.adminProcedure
+        .input(z.object({ eventId: z.string().uuid() }))
+        .query(async ({ input }) => this.eventService.getEventAnalytics(input.eventId)),
+
+      distributeEventRewards: this.trpc.adminProcedure
+        .input(z.object({ eventId: z.string().uuid() }))
+        .mutation(async ({ input }) => this.eventService.distributeEventRewards(input.eventId)),
+
       // Leaderboards
       listLeaderboards: this.trpc.protectedProcedure
         .query(async () => this.eventService.listLeaderboards()),

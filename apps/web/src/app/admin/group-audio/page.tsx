@@ -17,9 +17,9 @@ export default function GroupAudioPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <KpiCard label="Active Rooms" value={formatNumber(rows.length)} icon={AudioLines} />
-        <KpiCard label="Total Participants" value={formatNumber(340)} icon={Users} />
-        <KpiCard label="Avg Duration" value="32min" icon={Clock} />
-        <KpiCard label="Revenue Today" value={formatCurrency(2150)} icon={DollarSign} />
+        <KpiCard label="Total Participants" value={formatNumber(rows.reduce((s, r) => s + Number(r.participantCount ?? 0), 0))} icon={Users} />
+        <KpiCard label="Total Speakers" value={formatNumber(rows.reduce((s, r) => s + Number(r.speakerCount ?? 0), 0))} icon={Clock} />
+        <KpiCard label="Revenue Today" value="-" icon={DollarSign} />
       </div>
 
       <Tabs

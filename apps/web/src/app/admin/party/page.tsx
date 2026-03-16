@@ -17,9 +17,9 @@ export default function PartyPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <KpiCard label="Active Parties" value={formatNumber(rows.length)} icon={PartyPopper} />
-        <KpiCard label="Total Members" value={formatNumber(890)} icon={Users} />
-        <KpiCard label="Active Games" value="24" icon={Gamepad2} />
-        <KpiCard label="VIP Parties" value="8" icon={Crown} />
+        <KpiCard label="Total Members" value={formatNumber(rows.reduce((s, r) => s + Number(r.memberCount ?? 0), 0))} icon={Users} />
+        <KpiCard label="Total Seats" value={formatNumber(rows.reduce((s, r) => s + Number(r.seatCount ?? 0), 0))} icon={Gamepad2} />
+        <KpiCard label="VIP Parties" value={formatNumber(rows.filter((r) => r.isVip).length)} icon={Crown} />
       </div>
 
       <Tabs

@@ -5,9 +5,12 @@ import { eq, sql, desc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { acquireLock, releaseLock } from "@missu/utils";
 import { generateIdempotencyKey } from "@missu/utils";
+import { IdempotencyService } from "../common/idempotency.service";
 
 @Injectable()
 export class WalletService {
+  constructor(private readonly idempotencyService: IdempotencyService) {}
+
   async getOrCreateWallet(userId: string) {
     const [existing] = await db.select().from(wallets).where(eq(wallets.userId, userId)).limit(1);
     if (existing) return existing;
@@ -34,40 +37,50 @@ export class WalletService {
     idempotencyKey?: string,
   ) {
     const idemKey = idempotencyKey ?? generateIdempotencyKey(userId, "debit", referenceId);
-    const lockToken = await acquireLock(`wallet:${userId}`, 5000);
-    if (!lockToken) throw new TRPCError({ code: "CONFLICT", message: "Wallet operation in progress" });
+    return this.idempotencyService.execute(
+      {
+        key: idemKey,
+        operationScope: "wallet:debit",
+        actorUserId: userId,
+        requestData: { amount, type, referenceId, description },
+      },
+      async () => {
+        const lockToken = await acquireLock(`wallet:${userId}`, 5000);
+        if (!lockToken) throw new TRPCError({ code: "CONFLICT", message: "Wallet operation in progress" });
 
-    try {
-      const wallet = await this.getOrCreateWallet(userId);
-      if (wallet.coinBalance < amount) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Insufficient balance" });
-      }
+        try {
+          const wallet = await this.getOrCreateWallet(userId);
+          if (wallet.coinBalance < amount) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Insufficient balance" });
+          }
 
-      await db.transaction(async (tx) => {
-        await tx
-          .update(wallets)
-          .set({
-            coinBalance: sql`${wallets.coinBalance} - ${amount}`,
-            lifetimeCoinsSpent: sql`${wallets.lifetimeCoinsSpent} + ${amount}`,
-            updatedAt: new Date(),
-          })
-          .where(eq(wallets.userId, userId));
+          await db.transaction(async (tx) => {
+            await tx
+              .update(wallets)
+              .set({
+                coinBalance: sql`${wallets.coinBalance} - ${amount}`,
+                lifetimeCoinsSpent: sql`${wallets.lifetimeCoinsSpent} + ${amount}`,
+                updatedAt: new Date(),
+              })
+              .where(eq(wallets.userId, userId));
 
-        await tx.insert(coinTransactions).values({
-          userId,
-          transactionType: type as any,
-          amount: -amount,
-          balanceAfter: wallet.coinBalance - amount,
-          referenceId,
-          description,
-          idempotencyKey: idemKey,
-        });
-      });
+            await tx.insert(coinTransactions).values({
+              userId,
+              transactionType: type as any,
+              amount: -amount,
+              balanceAfter: wallet.coinBalance - amount,
+              referenceId,
+              description,
+              idempotencyKey: idemKey,
+            });
+          });
 
-      return { success: true, newBalance: wallet.coinBalance - amount };
-    } finally {
-      await releaseLock(`wallet:${userId}`, lockToken);
-    }
+          return { success: true, newBalance: wallet.coinBalance - amount };
+        } finally {
+          await releaseLock(`wallet:${userId}`, lockToken);
+        }
+      },
+    );
   }
 
   async creditCoins(
@@ -79,36 +92,47 @@ export class WalletService {
     idempotencyKey?: string,
   ) {
     const idemKey = idempotencyKey ?? generateIdempotencyKey(userId, "credit", referenceId);
-    const lockToken = await acquireLock(`wallet:${userId}`, 5000);
-    if (!lockToken) throw new TRPCError({ code: "CONFLICT", message: "Wallet operation in progress" });
+    return this.idempotencyService.execute(
+      {
+        key: idemKey,
+        operationScope: "wallet:credit",
+        actorUserId: userId,
+        requestData: { amount, type, referenceId, description },
+      },
+      async () => {
+        const lockToken = await acquireLock(`wallet:${userId}`, 5000);
+        if (!lockToken) throw new TRPCError({ code: "CONFLICT", message: "Wallet operation in progress" });
 
-    try {
-      const wallet = await this.getOrCreateWallet(userId);
+        try {
+          const wallet = await this.getOrCreateWallet(userId);
 
-      await db.transaction(async (tx) => {
-        await tx
-          .update(wallets)
-          .set({
-            coinBalance: sql`${wallets.coinBalance} + ${amount}`,
-            updatedAt: new Date(),
-          })
-          .where(eq(wallets.userId, userId));
+          await db.transaction(async (tx) => {
+            await tx
+              .update(wallets)
+              .set({
+                coinBalance: sql`${wallets.coinBalance} + ${amount}`,
+                lifetimeCoinsPurchased: sql`${wallets.lifetimeCoinsPurchased} + ${amount}`,
+                updatedAt: new Date(),
+              })
+              .where(eq(wallets.userId, userId));
 
-        await tx.insert(coinTransactions).values({
-          userId,
-          transactionType: type as any,
-          amount,
-          balanceAfter: wallet.coinBalance + amount,
-          referenceId,
-          description,
-          idempotencyKey: idemKey,
-        });
-      });
+            await tx.insert(coinTransactions).values({
+              userId,
+              transactionType: type as any,
+              amount,
+              balanceAfter: wallet.coinBalance + amount,
+              referenceId,
+              description,
+              idempotencyKey: idemKey,
+            });
+          });
 
-      return { success: true, newBalance: wallet.coinBalance + amount };
-    } finally {
-      await releaseLock(`wallet:${userId}`, lockToken);
-    }
+          return { success: true, newBalance: wallet.coinBalance + amount };
+        } finally {
+          await releaseLock(`wallet:${userId}`, lockToken);
+        }
+      },
+    );
   }
 
   async creditDiamonds(
@@ -117,43 +141,84 @@ export class WalletService {
     type: string,
     referenceId: string,
     description: string,
+    idempotencyKey?: string,
   ) {
-    const wallet = await this.getOrCreateWallet(userId);
-    const idemKey = generateIdempotencyKey(userId, "diamond_credit", referenceId);
+    const idemKey = idempotencyKey ?? generateIdempotencyKey(userId, "diamond_credit", referenceId);
 
-    await db.transaction(async (tx) => {
-      await tx
-        .update(wallets)
-        .set({
-          diamondBalance: sql`${wallets.diamondBalance} + ${amount}`,
-          lifetimeDiamondsEarned: sql`${wallets.lifetimeDiamondsEarned} + ${amount}`,
-          updatedAt: new Date(),
-        })
-        .where(eq(wallets.userId, userId));
+    return this.idempotencyService.execute(
+      {
+        key: idemKey,
+        operationScope: "wallet:diamond-credit",
+        actorUserId: userId,
+        requestData: { amount, type, referenceId, description },
+      },
+      async () => {
+        const wallet = await this.getOrCreateWallet(userId);
 
-      await tx.insert(diamondTransactions).values({
-        userId,
-        transactionType: type as any,
-        amount,
-        balanceAfter: wallet.diamondBalance + amount,
-        referenceId,
-        description,
-        idempotencyKey: idemKey,
-      });
-    });
+        await db.transaction(async (tx) => {
+          await tx
+            .update(wallets)
+            .set({
+              diamondBalance: sql`${wallets.diamondBalance} + ${amount}`,
+              lifetimeDiamondsEarned: sql`${wallets.lifetimeDiamondsEarned} + ${amount}`,
+              updatedAt: new Date(),
+            })
+            .where(eq(wallets.userId, userId));
+
+          await tx.insert(diamondTransactions).values({
+            userId,
+            transactionType: type as any,
+            amount,
+            balanceAfter: wallet.diamondBalance + amount,
+            referenceId,
+            description,
+            idempotencyKey: idemKey,
+          });
+        });
+
+        return { success: true, newBalance: wallet.diamondBalance + amount };
+      },
+    );
   }
 
   async getCoinPackages() {
-    return db
+    const packages = await db
       .select()
       .from(coinPackages)
       .where(eq(coinPackages.isActive, true))
       .orderBy(coinPackages.displayOrder);
+
+    return packages.map((coinPackage) => ({
+      ...coinPackage,
+      coins: coinPackage.coinAmount + coinPackage.bonusCoins,
+      amount: coinPackage.coinAmount + coinPackage.bonusCoins,
+      baseCoins: coinPackage.coinAmount,
+      price: coinPackage.priceUsd,
+      priceDisplay: coinPackage.currency === "USD" ? `$${coinPackage.priceUsd}` : `${coinPackage.currency} ${coinPackage.priceUsd}`,
+    }));
   }
 
   async getBalance(userId: string) {
     const wallet = await this.getOrCreateWallet(userId);
-    return { coins: wallet.coinBalance, diamonds: wallet.diamondBalance };
+    const [recentCoinTransactions, recentDiamondTransactions] = await Promise.all([
+      db.select().from(coinTransactions).where(eq(coinTransactions.userId, userId)).orderBy(desc(coinTransactions.createdAt)).limit(10),
+      db.select().from(diamondTransactions).where(eq(diamondTransactions.userId, userId)).orderBy(desc(diamondTransactions.createdAt)).limit(10),
+    ]);
+
+    const recentTransactions = [
+      ...recentCoinTransactions.map((transaction) => ({ ...transaction, ledger: "COIN" as const })),
+      ...recentDiamondTransactions.map((transaction) => ({ ...transaction, ledger: "DIAMOND" as const })),
+    ]
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+      .slice(0, 10);
+
+    return {
+      coins: wallet.coinBalance,
+      diamonds: wallet.diamondBalance,
+      coinBalance: wallet.coinBalance,
+      diamondBalance: wallet.diamondBalance,
+      recentTransactions,
+    };
   }
 
   async requestWithdrawal(
@@ -202,9 +267,38 @@ export class WalletService {
 
     return {
       walletId: wallet.id,
+      userId,
       currentBalance: wallet.coinBalance,
       ledgerBalance: expectedBalance,
       mismatch,
     };
+  }
+
+  /** Admin: verify ledger for a user (read-only). Same shape as runReconciliation. */
+  async getLedgerVerification(userId: string) {
+    return this.runReconciliation(userId);
+  }
+
+  /** Admin: list wallets where coin balance does not match sum of coin_transactions. */
+  async listLedgerMismatches(limit = 100) {
+    const allWallets = await db.select().from(wallets).limit(limit * 2);
+    const mismatches: Array<{ userId: string; walletId: string; currentBalance: number; ledgerBalance: number }> = [];
+    for (const w of allWallets) {
+      const [coinSum] = await db
+        .select({ total: sql<number>`COALESCE(SUM(${coinTransactions.amount}), 0)` })
+        .from(coinTransactions)
+        .where(eq(coinTransactions.userId, w.userId));
+      const ledgerBalance = Number(coinSum?.total ?? 0);
+      if (w.coinBalance !== ledgerBalance) {
+        mismatches.push({
+          userId: w.userId,
+          walletId: w.id,
+          currentBalance: w.coinBalance,
+          ledgerBalance,
+        });
+        if (mismatches.length >= limit) break;
+      }
+    }
+    return { items: mismatches };
   }
 }

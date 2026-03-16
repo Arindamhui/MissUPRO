@@ -27,4 +27,9 @@ export class PresenceService {
   async getBulkStatus(userIds: string[]) {
     return getPresenceBulk(userIds);
   }
+
+  async heartbeat(userId: string, status: string, ttlSeconds: number = PRESENCE.TTL_SECONDS) {
+    await setPresence(userId, status, ttlSeconds);
+    return { userId, status, ttlSeconds, updatedAt: new Date().toISOString() };
+  }
 }

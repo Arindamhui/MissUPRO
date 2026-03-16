@@ -38,6 +38,10 @@ export class AuthRouter {
           await this.authService.revokeSession(input.sessionId, ctx.userId);
           return { success: true };
         }),
+
+      listMySessions: this.trpc.protectedProcedure.query(async ({ ctx }) => {
+        return this.authService.listMySessions(ctx.userId);
+      }),
     });
   }
 }

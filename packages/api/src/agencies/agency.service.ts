@@ -1,12 +1,46 @@
 import { Injectable } from "@nestjs/common";
 import { db } from "@missu/db";
-import { agencies, agencyHosts, models, users } from "@missu/db/schema";
+import { agencies, agencyHosts, agencyApplications, agencyCommissionRecords, models, users } from "@missu/db/schema";
 import { eq, and, desc, count } from "drizzle-orm";
 import { DEFAULTS } from "@missu/config";
 import { decodeCursor, encodeCursor } from "@missu/utils";
 
 @Injectable()
 export class AgencyService {
+  async submitApplication(userId: string, data: { name: string; contactName: string; contactEmail: string; country: string; notes?: string }) {
+    const [existing] = await db
+      .select()
+      .from(agencyApplications)
+      .where(and(eq(agencyApplications.applicantUserId, userId), eq(agencyApplications.status, "PENDING" as any)))
+      .limit(1);
+
+    if (existing) {
+      return existing;
+    }
+
+    const [application] = await db
+      .insert(agencyApplications)
+      .values({
+        applicantUserId: userId,
+        agencyName: data.name,
+        contactName: data.contactName,
+        contactEmail: data.contactEmail,
+        country: data.country,
+        notes: data.notes,
+      })
+      .returning();
+
+    return application!;
+  }
+
+  async listMyApplications(userId: string) {
+    return db
+      .select()
+      .from(agencyApplications)
+      .where(eq(agencyApplications.applicantUserId, userId))
+      .orderBy(desc(agencyApplications.createdAt));
+  }
+
   async applyAsAgency(userId: string, data: { name: string; contactName: string; contactEmail: string; country: string }) {
     const [agency] = await db
       .insert(agencies)
@@ -61,6 +95,128 @@ export class AgencyService {
       agency,
       hostCount: Number(hostCount[0]?.count ?? 0),
       hosts,
+    };
+  }
+
+  async listAgencyApplications(status?: string, cursor?: string, limit = 20) {
+    const offset = cursor ? decodeCursor(cursor) : 0;
+    const rows = await db
+      .select()
+      .from(agencyApplications)
+      .where(status ? eq(agencyApplications.status, status as any) : undefined)
+      .orderBy(desc(agencyApplications.createdAt))
+      .limit(limit + 1)
+      .offset(offset);
+    const hasMore = rows.length > limit;
+    return { items: hasMore ? rows.slice(0, limit) : rows, nextCursor: hasMore ? encodeCursor(offset + limit) : null };
+  }
+
+  async approveAgencyApplication(applicationId: string, adminId: string) {
+    const [application] = await db
+      .select()
+      .from(agencyApplications)
+      .where(eq(agencyApplications.id, applicationId))
+      .limit(1);
+    if (!application) throw new Error("Agency application not found");
+
+    const [agency] = await db
+      .insert(agencies)
+      .values({
+        agencyName: application.agencyName,
+        contactName: application.contactName,
+        contactEmail: application.contactEmail,
+        country: application.country,
+        status: "ACTIVE",
+        commissionTier: DEFAULTS.AGENCY_COMMISSION_TIERS[0]?.name ?? "STANDARD",
+        approvedByAdminId: adminId,
+      })
+      .returning();
+
+    await db.insert(agencyHosts).values({
+      agencyId: agency!.id,
+      userId: application.applicantUserId,
+      status: "ACTIVE" as any,
+    }).onConflictDoNothing();
+
+    const [updated] = await db
+      .update(agencyApplications)
+      .set({
+        status: "APPROVED" as any,
+        createdAgencyId: agency!.id,
+        reviewedByAdminId: adminId,
+        reviewedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(agencyApplications.id, applicationId))
+      .returning();
+
+    return { application: updated!, agency: agency! };
+  }
+
+  async rejectAgencyApplication(applicationId: string, adminId: string, notes?: string) {
+    const [updated] = await db
+      .update(agencyApplications)
+      .set({
+        status: "REJECTED" as any,
+        reviewedByAdminId: adminId,
+        reviewedAt: new Date(),
+        notes,
+        updatedAt: new Date(),
+      })
+      .where(eq(agencyApplications.id, applicationId))
+      .returning();
+
+    if (!updated) throw new Error("Agency application not found");
+    return updated;
+  }
+
+  async recordCommission(
+    agencyId: string,
+    hostUserId: string,
+    grossRevenueUsd: number,
+    hostPayoutUsd: number,
+    commissionRate: number,
+    adminId: string,
+    metadataJson?: Record<string, unknown>,
+  ) {
+    const commissionAmountUsd = Number((grossRevenueUsd * commissionRate).toFixed(2));
+    const [record] = await db
+      .insert(agencyCommissionRecords)
+      .values({
+        agencyId,
+        hostUserId,
+        periodStart: new Date(),
+        periodEnd: new Date(),
+        grossRevenueUsd: grossRevenueUsd.toFixed(2),
+        hostPayoutUsd: hostPayoutUsd.toFixed(2),
+        commissionRate: commissionRate.toFixed(4),
+        commissionAmountUsd: commissionAmountUsd.toFixed(2),
+        status: "APPROVED" as any,
+        metadataJson,
+        approvedByAdminId: adminId,
+        approvedAt: new Date(),
+      })
+      .returning();
+
+    return record!;
+  }
+
+  async getCommissionSummary(userId: string) {
+    const [hostRecord] = await db.select().from(agencyHosts)
+      .where(and(eq(agencyHosts.userId, userId), eq(agencyHosts.status, "ACTIVE" as any)))
+      .limit(1);
+    if (!hostRecord) throw new Error("Agency not found");
+
+    const records = await db
+      .select()
+      .from(agencyCommissionRecords)
+      .where(eq(agencyCommissionRecords.agencyId, hostRecord.agencyId))
+      .orderBy(desc(agencyCommissionRecords.createdAt));
+
+    return {
+      items: records,
+      totalCommissionUsd: records.reduce((sum, record) => sum + Number(record.commissionAmountUsd ?? 0), 0),
+      totalGrossRevenueUsd: records.reduce((sum, record) => sum + Number(record.grossRevenueUsd ?? 0), 0),
     };
   }
 

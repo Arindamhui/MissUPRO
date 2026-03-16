@@ -10,15 +10,51 @@ import {
   mediaScanResults, fraudFlags, levels,
   campaigns, banners, themes, promotions, badges,
   modelLevelRules, callPricingRules, securityIncidents,
-  groupAudioRooms, partyRooms, pkSessions,
-  dmConversations, dmMessages, notificationCampaigns,
+  modelCallStats, modelStats,
+  groupAudioRooms, partyRooms,
+  dmConversations, dmMessages, notificationCampaigns, agencyApplications,
+  agencyCommissionRecords,
 } from "@missu/db/schema";
-import { eq, and, desc, asc, sql, gte, lte, count, sum, between, like, isNull, not, inArray, isNotNull } from "drizzle-orm";
+import { PkService } from "../pk/pk.service";
+import { WalletService } from "../wallet/wallet.service";
+import { PaymentService } from "../payments/payment.service";
+import { AgencyService } from "../agencies/agency.service";
+import { ReferralService } from "../referrals/referral.service";
+import { ComplianceService } from "../compliance/compliance.service";
+import { NotificationService } from "../notifications/notification.service";
+import { SecurityService } from "../security/security.service";
+import { EventService } from "../events/event.service";
+import { CampaignService } from "../campaigns/campaign.service";
+import { ModelService } from "../models/model.service";
+import { eq, and, desc, asc, count, sum, between, like, isNull, isNotNull, or } from "drizzle-orm";
 import { decodeCursor, encodeCursor } from "@missu/utils";
 import { cacheDel, getRedis } from "@missu/utils";
 
+function buildGiftCode(name: string) {
+  return name
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 40) || "GIFT";
+}
+
 @Injectable()
 export class AdminService {
+  constructor(
+    private readonly pkService: PkService,
+    private readonly walletService: WalletService,
+    private readonly paymentService: PaymentService,
+    private readonly agencyService: AgencyService,
+    private readonly referralService: ReferralService,
+    private readonly complianceService: ComplianceService,
+    private readonly notificationService: NotificationService,
+    private readonly securityService: SecurityService,
+    private readonly eventService: EventService,
+    private readonly campaignService: CampaignService,
+    private readonly modelService: ModelService,
+  ) {}
+
   // ─── User Management ───
   async listUsers(cursor?: string, limit = 20, search?: string) {
     const offset = cursor ? decodeCursor(cursor) : 0;
@@ -96,18 +132,89 @@ export class AdminService {
     return { success: true };
   }
 
+  async listModels(status?: string, cursor?: string, limit = 20) {
+    const offset = cursor ? decodeCursor(cursor) : 0;
+    const conditions: any[] = [isNotNull(models.approvedAt)];
+
+    if (status) {
+      if (status.toLowerCase() === "active") {
+        conditions.push(eq(users.status, "ACTIVE" as any));
+      } else if (status.toLowerCase() === "suspended") {
+        conditions.push(or(eq(users.status, "SUSPENDED" as any), eq(users.status, "BANNED" as any)));
+      } else {
+        conditions.push(eq(users.status, status.toUpperCase() as any));
+      }
+    }
+
+    const results = await db
+      .select({
+        id: models.userId,
+        modelId: models.id,
+        displayName: users.displayName,
+        totalAudioMinutes: modelCallStats.audioMinutesTotal,
+        totalVideoMinutes: modelCallStats.videoMinutesTotal,
+        level: modelStats.currentLevel,
+        status: users.status,
+        isOnline: models.isOnline,
+        demoVideoCount: models.demoVideoCount,
+        createdAt: models.createdAt,
+      })
+      .from(models)
+      .innerJoin(users, eq(users.id, models.userId))
+      .leftJoin(modelCallStats, eq(modelCallStats.modelUserId, models.userId))
+      .leftJoin(modelStats, eq(modelStats.modelUserId, models.userId))
+      .where(and(...conditions))
+      .orderBy(desc(models.createdAt))
+      .limit(limit + 1)
+      .offset(offset);
+
+    const items = await Promise.all(
+      results.slice(0, limit).map(async (row) => {
+        const [pendingPayout] = await db
+          .select({ total: sum(withdrawRequests.totalPayoutAmount) })
+          .from(withdrawRequests)
+          .where(and(eq(withdrawRequests.modelUserId, row.id), eq(withdrawRequests.status, "PENDING" as any)));
+
+        return {
+          ...row,
+          pendingPayout: Number(pendingPayout?.total ?? 0),
+        };
+      }),
+    );
+
+    const hasMore = results.length > limit;
+    return { models: items, nextCursor: hasMore ? encodeCursor(offset + limit) : null };
+  }
+
   // ─── Financial Management ───
   async getFinancialOverview(startDate: Date, endDate: Date) {
-    const totalRevenue = await db.select({ total: sum(payments.amountUsd) }).from(payments).where(and(eq(payments.status, "COMPLETED" as any), between(payments.createdAt, startDate, endDate)));
-    const totalWithdrawals = await db.select({ total: sum(withdrawRequests.totalPayoutAmount) }).from(withdrawRequests).where(and(eq(withdrawRequests.status, "COMPLETED" as any), between(withdrawRequests.createdAt, startDate, endDate)));
-    const pendingWithdrawals = await db.select({ total: sum(withdrawRequests.totalPayoutAmount), count: count() }).from(withdrawRequests).where(eq(withdrawRequests.status, "PENDING" as any));
-    const giftRevenue = await db.select({ total: sum(giftTransactions.coinCost) }).from(giftTransactions).where(between(giftTransactions.createdAt, startDate, endDate));
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart = new Date(todayStart);
+    weekStart.setDate(weekStart.getDate() - 7);
+    const monthStart = new Date(todayStart);
+    monthStart.setMonth(monthStart.getMonth() - 1);
+
+    const [totalRevenue, totalWithdrawals, pendingWithdrawals, giftRevenue, monthRevenue, weekRevenue, todayRevenue] = await Promise.all([
+      db.select({ total: sum(payments.amountUsd) }).from(payments).where(and(eq(payments.status, "COMPLETED" as any), between(payments.createdAt, startDate, endDate))),
+      db.select({ total: sum(withdrawRequests.totalPayoutAmount) }).from(withdrawRequests).where(and(eq(withdrawRequests.status, "COMPLETED" as any), between(withdrawRequests.createdAt, startDate, endDate))),
+      db.select({ total: sum(withdrawRequests.totalPayoutAmount), count: count() }).from(withdrawRequests).where(eq(withdrawRequests.status, "PENDING" as any)),
+      db.select({ total: sum(giftTransactions.coinCost) }).from(giftTransactions).where(between(giftTransactions.createdAt, startDate, endDate)),
+      db.select({ total: sum(payments.amountUsd) }).from(payments).where(and(eq(payments.status, "COMPLETED" as any), between(payments.createdAt, monthStart, now))),
+      db.select({ total: sum(payments.amountUsd) }).from(payments).where(and(eq(payments.status, "COMPLETED" as any), between(payments.createdAt, weekStart, now))),
+      db.select({ total: sum(payments.amountUsd) }).from(payments).where(and(eq(payments.status, "COMPLETED" as any), between(payments.createdAt, todayStart, now))),
+    ]);
 
     return {
       totalRevenue: Number(totalRevenue[0]?.total ?? 0),
       totalWithdrawals: Number(totalWithdrawals[0]?.total ?? 0),
       pendingWithdrawals: { amount: Number(pendingWithdrawals[0]?.total ?? 0), count: Number(pendingWithdrawals[0]?.count ?? 0) },
       giftRevenue: Number(giftRevenue[0]?.total ?? 0),
+      monthRevenue: Number(monthRevenue[0]?.total ?? 0),
+      weekRevenue: Number(weekRevenue[0]?.total ?? 0),
+      todayRevenue: Number(todayRevenue[0]?.total ?? 0),
+      pendingPayouts: Number(pendingWithdrawals[0]?.total ?? 0),
+      payoutCount: Number(pendingWithdrawals[0]?.count ?? 0),
     };
   }
 
@@ -131,13 +238,120 @@ export class AdminService {
     return { success: true };
   }
 
+  async listPayments(cursor?: string, limit = 20, userId?: string, status?: string) {
+    const offset = cursor ? decodeCursor(cursor) : 0;
+    const conditions: any[] = [];
+    if (userId) conditions.push(eq(payments.userId, userId));
+    if (status) conditions.push(eq(payments.status, status as any));
+    const results = await db
+      .select()
+      .from(payments)
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(desc(payments.createdAt))
+      .limit(limit + 1)
+      .offset(offset);
+    const hasMore = results.length > limit;
+    return { items: hasMore ? results.slice(0, limit) : results, nextCursor: hasMore ? encodeCursor(offset + limit) : null };
+  }
+
+  async getPaymentDetail(paymentId: string) {
+    return this.paymentService.getPaymentDetail(paymentId);
+  }
+
+  async listWebhookEvents(cursor?: string, limit = 50) {
+    return this.paymentService.listWebhookEvents(cursor, limit);
+  }
+
+  async listPaymentDisputes(cursor?: string, limit = 50, status?: string) {
+    return this.paymentService.listPaymentDisputes(cursor, limit, status);
+  }
+
+  async openPaymentDispute(
+    paymentId: string,
+    providerDisputeId: string,
+    disputeReason: string,
+    amountUsd: number | null,
+    metadataJson: Record<string, unknown> | undefined,
+    adminId: string,
+  ) {
+    const dispute = await this.paymentService.openPaymentDispute(
+      paymentId,
+      providerDisputeId,
+      disputeReason,
+      amountUsd,
+      metadataJson,
+      adminId,
+    );
+    await this.logAction(adminId, "payment_dispute_open", { paymentId, disputeId: dispute.id });
+    return dispute;
+  }
+
+  async resolvePaymentDispute(disputeId: string, status: "UNDER_REVIEW" | "WON" | "LOST" | "RESOLVED", resolutionNotes: string | undefined, adminId: string) {
+    const dispute = await this.paymentService.resolvePaymentDispute(disputeId, status, resolutionNotes);
+    await this.logAction(adminId, "payment_dispute_resolve", { disputeId, status });
+    return dispute;
+  }
+
+  async createRefund(paymentId: string, amountUsd: number | null, idempotencyKey: string | undefined, adminId: string) {
+    const result = await this.paymentService.createRefund(paymentId, amountUsd, idempotencyKey, adminId);
+    await this.logAction(adminId, "payment_refund", { paymentId, amountUsd });
+    return result;
+  }
+
+  async updatePaymentStatus(paymentId: string, status: string, adminId: string) {
+    const [updated] = await db.update(payments).set({ status: status as any, updatedAt: new Date() }).where(eq(payments.id, paymentId)).returning();
+    await this.logAction(adminId, "payment_status_update", { paymentId, status });
+    return updated;
+  }
+
+  async listLedgerMismatches(limit = 100) {
+    return this.walletService.listLedgerMismatches(limit);
+  }
+
+  async runPaymentReconciliation(limit = 500) {
+    return this.paymentService.runPaymentReconciliation(limit);
+  }
+
   // ─── Gift Management ───
   async listGifts() {
     return db.select().from(gifts).orderBy(asc(gifts.displayOrder));
   }
 
-  async createGift(data: { name: string; iconUrl: string; coinPrice: number; category: string; effectTier: string; displayOrder?: number }, adminId: string) {
-    const [gift] = await db.insert(gifts).values({ ...data, createdByAdminId: adminId } as any).returning();
+  async createGift(
+    data: {
+      name: string;
+      iconUrl: string;
+      coinPrice: number;
+      diamondCredit: number;
+      category: string;
+      effectTier: string;
+      displayOrder?: number;
+      supportedContexts?: string[];
+      isActive?: boolean;
+    },
+    adminId: string,
+  ) {
+    const [gift] = await db.insert(gifts).values({
+      giftCode: buildGiftCode(data.name),
+      name: data.name,
+      iconUrl: data.iconUrl,
+      coinPrice: data.coinPrice,
+      diamondCredit: data.diamondCredit,
+      category: data.category,
+      effectTier: data.effectTier as any,
+      supportedContextsJson: data.supportedContexts ?? [
+        "LIVE_STREAM",
+        "VIDEO_CALL",
+        "VOICE_CALL",
+        "CHAT_CONVERSATION",
+        "PK_BATTLE",
+        "GROUP_AUDIO",
+        "PARTY",
+      ],
+      isActive: data.isActive ?? true,
+      displayOrder: data.displayOrder ?? 0,
+      createdByAdminId: adminId,
+    } as any).returning();
     if (!gift) throw new Error("Failed to create gift");
     await this.logAction(adminId, "gift_create", { giftId: gift.id });
     return gift;
@@ -157,6 +371,83 @@ export class AdminService {
     return { items: hasMore ? results.slice(0, limit) : results, nextCursor: hasMore ? encodeCursor(offset + limit) : null };
   }
 
+  // --- Referral Management ---
+  async getReferralOverview(limit = 25) {
+    return this.referralService.getReferralOverview(limit);
+  }
+
+  // --- Event Management ---
+  async listEvents(status?: string, cursor?: string, limit = 20) {
+    return this.eventService.listAdminEvents(status, cursor, limit);
+  }
+
+  async createEvent(
+    data: {
+      title: string;
+      description: string;
+      eventType: string;
+      startDate: Date;
+      endDate: Date;
+      rulesJson?: unknown;
+      rewardPoolJson?: unknown;
+    },
+    adminId: string,
+  ) {
+    const event = await this.eventService.createEvent(data, adminId);
+    await this.logAction(adminId, "event_create", { eventId: event?.id });
+    return event;
+  }
+
+  async updateEvent(eventId: string, data: Record<string, unknown>, adminId: string) {
+    const event = await this.eventService.updateEvent(eventId, data);
+    await this.logAction(adminId, "event_update", { eventId });
+    return event;
+  }
+
+  async getEventAnalytics(eventId: string) {
+    return this.eventService.getEventAnalytics(eventId);
+  }
+
+  async distributeEventRewards(eventId: string, adminId: string) {
+    const result = await this.eventService.distributeEventRewards(eventId);
+    await this.logAction(adminId, "event_rewards_distribute", { eventId, grantedCount: result.grantedCount });
+    return result;
+  }
+
+  // --- Campaign Management ---
+  async listCampaigns(status?: string, cursor?: string, limit = 20) {
+    return this.campaignService.listCampaigns(status, cursor, limit);
+  }
+
+  async upsertCampaign(
+    input: {
+      campaignId?: string;
+      name: string;
+      campaignType: string;
+      startAt: Date;
+      endAt: Date;
+      status?: string;
+      segmentRuleJson?: unknown;
+      rewardRuleJson?: unknown;
+      budgetLimitJson?: unknown;
+    },
+    adminId: string,
+  ) {
+    const campaign = await this.campaignService.upsertCampaign(input, adminId);
+    await this.logAction(adminId, input.campaignId ? "campaign_update" : "campaign_create", { campaignId: campaign?.id });
+    return campaign;
+  }
+
+  async getCampaignAnalytics(campaignId?: string) {
+    return this.campaignService.getCampaignAnalytics(campaignId);
+  }
+
+  async distributeCampaignRewards(campaignId: string, adminId: string, limit = 200) {
+    const result = await this.campaignService.distributeCampaignRewards(campaignId, limit);
+    await this.logAction(adminId, "campaign_rewards_distribute", { campaignId, grantedCount: result.grantedCount });
+    return result;
+  }
+
   // ─── Agency Management ───
   async listAgencies(cursor?: string, limit = 20) {
     const offset = cursor ? decodeCursor(cursor) : 0;
@@ -169,6 +460,59 @@ export class AdminService {
     await db.update(agencies).set({ status: "ACTIVE" as any }).where(eq(agencies.id, agencyId));
     await this.logAction(adminId, "agency_approve", { agencyId });
     return { success: true };
+  }
+
+  async listAgencyApplications(status?: string, cursor?: string, limit = 20) {
+    return this.agencyService.listAgencyApplications(status, cursor, limit);
+  }
+
+  async approveAgencyApplication(applicationId: string, adminId: string) {
+    const result = await this.agencyService.approveAgencyApplication(applicationId, adminId);
+    await this.logAction(adminId, "agency_application_approve", { applicationId, agencyId: result.agency.id });
+    return result;
+  }
+
+  async rejectAgencyApplication(applicationId: string, adminId: string, notes?: string) {
+    const result = await this.agencyService.rejectAgencyApplication(applicationId, adminId, notes);
+    await this.logAction(adminId, "agency_application_reject", { applicationId });
+    return result;
+  }
+
+  async listAgencyCommissionRecords(cursor?: string, limit = 20) {
+    const offset = cursor ? decodeCursor(cursor) : 0;
+    const results = await db
+      .select()
+      .from(agencyCommissionRecords)
+      .orderBy(desc(agencyCommissionRecords.createdAt))
+      .limit(limit + 1)
+      .offset(offset);
+    const hasMore = results.length > limit;
+    return { items: hasMore ? results.slice(0, limit) : results, nextCursor: hasMore ? encodeCursor(offset + limit) : null };
+  }
+
+  async getModelAvailability(modelUserId: string) {
+    return this.modelService.getAvailabilitySummary(modelUserId);
+  }
+
+  async overrideModelAvailability(modelUserId: string, isOnline: boolean, adminId: string) {
+    const result = await this.modelService.setOnlineOverride(modelUserId, isOnline);
+    await this.logAction(adminId, "model_availability_override", { modelUserId, isOnline });
+    return result;
+  }
+
+  async listModelDemoVideos(modelUserId: string, status?: "PENDING_REVIEW" | "APPROVED" | "REJECTED" | "ARCHIVED") {
+    return this.modelService.getDemoVideos(modelUserId, status);
+  }
+
+  async reviewModelDemoVideo(
+    demoVideoId: string,
+    status: "APPROVED" | "REJECTED" | "ARCHIVED",
+    adminId: string,
+    rejectionReason?: string,
+  ) {
+    const video = await this.modelService.reviewDemoVideo(demoVideoId, status, adminId, rejectionReason);
+    await this.logAction(adminId, "model_demo_video_review", { demoVideoId, status });
+    return video;
   }
 
   // ─── Moderation ───
@@ -348,13 +692,32 @@ export class AdminService {
     return db.select().from(uiLayoutConfigs).orderBy(asc(uiLayoutConfigs.layoutName));
   }
 
-  async upsertUiLayoutConfig(layoutName: string, sectionsJson: any, adminId: string) {
+  async upsertUiLayoutConfig(
+    layoutName: string,
+    sectionsJson: any,
+    adminId: string,
+    platform: "MOBILE" | "WEB" | "ALL" = "MOBILE",
+  ) {
     const [existing] = await db.select().from(uiLayoutConfigs).where(eq(uiLayoutConfigs.layoutName, layoutName)).limit(1);
     let result;
     if (existing) {
-      [result] = await db.update(uiLayoutConfigs).set({ sectionsJson, updatedAt: new Date() }).where(eq(uiLayoutConfigs.id, existing.id)).returning();
+      [result] = await db
+        .update(uiLayoutConfigs)
+        .set({ sectionsJson, platform: platform as any, status: "PUBLISHED" as any, effectiveFrom: new Date(), updatedAt: new Date() })
+        .where(eq(uiLayoutConfigs.id, existing.id))
+        .returning();
     } else {
-      [result] = await db.insert(uiLayoutConfigs).values({ layoutName, sectionsJson, publishedByAdminId: adminId } as any).returning();
+      [result] = await db
+        .insert(uiLayoutConfigs)
+        .values({
+          layoutName,
+          sectionsJson,
+          platform: platform as any,
+          status: "PUBLISHED" as any,
+          effectiveFrom: new Date(),
+          publishedByAdminId: adminId,
+        } as any)
+        .returning();
     }
     await this.logAction(adminId, "ui_layout_update", { layoutName });
     return result;
@@ -369,10 +732,19 @@ export class AdminService {
   }
 
   async createNotificationCampaign(data: { name: string; campaignType: string; segmentRuleJson?: any; scheduledAt?: Date }, adminId: string) {
-    const [campaign] = await db.insert(notificationCampaigns).values({ ...data, status: "DRAFT" as any, createdByAdminId: adminId } as any).returning();
-    if (!campaign) throw new Error("Failed to create campaign");
+    const campaign = await this.notificationService.createCampaign(data, adminId);
     await this.logAction(adminId, "notification_campaign_create", { campaignId: campaign.id });
     return campaign;
+  }
+
+  async runDueNotificationCampaigns(limit = 5, adminId: string) {
+    const result = await this.notificationService.runDueCampaigns(limit);
+    await this.logAction(adminId, "notification_campaign_run", { limit, processed: result.processed });
+    return result;
+  }
+
+  async getNotificationDeliveryOperations() {
+    return this.notificationService.getDeliveryOperations();
   }
 
   // ─── Call Pricing Rules ───
@@ -432,12 +804,43 @@ export class AdminService {
     return { items: hasMore ? results.slice(0, limit) : results, nextCursor: hasMore ? encodeCursor(offset + limit) : null };
   }
 
+  async getSessionMonitoringSummary() {
+    return this.securityService.getSessionMonitoringSummary();
+  }
+
+  async requireSessionStepUp(sessionId: string, reason: string, adminId: string) {
+    const result = await this.securityService.requireSessionStepUp(sessionId, adminId, reason);
+    await this.logAction(adminId, "session_step_up_required", { sessionId, reason });
+    return result;
+  }
+
+  async listDataExportRequests(status?: string) {
+    return this.complianceService.listDataExportRequests(status);
+  }
+
+  async processDataExportRequest(requestId: string, adminId: string) {
+    const result = await this.complianceService.processDataExportRequest(requestId, adminId);
+    await this.logAction(adminId, "data_export_process", { requestId });
+    return result;
+  }
+
+  async runRetentionSweep(adminId: string) {
+    const result = await this.complianceService.runRetentionSweep();
+    await this.logAction(adminId, "retention_sweep_run", result as any);
+    return result;
+  }
+
   // ─── PK Management ───
-  async listPkSessions(cursor?: string, limit = 20) {
-    const offset = cursor ? decodeCursor(cursor) : 0;
-    const results = await db.select().from(pkSessions).orderBy(desc(pkSessions.createdAt)).limit(limit + 1).offset(offset);
-    const hasMore = results.length > limit;
-    return { items: hasMore ? results.slice(0, limit) : results, nextCursor: hasMore ? encodeCursor(offset + limit) : null };
+  async listPkSessions(cursor?: string, limit = 20, status?: string) {
+    return this.pkService.listSessions(cursor, limit, status);
+  }
+
+  async createPKBattle(hostAUserId: string, hostBUserId: string, battleDurationSeconds: number, adminId: string) {
+    return this.pkService.createPKBattleByAdmin(hostAUserId, hostBUserId, battleDurationSeconds, adminId);
+  }
+
+  async cancelPKBattle(pkSessionId: string) {
+    return this.pkService.cancelPKBattle(pkSessionId);
   }
 
   // ─── Cache Management ───
@@ -485,13 +888,81 @@ export class AdminService {
     };
   }
 
+  private async resolveAdminActorId(adminId: string) {
+    const [actor] = await db
+      .select({ id: admins.id })
+      .from(admins)
+      .where(or(eq(admins.id, adminId), eq(admins.userId, adminId)))
+      .limit(1);
+
+    if (!actor) {
+      throw new Error("Admin actor not found");
+    }
+
+    return actor.id;
+  }
+
+  private mapAdminAction(action: string) {
+    const normalized = action.trim().toUpperCase();
+    const actionMap: Record<string, string> = {
+      USER_STATUS_UPDATE: "USER_SUSPEND",
+      USER_ROLE_UPDATE: "MANUAL_ADJUSTMENT",
+      MODEL_APPLICATION_APPROVE: "MODEL_APPROVE",
+      MODEL_APPLICATION_REJECT: "MODEL_REJECT",
+      WITHDRAW_APPROVE: "WITHDRAWAL_APPROVE",
+      WITHDRAW_REJECT: "WITHDRAWAL_REJECT",
+      GIFT_CREATE: "GIFT_CREATE",
+      GIFT_UPDATE: "GIFT_UPDATE",
+      PAYMENT_REFUND: "PAYOUT_APPROVE",
+      PAYMENT_STATUS_UPDATE: "MANUAL_ADJUSTMENT",
+      PAYMENT_DISPUTE_OPEN: "MANUAL_ADJUSTMENT",
+      PAYMENT_DISPUTE_RESOLVE: "MANUAL_ADJUSTMENT",
+      AGENCY_APPROVE: "MANUAL_ADJUSTMENT",
+      AGENCY_APPLICATION_APPROVE: "MANUAL_ADJUSTMENT",
+      AGENCY_APPLICATION_REJECT: "MANUAL_ADJUSTMENT",
+      EVENT_CREATE: "PROMOTION_CREATE",
+      EVENT_UPDATE: "MANUAL_ADJUSTMENT",
+      EVENT_REWARDS_DISTRIBUTE: "MANUAL_ADJUSTMENT",
+      CAMPAIGN_CREATE: "PROMOTION_CREATE",
+      CAMPAIGN_UPDATE: "MANUAL_ADJUSTMENT",
+      CAMPAIGN_REWARDS_DISTRIBUTE: "MANUAL_ADJUSTMENT",
+      NOTIFICATION_CAMPAIGN_CREATE: "PROMOTION_CREATE",
+      NOTIFICATION_CAMPAIGN_RUN: "MANUAL_ADJUSTMENT",
+      PRICING_RULE_CREATE: "MANUAL_ADJUSTMENT",
+      PRICING_RULE_UPDATE: "MANUAL_ADJUSTMENT",
+      LEVEL_RULE_CREATE: "LEVEL_CREATE",
+      SYSTEM_SETTING_UPDATE: "SETTING_UPDATE",
+      FEATURE_FLAG_UPDATE: "SETTING_UPDATE",
+      UI_LAYOUT_UPDATE: "CONFIG_PUBLISH",
+      MODEL_AVAILABILITY_OVERRIDE: "MANUAL_ADJUSTMENT",
+      MODEL_DEMO_VIDEO_REVIEW: "MANUAL_ADJUSTMENT",
+      SESSION_STEP_UP_REQUIRED: "MANUAL_ADJUSTMENT",
+      DATA_EXPORT_PROCESS: "MANUAL_ADJUSTMENT",
+      RETENTION_SWEEP_RUN: "MANUAL_ADJUSTMENT",
+      CACHE_CLEAR: "CONFIG_ROLLBACK",
+    };
+
+    return (actionMap[normalized] ?? "MANUAL_ADJUSTMENT") as any;
+  }
+
+  private mapAdminTargetType(details: Record<string, any>) {
+    if (details.userId) return "USER" as any;
+    if (details.modelUserId) return "MODEL" as any;
+    if (details.giftId) return "GIFT" as any;
+    if (details.requestId) return "WITHDRAWAL" as any;
+    if (details.paymentId) return "PAYOUT" as any;
+    if (details.campaignId || details.eventId) return "PROMOTION" as any;
+    if (details.ruleId) return "SETTING" as any;
+    return "CONFIG" as any;
+  }
+
   private async logAction(adminId: string, action: string, details: Record<string, any>) {
-    const targetId = details.userId ?? details.giftId ?? details.ruleId ?? details.campaignId ?? details.flagId ?? details.requestId ?? details.agencyId ?? details.applicationId ?? null;
-    const targetType = details.userId ? "USER" : details.giftId ? "GIFT" : details.ruleId ? "RULE" : details.campaignId ? "CAMPAIGN" : details.flagId ? "FRAUD_FLAG" : details.requestId ? "WITHDRAWAL" : details.agencyId ? "AGENCY" : details.applicationId ? "APPLICATION" : "SYSTEM";
+    const actorAdminId = await this.resolveAdminActorId(adminId);
+    const targetId = details.userId ?? details.modelUserId ?? details.demoVideoId ?? details.giftId ?? details.ruleId ?? details.campaignId ?? details.eventId ?? details.flagId ?? details.requestId ?? details.agencyId ?? details.applicationId ?? details.paymentId ?? null;
     await db.insert(adminLogs).values({
-      adminId,
-      action: action as any,
-      targetType: targetType as any,
+      adminId: actorAdminId,
+      action: this.mapAdminAction(action),
+      targetType: this.mapAdminTargetType(details),
       targetId: targetId ?? adminId,
       reason: JSON.stringify(details),
       ipAddress: "system",

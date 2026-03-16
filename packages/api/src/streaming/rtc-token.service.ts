@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { getEnv } from "@missu/config";
+import * as AgoraToken from "agora-token";
 
 @Injectable()
 export class RtcTokenService {
@@ -17,8 +18,6 @@ export class RtcTokenService {
       };
     }
 
-    // Use runtime require to keep compatibility with the current dependency package exports.
-    const AgoraToken = require("agora-token");
     const RtcTokenBuilder = AgoraToken.RtcTokenBuilder;
     const RtcRole = AgoraToken.RtcRole;
 
@@ -29,6 +28,7 @@ export class RtcTokenService {
       channelName,
       uid,
       agoraRole,
+      expiresAt,
       expiresAt,
     );
 

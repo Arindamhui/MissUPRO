@@ -1,7 +1,7 @@
 import React from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput,
-  ScrollView, Modal as RNModal, FlatList, Image,
+  ScrollView, Modal as RNModal, FlatList, Image, TextInputProps,
 } from "react-native";
 import { COLORS, SPACING, FONT, RADIUS } from "@/theme";
 
@@ -53,7 +53,7 @@ export function Input({
 }: {
   label?: string; placeholder?: string; value: string; onChangeText: (text: string) => void;
   secure?: boolean; keyboardType?: any; multiline?: boolean; style?: any;
-}) {
+} & TextInputProps) {
   return (
     <View style={{ marginBottom: SPACING.md }}>
       {label && <Text style={{ fontSize: 13, fontWeight: "500", color: COLORS.text, marginBottom: 6 }}>{label}</Text>}
@@ -127,14 +127,23 @@ export function Avatar({ uri, size = 48, online }: { uri?: string; size?: number
 }
 
 // ─── Badge ───
-export function Badge({ text, color = COLORS.primary }: { text: string; color?: string }) {
+export function Badge({
+  text,
+  label,
+  color = COLORS.primary,
+}: {
+  text?: string;
+  label?: string;
+  color?: string;
+}) {
+  const content = text ?? label ?? "";
   return (
     <View style={{
       backgroundColor: color + "20",
       paddingHorizontal: 8, paddingVertical: 3,
       borderRadius: RADIUS.full,
     }}>
-      <Text style={{ color, fontSize: 11, fontWeight: "600" }}>{text}</Text>
+      <Text style={{ color, fontSize: 11, fontWeight: "600" }}>{content}</Text>
     </View>
   );
 }

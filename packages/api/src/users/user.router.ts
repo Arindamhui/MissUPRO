@@ -2,10 +2,12 @@ import { Injectable } from "@nestjs/common";
 import { z } from "zod";
 import { TrpcService } from "../trpc/trpc.service";
 import { UserService } from "./user.service";
+import { ModelService } from "../models/model.service";
 import {
   blockUserSchema, unblockUserSchema, requestAccountDeletionSchema,
   submitModelReviewSchema, getModelReviewsSchema,
   getPresenceSchema, getPresenceBulkSchema,
+  getModelAvailabilitySchema, getModelDemoVideosSchema,
 } from "@missu/types";
 
 @Injectable()
@@ -13,10 +15,16 @@ export class UserRouter {
   constructor(
     private readonly trpc: TrpcService,
     private readonly userService: UserService,
+    private readonly modelService: ModelService,
   ) {}
 
   get router() {
     return this.trpc.router({
+      getMe: this.trpc.protectedProcedure
+        .query(async ({ ctx }) => {
+          return this.userService.getUserById(ctx.userId);
+        }),
+
       blockUser: this.trpc.protectedProcedure
         .input(blockUserSchema)
         .mutation(async ({ ctx, input }) => {
@@ -60,6 +68,14 @@ export class UserRouter {
         .query(async ({ input }) => {
           return this.userService.getModelReviews(input.modelUserId, input.limit, input.cursor);
         }),
+
+      getModelAvailability: this.trpc.protectedProcedure
+        .input(getModelAvailabilitySchema)
+        .query(async ({ input }) => this.modelService.getAvailabilitySummary(input.modelUserId)),
+
+      getModelDemoVideos: this.trpc.protectedProcedure
+        .input(getModelDemoVideosSchema)
+        .query(async ({ input }) => this.modelService.getDemoVideos(input.modelUserId, input.status)),
 
       getPresence: this.trpc.protectedProcedure
         .input(getPresenceSchema)

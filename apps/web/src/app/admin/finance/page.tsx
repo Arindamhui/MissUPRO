@@ -6,22 +6,32 @@ import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { DollarSign, CreditCard, TrendingUp, ArrowDownToLine } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
-const revenueByDay = Array.from({ length: 30 }, (_, i) => ({
-  day: `${i + 1}`,
-  coins: Math.round(2000 + Math.random() * 8000),
-  gifts: Math.round(1000 + Math.random() * 5000),
-  calls: Math.round(500 + Math.random() * 3000),
-}));
-
 export default function FinancePage() {
   const [tab, setTab] = useState("overview");
   const [selectedWithdrawal, setSelectedWithdrawal] = useState<any>(null);
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<string | undefined>(undefined);
 
-  const overview = trpc.admin.financialOverview.useQuery(undefined, { retry: false });
-  const withdrawals = trpc.admin.listWithdrawals.useQuery({ status: tab === "withdrawals" ? "pending" : undefined, limit: 20 }, { retry: false });
+  const overview = trpc.admin.getFinancialOverview.useQuery(undefined, { retry: false });
+  const withdrawals = trpc.admin.listWithdrawRequests.useQuery({ status: tab === "withdrawals" ? "PENDING" : undefined, limit: 20 }, { retry: false });
+  const payments = trpc.admin.listPayments.useQuery({ limit: 30, status: paymentStatusFilter }, { retry: false, enabled: tab === "payments" });
+  const paymentDisputes = trpc.admin.listPaymentDisputes.useQuery({ limit: 20 }, { retry: false, enabled: tab === "payments" });
+  const ledgerMismatches = trpc.admin.listLedgerMismatches.useQuery({ limit: 50 }, { retry: false, enabled: tab === "reconciliation" });
+  const paymentRecon = trpc.admin.runPaymentReconciliation.useQuery({ limit: 500 }, { retry: false, enabled: tab === "reconciliation" });
+  const webhookEvents = trpc.admin.listWebhookEvents.useQuery({ limit: 20 }, { retry: false, enabled: tab === "reconciliation" });
+  const revenueQuery = trpc.analytics.getRevenueAnalytics.useQuery(
+    { startDate: new Date(Date.now() - 30 * 86400000), endDate: new Date() },
+    { retry: false },
+  );
+  const processMut = trpc.admin.processWithdrawRequest.useMutation({
+    onSuccess: () => { withdrawals.refetch(); setSelectedWithdrawal(null); },
+  });
+  const refundMut = trpc.admin.createRefund.useMutation({ onSuccess: () => payments.refetch() });
+  const updateStatusMut = trpc.admin.updatePaymentStatus.useMutation({ onSuccess: () => payments.refetch() });
 
   const ov = overview.data ?? { totalRevenue: 0, monthRevenue: 0, weekRevenue: 0, todayRevenue: 0, pendingPayouts: 0, payoutCount: 0 };
-  const wRows = (withdrawals.data?.requests ?? []) as Record<string, unknown>[];
+  const wRows = (withdrawals.data?.items ?? []) as Record<string, unknown>[];
+  const paymentRows = (payments.data?.items ?? []) as Record<string, unknown>[];
+  const revenueByDay = (revenueQuery.data as any)?.dailyRevenue ?? [];
 
   return (
     <>
@@ -44,6 +54,7 @@ export default function FinancePage() {
           { id: "overview", label: "Revenue Overview" },
           { id: "payments", label: "Payment History" },
           { id: "withdrawals", label: "Withdrawals" },
+          { id: "reconciliation", label: "Reconciliation" },
         ]}
         active={tab}
         onChange={setTab}
@@ -81,9 +92,60 @@ export default function FinancePage() {
       )}
 
       {tab === "payments" && (
-        <Card title="Recent Payments">
-          <p className="text-sm text-muted-foreground">Payment records loaded via admin.getUserPaymentHistory</p>
-        </Card>
+        <div className="space-y-6">
+          <Card title="Payment History">
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <select
+                  className="rounded border px-2 py-1 text-sm"
+                  value={paymentStatusFilter ?? "all"}
+                  onChange={(e) => setPaymentStatusFilter(e.target.value === "all" ? undefined : e.target.value)}
+                >
+                  <option value="all">All statuses</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="FAILED">Failed</option>
+                  <option value="REFUNDED">Refunded</option>
+                  <option value="DISPUTED">Disputed</option>
+                </select>
+              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (r) => String(r.id).slice(0, 8) },
+                  { key: "userId", label: "User ID", render: (r) => String(r.userId).slice(0, 8) },
+                  { key: "amountUsd", label: "Amount", render: (r) => formatCurrency(Number(r.amountUsd ?? 0)) },
+                  { key: "coinsCredited", label: "Coins" },
+                  { key: "status", label: "Status", render: (r) => <StatusBadge status={String(r.status)} /> },
+                  { key: "createdAt", label: "Created", render: (r) => formatDate(String(r.createdAt)) },
+                  {
+                    key: "actions",
+                    label: "",
+                    render: (r) =>
+                      r.status === "COMPLETED" ? (
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="secondary" onClick={() => refundMut.mutate({ paymentId: r.id })} disabled={refundMut.isPending}>Refund</Button>
+                          <Button size="sm" variant="ghost" onClick={() => updateStatusMut.mutate({ paymentId: r.id, status: "DISPUTED" })} disabled={updateStatusMut.isPending}>Mark Disputed</Button>
+                        </div>
+                      ) : null,
+                  },
+                ]}
+                data={paymentRows}
+              />
+            </div>
+          </Card>
+          <Card title="Open Disputes">
+            <DataTable
+              columns={[
+                { key: "providerDisputeId", label: "Provider Ref" },
+                { key: "paymentId", label: "Payment", render: (r) => String(r.paymentId).slice(0, 8) },
+                { key: "disputeReason", label: "Reason" },
+                { key: "amountUsd", label: "Amount", render: (r) => formatCurrency(Number(r.amountUsd ?? 0)) },
+                { key: "status", label: "Status", render: (r) => <StatusBadge status={String(r.status)} /> },
+              ]}
+              data={paymentDisputes.data?.items ?? []}
+            />
+          </Card>
+        </div>
       )}
 
       {tab === "withdrawals" && (
@@ -91,8 +153,8 @@ export default function FinancePage() {
           <DataTable
             columns={[
               { key: "id", label: "ID", render: (r) => String(r.id).slice(0, 8) },
-              { key: "userId", label: "Model" },
-              { key: "amount", label: "Amount", render: (r) => formatCurrency(Number(r.amount ?? 0)) },
+              { key: "modelUserId", label: "Model", render: (r) => String(r.modelUserId ?? r.userId ?? "").slice(0, 8) },
+              { key: "totalPayoutAmount", label: "Amount", render: (r) => formatCurrency(Number(r.totalPayoutAmount ?? r.amount ?? 0)) },
               { key: "status", label: "Status", render: (r) => <StatusBadge status={String(r.status)} /> },
               { key: "createdAt", label: "Requested", render: (r) => r.createdAt ? formatDate(String(r.createdAt)) : "-" },
               { key: "actions", label: "", render: (r) => (
@@ -108,20 +170,61 @@ export default function FinancePage() {
             {selectedWithdrawal && (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div><span className="text-muted-foreground">Model ID:</span> {selectedWithdrawal.userId}</div>
-                  <div><span className="text-muted-foreground">Amount:</span> {formatCurrency(Number(selectedWithdrawal.amount ?? 0))}</div>
+                  <div><span className="text-muted-foreground">Model ID:</span> {selectedWithdrawal.modelUserId ?? selectedWithdrawal.userId}</div>
+                  <div><span className="text-muted-foreground">Amount:</span> {formatCurrency(Number(selectedWithdrawal.totalPayoutAmount ?? selectedWithdrawal.amount ?? 0))}</div>
                   <div><span className="text-muted-foreground">Method:</span> {selectedWithdrawal.method ?? "Bank Transfer"}</div>
                   <div><span className="text-muted-foreground">Status:</span> <StatusBadge status={String(selectedWithdrawal.status)} /></div>
                 </div>
                 <div className="flex gap-2 pt-3 border-t">
-                  <Button variant="primary" size="sm">Approve</Button>
-                  <Button variant="danger" size="sm">Reject</Button>
-                  <Button variant="secondary" size="sm">Hold for Investigation</Button>
+                  <Button variant="primary" size="sm" onClick={() => processMut.mutate({ requestId: String(selectedWithdrawal.id), action: "approve" })}>Approve</Button>
+                  <Button variant="danger" size="sm" onClick={() => processMut.mutate({ requestId: String(selectedWithdrawal.id), action: "reject", reason: "Rejected by admin" })}>Reject</Button>
+                  <Button variant="secondary" size="sm" onClick={() => setSelectedWithdrawal(null)}>Hold for Investigation</Button>
                 </div>
               </div>
             )}
           </Modal>
         </>
+      )}
+
+      {tab === "reconciliation" && (
+        <div className="space-y-6">
+          <Card title="Wallet ledger mismatches">
+            <p className="text-sm text-muted-foreground mb-3">Wallets where coin balance does not match sum of coin_transactions.</p>
+            <DataTable
+              columns={[
+                { key: "userId", label: "User ID", render: (r) => String(r.userId).slice(0, 8) },
+                { key: "currentBalance", label: "Wallet balance" },
+                { key: "ledgerBalance", label: "Ledger sum" },
+              ]}
+              data={ledgerMismatches.data?.items ?? []}
+            />
+          </Card>
+          <Card title="Payment reconciliation">
+            <p className="text-sm text-muted-foreground mb-3">Completed payments missing a PURCHASE coin transaction.</p>
+            <div className="text-sm">
+              Checked: {paymentRecon.data?.checked ?? 0} | Missing credits: {paymentRecon.data?.missingPaymentIds?.length ?? 0}
+              {((paymentRecon.data?.missingPaymentIds ?? []).length as number) > 0 && (
+                <ul className="mt-2 list-disc pl-4">
+                  {(paymentRecon.data?.missingPaymentIds ?? []).slice(0, 20).map((id: string) => (
+                    <li key={id}>{id}</li>
+                  ))}
+                  {(paymentRecon.data?.missingPaymentIds ?? []).length > 20 && <li>… and more</li>}
+                </ul>
+              )}
+            </div>
+          </Card>
+          <Card title="Recent webhook events">
+            <DataTable
+              columns={[
+                { key: "provider", label: "Provider" },
+                { key: "providerEventId", label: "Event ID" },
+                { key: "processingStatus", label: "Status", render: (r) => <StatusBadge status={String(r.processingStatus ?? "PENDING")} /> },
+                { key: "receivedAt", label: "Received", render: (r) => formatDate(String(r.receivedAt)) },
+              ]}
+              data={webhookEvents.data?.items ?? []}
+            />
+          </Card>
+        </div>
       )}
     </>
   );

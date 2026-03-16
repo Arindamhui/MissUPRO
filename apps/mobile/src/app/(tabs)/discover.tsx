@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, TextInput } from "react-native";
 import { trpc } from "@/lib/trpc";
-import { Screen, Avatar, Badge, Card, SectionHeader, Button } from "@/components/ui";
+import { Screen, Avatar, Badge, SectionHeader } from "@/components/ui";
 import { COLORS, SPACING, RADIUS } from "@/theme";
 import { router } from "expo-router";
 
@@ -14,9 +14,11 @@ export default function DiscoverScreen() {
     { retry: false, enabled: true },
   );
   const trending = trpc.discovery.trending.useQuery({ limit: 10 }, { retry: false });
+  const bannersQuery = trpc.cms.listPublicBanners.useQuery(undefined, { retry: false });
 
   const models = (results.data?.models ?? []) as any[];
   const trendingModels = (trending.data?.models ?? []) as any[];
+  const banners = (bannersQuery.data ?? []) as any[];
 
   const filters = [
     { key: null, label: "All" },
@@ -24,6 +26,17 @@ export default function DiscoverScreen() {
     { key: "male", label: "Men" },
     { key: "non_binary", label: "Non-Binary" },
   ];
+
+  const openBanner = (banner: any) => {
+    const target = String(banner.linkTarget ?? "");
+    if (banner.linkType === "MODEL_PROFILE" && target) {
+      router.push(`/profile/${target}`);
+      return;
+    }
+    if (target.startsWith("/")) {
+      router.push(target as any);
+    }
+  };
 
   return (
     <Screen>
@@ -67,7 +80,7 @@ export default function DiscoverScreen() {
         columnWrapperStyle={{ gap: SPACING.sm }}
         renderItem={({ item }) => (
           <TouchableOpacity
-            onPress={() => router.push(`/profile/${item.id}`)}
+            onPress={() => router.push(`/profile/${item.userId ?? item.modelId ?? item.id}`)}
             style={{
               flex: 1, backgroundColor: COLORS.card, borderRadius: RADIUS.lg,
               overflow: "hidden", marginBottom: SPACING.sm,
@@ -75,7 +88,7 @@ export default function DiscoverScreen() {
             }}
           >
             <View style={{ height: 180, backgroundColor: COLORS.primaryLight, alignItems: "center", justifyContent: "center" }}>
-              <Avatar uri={item.profileImage} size={80} online={item.isOnline} />
+              <Avatar uri={item.avatarUrl ?? item.profileImage} size={80} online={item.isOnline} />
             </View>
             <View style={{ padding: SPACING.sm }}>
               <Text style={{ fontSize: 15, fontWeight: "600", color: COLORS.text }}>{item.displayName ?? "Model"}</Text>
@@ -89,6 +102,38 @@ export default function DiscoverScreen() {
         ListHeaderComponent={
           !search ? (
             <>
+              {banners.length > 0 && (
+                <>
+                  <SectionHeader title="Featured Campaigns" />
+                  <FlatList
+                    data={banners}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        onPress={() => openBanner(item)}
+                        activeOpacity={0.85}
+                        style={{
+                          width: 220,
+                          marginRight: SPACING.sm,
+                          borderRadius: RADIUS.lg,
+                          backgroundColor: COLORS.card,
+                          borderWidth: 1,
+                          borderColor: COLORS.border,
+                          padding: SPACING.md,
+                        }}
+                      >
+                        <Text style={{ fontSize: 15, fontWeight: "700", color: COLORS.text }}>{item.title}</Text>
+                        <Text style={{ fontSize: 12, color: COLORS.textSecondary, marginTop: 6 }}>
+                          {item.linkType === "PROMOTION" ? "Promotion" : "Open banner"}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    style={{ marginBottom: SPACING.md }}
+                  />
+                </>
+              )}
               <SectionHeader title="🔥 Trending" />
               <FlatList
                 data={trendingModels}
@@ -97,10 +142,10 @@ export default function DiscoverScreen() {
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
                   <TouchableOpacity
-                    onPress={() => router.push(`/profile/${item.id}`)}
+                    onPress={() => router.push(`/profile/${item.userId ?? item.modelId ?? item.id}`)}
                     style={{ width: 120, marginRight: SPACING.sm, alignItems: "center" }}
                   >
-                    <Avatar uri={item.profileImage} size={64} online />
+                    <Avatar uri={item.avatarUrl ?? item.profileImage} size={64} online />
                     <Text style={{ fontSize: 13, fontWeight: "500", marginTop: 6 }}>{item.displayName ?? "Model"}</Text>
                   </TouchableOpacity>
                 )}

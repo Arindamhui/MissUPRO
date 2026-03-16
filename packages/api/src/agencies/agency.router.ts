@@ -9,6 +9,19 @@ export class AgencyRouter {
 
   get router() {
     return this.trpc.router({
+      submitApplication: this.trpc.protectedProcedure
+        .input(z.object({
+          name: z.string().min(2).max(100),
+          contactName: z.string().min(2).max(100),
+          contactEmail: z.string().email(),
+          country: z.string().min(2).max(100),
+          notes: z.string().max(1000).optional(),
+        }))
+        .mutation(async ({ ctx, input }) => this.agencyService.submitApplication(ctx.userId, input)),
+
+      listMyApplications: this.trpc.protectedProcedure
+        .query(async ({ ctx }) => this.agencyService.listMyApplications(ctx.userId)),
+
       applyAsAgency: this.trpc.protectedProcedure
         .input(z.object({
           name: z.string().min(2).max(100),
@@ -33,9 +46,45 @@ export class AgencyRouter {
         .input(z.object({ cursor: z.string().optional(), limit: z.number().int().min(1).max(50).default(20) }))
         .query(async ({ ctx, input }) => this.agencyService.getHostRoster(ctx.userId, input.cursor, input.limit)),
 
+      getCommissionSummary: this.trpc.protectedProcedure
+        .query(async ({ ctx }) => this.agencyService.getCommissionSummary(ctx.userId)),
+
       removeHost: this.trpc.protectedProcedure
         .input(z.object({ hostUserId: z.string().uuid() }))
         .mutation(async ({ ctx, input }) => this.agencyService.removeHost(ctx.userId, input.hostUserId)),
+
+      listAgencyApplications: this.trpc.adminProcedure
+        .input(z.object({ status: z.string().optional(), cursor: z.string().optional(), limit: z.number().int().min(1).max(100).default(20) }).optional())
+        .query(async ({ input }) => this.agencyService.listAgencyApplications(input?.status, input?.cursor, input?.limit ?? 20)),
+
+      approveAgencyApplication: this.trpc.adminProcedure
+        .input(z.object({ applicationId: z.string().uuid() }))
+        .mutation(async ({ ctx, input }) => this.agencyService.approveAgencyApplication(input.applicationId, ctx.userId)),
+
+      rejectAgencyApplication: this.trpc.adminProcedure
+        .input(z.object({ applicationId: z.string().uuid(), notes: z.string().max(1000).optional() }))
+        .mutation(async ({ ctx, input }) => this.agencyService.rejectAgencyApplication(input.applicationId, ctx.userId, input.notes)),
+
+      recordCommission: this.trpc.adminProcedure
+        .input(z.object({
+          agencyId: z.string().uuid(),
+          hostUserId: z.string().uuid(),
+          grossRevenueUsd: z.number().nonnegative(),
+          hostPayoutUsd: z.number().nonnegative(),
+          commissionRate: z.number().min(0).max(1),
+          metadataJson: z.record(z.string(), z.unknown()).optional(),
+        }))
+        .mutation(async ({ ctx, input }) =>
+          this.agencyService.recordCommission(
+            input.agencyId,
+            input.hostUserId,
+            input.grossRevenueUsd,
+            input.hostPayoutUsd,
+            input.commissionRate,
+            ctx.userId,
+            input.metadataJson,
+          ),
+        ),
     });
   }
 }

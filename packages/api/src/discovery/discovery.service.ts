@@ -3,7 +3,7 @@ import { db } from "@missu/db";
 import {
   models, users, profiles, liveStreams, homepageSections,
   recommendationConfigs,
-  modelCallStats, followers,
+  modelCallStats, followers, modelReviews,
 } from "@missu/db/schema";
 import { eq, and, desc, sql, isNotNull, or, ilike, asc } from "drizzle-orm";
 import { decodeCursor, encodeCursor } from "@missu/utils";
@@ -179,6 +179,9 @@ export class DiscoveryService {
         country: users.country,
         qualityScore: models.qualityScore,
         isOnline: models.isOnline,
+        audioPrice: models.callRateAudioCoins,
+        videoPrice: models.callRateVideoCoins,
+        demoVideoCount: models.demoVideoCount,
         audioMinutesTotal: modelCallStats.audioMinutesTotal,
         videoMinutesTotal: modelCallStats.videoMinutesTotal,
       })
@@ -186,7 +189,7 @@ export class DiscoveryService {
       .innerJoin(users, eq(users.id, models.userId))
       .innerJoin(profiles, eq(profiles.userId, models.userId))
       .leftJoin(modelCallStats, eq(modelCallStats.modelUserId, models.userId))
-      .where(eq(models.id, modelId))
+      .where(or(eq(models.id, modelId), eq(models.userId, modelId)))
       .limit(1);
 
     if (!model) throw new Error("Model not found");
@@ -196,9 +199,19 @@ export class DiscoveryService {
       .from(followers)
       .where(eq(followers.followedUserId, model.userId));
 
+    const [ratingSummary] = await db
+      .select({
+        avgRating: sql<number>`coalesce(avg(${modelReviews.rating}), 0)`,
+        reviewCount: sql<number>`count(*)`,
+      })
+      .from(modelReviews)
+      .where(and(eq(modelReviews.modelUserId, model.userId), eq(modelReviews.isVisible, true)));
+
     return {
       ...model,
       followerCount: Number(followerCount[0]?.count ?? 0),
+      avgRating: Number(ratingSummary?.avgRating ?? 0),
+      reviewCount: Number(ratingSummary?.reviewCount ?? 0),
     };
   }
 

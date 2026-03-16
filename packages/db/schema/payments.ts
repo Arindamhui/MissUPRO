@@ -3,7 +3,10 @@ import {
   index, uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { paymentProviderEnum, paymentStatusEnum, withdrawStatusEnum, payoutStatusEnum, payoutMethodEnum } from "./enums";
+import {
+  paymentProviderEnum, paymentStatusEnum, withdrawStatusEnum, payoutStatusEnum,
+  payoutMethodEnum, paymentDisputeStatusEnum,
+} from "./enums";
 import { users } from "./users";
 import { coinPackages } from "./wallets";
 
@@ -101,6 +104,28 @@ export const webhookEvents = pgTable("webhook_events", {
   uniqueIndex("webhook_provider_event_unique_idx").on(t.provider, t.providerEventId),
 ]);
 
+// --- payment_disputes ---
+export const paymentDisputes = pgTable("payment_disputes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  paymentId: uuid("payment_id").notNull().references(() => payments.id),
+  providerDisputeId: text("provider_dispute_id").notNull(),
+  disputeReason: text("dispute_reason").notNull(),
+  amountUsd: decimal("amount_usd", { precision: 10, scale: 2 }).notNull(),
+  status: paymentDisputeStatusEnum("status").default("OPEN").notNull(),
+  evidenceDueAt: timestamp("evidence_due_at"),
+  resolutionNotes: text("resolution_notes"),
+  metadataJson: jsonb("metadata_json"),
+  openedAt: timestamp("opened_at").defaultNow().notNull(),
+  resolvedAt: timestamp("resolved_at"),
+  createdByAdminId: uuid("created_by_admin_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("payment_disputes_payment_status_idx").on(t.paymentId, t.status, t.openedAt),
+  uniqueIndex("payment_disputes_provider_idx").on(t.providerDisputeId),
+  index("payment_disputes_status_opened_idx").on(t.status, t.openedAt),
+]);
+
 // ─── Relations ───
 export const paymentsRelations = relations(payments, ({ one }) => ({
   user: one(users, { fields: [payments.userId], references: [users.id] }),
@@ -116,4 +141,9 @@ export const withdrawRequestsRelations = relations(withdrawRequests, ({ one }) =
 export const payoutRecordsRelations = relations(payoutRecords, ({ one }) => ({
   model: one(users, { fields: [payoutRecords.modelUserId], references: [users.id] }),
   withdrawRequest: one(withdrawRequests, { fields: [payoutRecords.withdrawRequestId], references: [withdrawRequests.id] }),
+}));
+
+export const paymentDisputesRelations = relations(paymentDisputes, ({ one }) => ({
+  payment: one(payments, { fields: [paymentDisputes.paymentId], references: [payments.id] }),
+  createdBy: one(users, { fields: [paymentDisputes.createdByAdminId], references: [users.id], relationName: "paymentDisputeCreator" }),
 }));

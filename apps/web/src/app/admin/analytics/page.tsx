@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, Card, KpiCard, Tabs, Select } from "@/components/ui";
 import { formatNumber, formatCurrency } from "@/lib/utils";
@@ -9,42 +9,41 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
 
-const dauData = Array.from({ length: 30 }, (_, i) => ({
-  day: `Day ${i + 1}`,
-  dau: Math.round(5000 + Math.random() * 10000),
-  wau: Math.round(20000 + Math.random() * 30000),
-}));
+const CHART_COLORS = ["#6C5CE7", "#00B894", "#FF6B6B", "#FDCB6E", "#E17055"];
 
-const sessionData = Array.from({ length: 24 }, (_, i) => ({
-  hour: `${i}:00`,
-  avgDuration: Math.round(5 + Math.random() * 25),
-  sessions: Math.round(100 + Math.random() * 500),
-}));
-
-const engagementData = [
-  { name: "Calls", value: 35 },
-  { name: "Gifts", value: 25 },
-  { name: "Streams", value: 20 },
-  { name: "Chat", value: 15 },
-  { name: "Games", value: 5 },
-];
-
-const COLORS = ["#6C5CE7", "#00B894", "#FF6B6B", "#FDCB6E", "#E17055"];
-
-const revenueSourceData = Array.from({ length: 30 }, (_, i) => ({
-  day: `${i + 1}`,
-  coinSales: Math.round(3000 + Math.random() * 7000),
-  giftRevenue: Math.round(2000 + Math.random() * 5000),
-  vipSubs: Math.round(500 + Math.random() * 2000),
-  callFees: Math.round(1000 + Math.random() * 3000),
-}));
+const RANGE_MAP: Record<string, number> = { "7d": 7, "30d": 30, "90d": 90 };
 
 export default function AnalyticsPage() {
   const [tab, setTab] = useState("engagement");
   const [dateRange, setDateRange] = useState("30d");
 
-  const engagement = trpc.analytics.engagementMetrics.useQuery(undefined, { retry: false });
-  const revenue = trpc.analytics.revenueAnalytics.useQuery(undefined, { retry: false });
+  const days = RANGE_MAP[dateRange] ?? 30;
+  const startDate = useMemo(() => new Date(Date.now() - days * 86400000), [days]);
+  const endDate = useMemo(() => new Date(), []);
+
+  const engagement = trpc.analytics.getEngagementMetrics.useQuery(
+    { startDate, endDate },
+    { retry: false },
+  );
+  const revenue = trpc.analytics.getRevenueAnalytics.useQuery(
+    { startDate, endDate },
+    { retry: false },
+  );
+
+  const engData = engagement.data as any ?? {};
+  const revData = revenue.data as any ?? {};
+
+  const dauData = engData.dauTrend ?? [];
+  const sessionData = engData.hourlyActivity ?? [];
+  const engagementBreakdown = engData.featureBreakdown ?? [
+    { name: "Calls", value: 35 },
+    { name: "Gifts", value: 25 },
+    { name: "Streams", value: 20 },
+    { name: "Chat", value: 15 },
+    { name: "Games", value: 5 },
+  ];
+  const revenueSourceData = revData.dailyRevenue ?? [];
+  const revenueSummary = revData.summary ?? [];
 
   return (
     <>
@@ -54,7 +53,7 @@ export default function AnalyticsPage() {
         actions={
           <Select
             value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
+            onChange={(e: any) => setDateRange(typeof e === "string" ? e : e.target.value)}
             options={[
               { value: "7d", label: "Last 7 days" },
               { value: "30d", label: "Last 30 days" },
@@ -65,10 +64,10 @@ export default function AnalyticsPage() {
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <KpiCard label="DAU" value={formatNumber(engagement.data?.dau ?? 8540)} icon={Users} trend="+5.2%" />
-        <KpiCard label="Avg Session" value="18 min" icon={Clock} />
-        <KpiCard label="Revenue (30d)" value={formatCurrency(revenue.data?.totalRevenue ?? 342000)} icon={DollarSign} />
-        <KpiCard label="Retention (D7)" value="42%" icon={TrendingUp} />
+        <KpiCard label="DAU" value={formatNumber(engData.dau ?? 0)} icon={Users} trend={engData.dauTrend?.length ? `${days}d data` : undefined} />
+        <KpiCard label="Avg Session" value={engData.avgSessionMinutes ? `${engData.avgSessionMinutes} min` : "-"} icon={Clock} />
+        <KpiCard label={`Revenue (${dateRange})`} value={formatCurrency(revData.totalRevenue ?? 0)} icon={DollarSign} />
+        <KpiCard label="Retention (D7)" value={engData.d7Retention ? `${engData.d7Retention}%` : "-"} icon={TrendingUp} />
       </div>
 
       <Tabs
@@ -113,8 +112,8 @@ export default function AnalyticsPage() {
           <Card title="Engagement by Feature">
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
-                <Pie data={engagementData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value">
-                  {engagementData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                <Pie data={engagementBreakdown} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value">
+                  {engagementBreakdown.map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                 </Pie>
                 <Tooltip />
                 <Legend />
@@ -156,12 +155,12 @@ export default function AnalyticsPage() {
 
           <Card title="Revenue Summary">
             <div className="space-y-3">
-              {[
-                { label: "Coin Sales", value: 182000, color: "bg-primary" },
-                { label: "Gift Revenue", value: 95000, color: "bg-success" },
-                { label: "VIP Subscriptions", value: 34000, color: "bg-accent" },
-                { label: "Call Fees", value: 31000, color: "bg-warning" },
-              ].map((item) => (
+              {(revenueSummary.length ? revenueSummary : [
+                { label: "Coin Sales", value: revData.coinSales ?? 0, color: "bg-primary" },
+                { label: "Gift Revenue", value: revData.giftRevenue ?? 0, color: "bg-success" },
+                { label: "VIP Subscriptions", value: revData.vipRevenue ?? 0, color: "bg-accent" },
+                { label: "Call Fees", value: revData.callRevenue ?? 0, color: "bg-warning" },
+              ]).map((item: any) => (
                 <div key={item.label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className={`w-3 h-3 rounded-full ${item.color}`} />

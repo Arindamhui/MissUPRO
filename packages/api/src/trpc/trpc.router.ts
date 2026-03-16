@@ -33,6 +33,8 @@ import { PresenceRouter } from "../presence/presence.router";
 import { SupportRouter } from "../support/support.router";
 import { ComplianceRouter } from "../compliance/compliance.router";
 import { PayoutsRouter } from "../payouts/payouts.router";
+import { PkRouter } from "../pk/pk.router";
+import { LeaderboardsRouter } from "../leaderboards/leaderboards.router";
 
 @Injectable()
 export class TrpcRouter {
@@ -71,6 +73,8 @@ export class TrpcRouter {
     private readonly support: SupportRouter,
     private readonly compliance: ComplianceRouter,
     private readonly payouts: PayoutsRouter,
+    private readonly pk: PkRouter,
+    private readonly leaderboards: LeaderboardsRouter,
   ) {}
 
   get appRouter() {
@@ -94,11 +98,14 @@ export class TrpcRouter {
       vip: this.vip.router,
       agency: this.agency.router,
       referral: this.referral.router,
+      referrals: this.referral.router,
       campaign: this.campaign.router,
+      campaigns: this.campaign.router,
       cms: this.cms.router,
       security: this.security.router,
       analytics: this.analytics.router,
       event: this.event.router,
+      events: this.event.router,
       level: this.level.router,
       groupAudio: this.groupAudio.router,
       party: this.party.router,
@@ -108,6 +115,8 @@ export class TrpcRouter {
       support: this.support.router,
       compliance: this.compliance.router,
       payouts: this.payouts.router,
+      pk: this.pk.router,
+      leaderboards: this.leaderboards.router,
     } as any);
   }
 }

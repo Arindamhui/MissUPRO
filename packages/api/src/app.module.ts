@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ScheduleModule } from "@nestjs/schedule";
+import { CommonModule } from "./common/common.module";
 import { TrpcCoreModule, TrpcModule } from "./trpc/trpc.module";
 import { AuthModule } from "./auth/auth.module";
 import { UsersModule } from "./users/users.module";
@@ -37,16 +38,23 @@ import { SupportModule } from "./support/support.module";
 import { ComplianceModule } from "./compliance/compliance.module";
 import { PayoutsModule } from "./payouts/payouts.module";
 import { MetricsModule } from "./metrics/metrics.module";
+import { PkModule } from "./pk/pk.module";
+import { LeaderboardsModule } from "./leaderboards/leaderboards.module";
+import { JobsModule } from "./jobs/jobs.module";
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
+    CommonModule,
     TrpcCoreModule,
     TrpcModule,
     HealthModule,
     MetricsModule,
+    JobsModule,
     ConfigModule,
     PayoutsModule,
+    PkModule,
+    LeaderboardsModule,
     PresenceModule,
     SupportModule,
     ComplianceModule,

@@ -1,21 +1,51 @@
 import { Injectable } from "@nestjs/common";
 import { db } from "@missu/db";
-import { vipSubscriptions, wallets, coinTransactions } from "@missu/db/schema";
+import { vipSubscriptions, vipTiers } from "@missu/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { DEFAULTS } from "@missu/config";
-import { acquireLock, releaseLock, generateIdempotencyKey } from "@missu/utils";
+import { generateIdempotencyKey } from "@missu/utils";
+import { WalletService } from "../wallet/wallet.service";
+import { IdempotencyService } from "../common/idempotency.service";
 
 @Injectable()
 export class VipService {
+  constructor(
+    private readonly walletService: WalletService,
+    private readonly idempotencyService: IdempotencyService,
+  ) {}
+
+  private mapTier(tier: typeof vipTiers.$inferSelect) {
+    const perks = (tier.perkJson as { perks?: string[]; durationDays?: number } | null) ?? {};
+
+    return {
+      id: tier.tierCode,
+      tierId: tier.id,
+      name: tier.displayName,
+      price: tier.coinPrice ?? 0,
+      priceCoins: tier.coinPrice ?? 0,
+      priceUsd: tier.monthlyPriceUsd,
+      durationDays: perks.durationDays ?? 30,
+      duration: `${perks.durationDays ?? 30} days`,
+      perks: perks.perks ?? [],
+    };
+  }
+
+  private async getTierByCode(tierCode: string) {
+    const [tier] = await db
+      .select()
+      .from(vipTiers)
+      .where(and(eq(vipTiers.tierCode, tierCode), eq(vipTiers.isActive, true)))
+      .limit(1);
+
+    return tier ?? null;
+  }
+
   async getAvailableTiers() {
-    return Object.entries(DEFAULTS.VIP_TIERS).map(([key, tier]) => ({
-      id: key,
-      ...(tier as Record<string, any>),
-    }));
+    const tiers = await db.select().from(vipTiers).where(eq(vipTiers.isActive, true)).orderBy(vipTiers.displayOrder);
+    return tiers.map((tier) => this.mapTier(tier));
   }
 
   async subscribe(userId: string, tierId: string) {
-    const tier = (DEFAULTS.VIP_TIERS as any)[tierId];
+    const tier = await this.getTierByCode(tierId);
     if (!tier) throw new Error("Invalid VIP tier");
 
     const existing = await db
@@ -26,46 +56,45 @@ export class VipService {
 
     if (existing[0]) throw new Error("Already have an active VIP subscription");
 
-    const lock = await acquireLock(`wallet:${userId}`, 10000);
-    if (!lock) throw new Error("Could not acquire wallet lock");
+    const mappedTier = this.mapTier(tier);
+    const idemKey = generateIdempotencyKey(userId, "vip_sub", tierId);
 
-    try {
-      const [wallet] = await db.select().from(wallets).where(eq(wallets.userId, userId)).limit(1);
-      if (!wallet || wallet.coinBalance < tier.coinPrice) throw new Error("Insufficient coins");
+    return this.idempotencyService.execute(
+      {
+        key: idemKey,
+        operationScope: "vip:subscribe",
+        actorUserId: userId,
+        requestData: { tierId },
+      },
+      async () => {
+        if (mappedTier.priceCoins > 0) {
+          await this.walletService.debitCoins(
+            userId,
+            mappedTier.priceCoins,
+            "CALL_BILLING",
+            tier.id,
+            `VIP ${tierId} subscription`,
+            idemKey,
+          );
+        }
 
-      await db.update(wallets).set({
-        coinBalance: wallet.coinBalance - tier.coinPrice,
-        lifetimeCoinsSpent: wallet.lifetimeCoinsSpent + tier.coinPrice,
-        updatedAt: new Date(),
-      }).where(eq(wallets.id, wallet.id));
+        const periodEnd = new Date();
+        periodEnd.setDate(periodEnd.getDate() + mappedTier.durationDays);
 
-      await db.insert(coinTransactions).values({
-        userId,
-        amount: -tier.coinPrice,
-        transactionType: "CALL_BILLING" as any,
-        description: `VIP ${tierId} subscription`,
-        balanceAfter: wallet.coinBalance - tier.coinPrice,
-        idempotencyKey: generateIdempotencyKey(userId, "vip_sub", tierId),
-      });
+        const [subscription] = await db
+          .insert(vipSubscriptions)
+          .values({
+            userId,
+            tier: tierId,
+            status: "ACTIVE" as any,
+            currentPeriodStart: new Date(),
+            currentPeriodEnd: periodEnd,
+          })
+          .returning();
 
-      const periodEnd = new Date();
-      periodEnd.setDate(periodEnd.getDate() + tier.durationDays);
-
-      const [subscription] = await db
-        .insert(vipSubscriptions)
-        .values({
-          userId,
-          tier: tierId,
-          status: "ACTIVE" as any,
-          currentPeriodStart: new Date(),
-          currentPeriodEnd: periodEnd,
-        })
-        .returning();
-
-      return subscription;
-    } finally {
-      await releaseLock(`wallet:${userId}`, lock);
-    }
+        return { ...subscription, tierDetails: mappedTier };
+      },
+    );
   }
 
   async cancelSubscription(userId: string) {
@@ -96,7 +125,7 @@ export class VipService {
 
     if (!sub) return null;
 
-    const tier = (DEFAULTS.VIP_TIERS as any)[sub.tier];
-    return { ...sub, tierDetails: tier ?? null };
+    const tier = await this.getTierByCode(sub.tier);
+    return { ...sub, tierDetails: tier ? this.mapTier(tier) : null };
   }
 }

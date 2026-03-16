@@ -11,23 +11,32 @@ const redisUrl = process.env["REDIS_URL"] ?? "redis://127.0.0.1:6379";
 
 let connectedSockets = 0;
 let publishedMessages = 0;
+let dmMessages = 0;
+let typingEvents = 0;
+let readReceipts = 0;
 
 const httpServer = createServer((req, res) => {
   const url = req.url ?? "/";
 
   if (url === "/health") {
     res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ service, status: "ok", startedAt, realtime: "socket.io" }));
+    res.end(JSON.stringify({
+      service, status: "ok", startedAt, realtime: "socket.io",
+      counters: { connectedSockets, publishedMessages, dmMessages, typingEvents, readReceipts },
+    }));
     return;
   }
 
   if (url === "/metrics") {
     res.writeHead(200, { "content-type": "text/plain; version=0.0.4" });
-    res.end(
-      `service_uptime_seconds{service="${service}"} ${Math.floor(process.uptime())}\n` +
-      `service_connected_sockets{service="${service}"} ${connectedSockets}\n` +
-      `service_published_messages_total{service="${service}"} ${publishedMessages}\n`,
-    );
+    res.end([
+      `service_uptime_seconds{service="${service}"} ${Math.floor(process.uptime())}`,
+      `service_connected_sockets{service="${service}"} ${connectedSockets}`,
+      `service_published_messages_total{service="${service}"} ${publishedMessages}`,
+      `chat_dm_messages_total{service="${service}"} ${dmMessages}`,
+      `chat_typing_events_total{service="${service}"} ${typingEvents}`,
+      `chat_read_receipts_total{service="${service}"} ${readReceipts}`,
+    ].join("\n") + "\n");
     return;
   }
 
@@ -84,7 +93,7 @@ io.on("connection", (socket) => {
     ack?.({ ok: true, id: messageId });
   });
 
-  socket.on("dm.message.send", (payload: { recipientId: string; message: string }, ack?: (result: { ok: boolean; id?: string }) => void) => {
+  socket.on("dm.message.send", (payload: { recipientId: string; message: string; messageType?: string }, ack?: (result: { ok: boolean; id?: string }) => void) => {
     if (!payload?.recipientId || !payload?.message) {
       ack?.({ ok: false });
       return;
@@ -95,10 +104,56 @@ io.on("connection", (socket) => {
       id: messageId,
       senderUserId: userId,
       message: payload.message,
+      messageType: payload.messageType ?? "TEXT",
       createdAt: new Date().toISOString(),
     });
+    // Store in Redis for message history
+    pubClient.lpush(`dm:history:${[userId, payload.recipientId].sort().join(":")}`, JSON.stringify({
+      id: messageId, senderUserId: userId, recipientId: payload.recipientId,
+      message: payload.message, messageType: payload.messageType ?? "TEXT",
+      createdAt: new Date().toISOString(),
+    }));
+    pubClient.ltrim(`dm:history:${[userId, payload.recipientId].sort().join(":")}`, 0, 499);
     publishedMessages += 1;
+    dmMessages += 1;
     ack?.({ ok: true, id: messageId });
+  });
+
+  // Typing indicators
+  socket.on("dm.typing.start", (payload: { recipientId: string }) => {
+    if (!payload?.recipientId) return;
+    io.to(`user:${payload.recipientId}`).emit("dm.typing", { userId, typing: true });
+    typingEvents += 1;
+  });
+
+  socket.on("dm.typing.stop", (payload: { recipientId: string }) => {
+    if (!payload?.recipientId) return;
+    io.to(`user:${payload.recipientId}`).emit("dm.typing", { userId, typing: false });
+  });
+
+  // Read receipts
+  socket.on("dm.read", (payload: { conversationId: string; lastMessageId: string }) => {
+    if (!payload?.conversationId || !payload?.lastMessageId) return;
+    readReceipts += 1;
+    // Notify the other party
+    pubClient.publish("dm:read_receipts", JSON.stringify({
+      conversationId: payload.conversationId,
+      readBy: userId,
+      lastMessageId: payload.lastMessageId,
+      at: new Date().toISOString(),
+    }));
+  });
+
+  // Message history retrieval
+  socket.on("dm.history", (payload: { otherUserId: string; limit?: number }, ack?: (r: { ok: boolean; messages?: unknown[] }) => void) => {
+    if (!payload?.otherUserId) { ack?.({ ok: false }); return; }
+    const key = `dm:history:${[userId, payload.otherUserId].sort().join(":")}`;
+    const limit = Math.min(payload.limit ?? 50, 100);
+    pubClient.lrange(key, 0, limit - 1).then(items => {
+      ack?.({ ok: true, messages: items.map(i => JSON.parse(i)) });
+    }).catch(() => {
+      ack?.({ ok: false });
+    });
   });
 
   socket.on("disconnect", () => {

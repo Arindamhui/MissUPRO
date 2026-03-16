@@ -1,33 +1,190 @@
 import { Injectable } from "@nestjs/common";
 import { db } from "@missu/db";
 import {
-  events, eventParticipants, leaderboards, leaderboardEntries,
-  leaderboardSnapshots, hostAnalyticsSnapshots, users,
+  admins,
+  eventParticipants,
+  events,
+  leaderboardEntries,
+  leaderboardSnapshots,
+  leaderboards,
+  users,
 } from "@missu/db/schema";
-import { eq, and, desc, asc, sql, count, gte, lte } from "drizzle-orm";
-import { decodeCursor, encodeCursor } from "@missu/utils";
+import { and, asc, count, desc, eq } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+import { decodeCursor, encodeCursor, generateIdempotencyKey } from "@missu/utils";
+import { WalletService } from "../wallet/wallet.service";
+
+type EventRewardRule = {
+  startRank: number;
+  endRank: number;
+  rewardType: "COINS" | "DIAMONDS" | "BADGE" | "VIP_DAYS";
+  amount?: number;
+  badgeCode?: string;
+  vipDays?: number;
+};
 
 @Injectable()
 export class EventService {
-  // ─── Events CRUD ───
+  constructor(private readonly walletService: WalletService) {}
+
+  private async resolveAdminActorId(adminUserId: string) {
+    const [admin] = await db
+      .select({ id: admins.id })
+      .from(admins)
+      .where(eq(admins.userId, adminUserId))
+      .limit(1);
+
+    if (!admin) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Admin actor not found" });
+    }
+
+    return admin.id;
+  }
+
+  private normalizeEventUpdate(data: Record<string, unknown>) {
+    const next = { ...data } as Record<string, unknown>;
+    if ("startDate" in next) {
+      next.startAt = next.startDate;
+      delete next.startDate;
+    }
+    if ("endDate" in next) {
+      next.endAt = next.endDate;
+      delete next.endDate;
+    }
+    return next;
+  }
+
+  private parseRewardRules(raw: unknown): EventRewardRule[] {
+    if (Array.isArray(raw)) {
+      const parsed: EventRewardRule[] = [];
+
+      raw.forEach((rule, index) => {
+        if (!rule || typeof rule !== "object") {
+          return;
+        }
+
+        const value = rule as Record<string, unknown>;
+        const rewardType = String(value.rewardType ?? value.type ?? "COINS").toUpperCase();
+        const startRank = Math.max(1, Math.round(Number(value.startRank ?? value.rank ?? index + 1)));
+        const endRank = Math.max(startRank, Math.round(Number(value.endRank ?? value.rank ?? startRank)));
+
+        parsed.push({
+          startRank,
+          endRank,
+          rewardType: (["COINS", "DIAMONDS", "BADGE", "VIP_DAYS"].includes(rewardType) ? rewardType : "COINS") as EventRewardRule["rewardType"],
+          amount: Number(value.amount ?? value.coins ?? value.diamonds ?? 0),
+          badgeCode: typeof value.badgeCode === "string" ? value.badgeCode : undefined,
+          vipDays: value.vipDays == null ? undefined : Math.max(1, Math.round(Number(value.vipDays))),
+        });
+      });
+
+      return parsed;
+    }
+
+    if (raw && typeof raw === "object") {
+      const object = raw as Record<string, unknown>;
+      if (Array.isArray(object.rewards)) {
+        return this.parseRewardRules(object.rewards);
+      }
+    }
+
+    return [
+      { startRank: 1, endRank: 1, rewardType: "COINS", amount: 500 },
+      { startRank: 2, endRank: 2, rewardType: "COINS", amount: 250 },
+      { startRank: 3, endRank: 3, rewardType: "COINS", amount: 100 },
+    ];
+  }
+
+  private buildParticipantReward(progressJson: unknown, reward: EventRewardRule, rank: number) {
+    const progress = progressJson && typeof progressJson === "object"
+      ? progressJson as Record<string, unknown>
+      : {};
+    return {
+      ...progress,
+      eventReward: {
+        rewardType: reward.rewardType,
+        amount: reward.amount ?? 0,
+        badgeCode: reward.badgeCode,
+        vipDays: reward.vipDays,
+        rank,
+        grantedAt: new Date().toISOString(),
+      },
+    };
+  }
+
   async listEvents(status?: string, cursor?: string, limit = 20) {
     const offset = cursor ? decodeCursor(cursor) : 0;
-    const conditions: any[] = [];
-    if (status) conditions.push(eq(events.status, status as any));
-
     const results = await db
       .select()
       .from(events)
-      .where(conditions.length ? and(...conditions) : undefined)
+      .where(status ? eq(events.status, status as any) : undefined)
       .orderBy(desc(events.startAt))
       .limit(limit + 1)
       .offset(offset);
 
     const hasMore = results.length > limit;
-    return { items: hasMore ? results.slice(0, limit) : results, nextCursor: hasMore ? encodeCursor(offset + limit) : null };
+    return {
+      items: hasMore ? results.slice(0, limit) : results,
+      nextCursor: hasMore ? encodeCursor(offset + limit) : null,
+    };
   }
 
-  async createEvent(data: { title: string; description: string; eventType: string; startDate: Date; endDate: Date; rulesJson?: any; rewardPoolJson?: any }, createdByAdminId: string) {
+  async listAdminEvents(status?: string, cursor?: string, limit = 20) {
+    const paginated = await this.listEvents(status, cursor, limit);
+    const enriched = await Promise.all(
+      paginated.items.map(async (event) => {
+        const [participantCount, rewardedCount] = await Promise.all([
+          db.select({ count: count() }).from(eventParticipants).where(eq(eventParticipants.eventId, event.id)),
+          db
+            .select({ count: count() })
+            .from(eventParticipants)
+            .where(and(eq(eventParticipants.eventId, event.id), eq(eventParticipants.status, "REWARDED" as any))),
+        ]);
+
+        return {
+          ...event,
+          participantCount: Number(participantCount[0]?.count ?? 0),
+          rewardedParticipants: Number(rewardedCount[0]?.count ?? 0),
+        };
+      }),
+    );
+
+    const summary = enriched.reduce((acc, event) => {
+      acc.totalParticipants += event.participantCount;
+      acc.totalRewardsGranted += event.rewardedParticipants;
+      if (event.status === "ACTIVE") acc.active += 1;
+      if (event.status === "UPCOMING") acc.upcoming += 1;
+      if (event.status === "ENDED") acc.ended += 1;
+      return acc;
+    }, {
+      active: 0,
+      upcoming: 0,
+      ended: 0,
+      totalParticipants: 0,
+      totalRewardsGranted: 0,
+    });
+
+    return {
+      events: enriched,
+      summary,
+      nextCursor: paginated.nextCursor,
+    };
+  }
+
+  async createEvent(
+    data: {
+      title: string;
+      description: string;
+      eventType: string;
+      startDate: Date;
+      endDate: Date;
+      rulesJson?: unknown;
+      rewardPoolJson?: unknown;
+    },
+    createdByAdminUserId: string,
+  ) {
+    const createdByAdminId = await this.resolveAdminActorId(createdByAdminUserId);
+
     const [event] = await db
       .insert(events)
       .values({
@@ -36,38 +193,75 @@ export class EventService {
         eventType: data.eventType as any,
         startAt: data.startDate,
         endAt: data.endDate,
-        rulesJson: data.rulesJson,
-        rewardPoolJson: data.rewardPoolJson,
+        rulesJson: data.rulesJson as any,
+        rewardPoolJson: data.rewardPoolJson as any,
         createdByAdminId,
-        status: "UPCOMING" as any,
-      } as any)
+        status: data.startDate <= new Date() ? "ACTIVE" as any : "UPCOMING" as any,
+      })
       .returning();
+
     return event;
   }
 
-  async updateEvent(eventId: string, data: Record<string, any>) {
-    const [updated] = await db.update(events).set(data).where(eq(events.id, eventId)).returning();
+  async updateEvent(eventId: string, data: Record<string, unknown>) {
+    const [updated] = await db
+      .update(events)
+      .set(this.normalizeEventUpdate(data) as any)
+      .where(eq(events.id, eventId))
+      .returning();
+
     return updated;
   }
 
   async getEventDetail(eventId: string) {
     const [event] = await db.select().from(events).where(eq(events.id, eventId)).limit(1);
-    if (!event) throw new Error("Event not found");
+    if (!event) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Event not found" });
+    }
 
-    const participantCount = await db.select({ count: count() }).from(eventParticipants).where(eq(eventParticipants.eventId, eventId));
+    const [participantCount, leaderboard] = await Promise.all([
+      db.select({ count: count() }).from(eventParticipants).where(eq(eventParticipants.eventId, eventId)),
+      this.getEventLeaderboard(eventId, 10),
+    ]);
 
-    return { event, participantCount: Number(participantCount[0]?.count ?? 0) };
+    return {
+      event,
+      participantCount: Number(participantCount[0]?.count ?? 0),
+      leaderboard,
+    };
   }
 
-  // ─── Event Participants ───
   async joinEvent(userId: string, eventId: string) {
     const [event] = await db.select().from(events).where(eq(events.id, eventId)).limit(1);
-    if (!event) throw new Error("Event not found");
+    if (!event) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Event not found" });
+    }
 
-    const existing = await db.select().from(eventParticipants).where(and(eq(eventParticipants.eventId, eventId), eq(eventParticipants.userId, userId))).limit(1);
-    if (existing[0]) throw new Error("Already joined");
+    if (!["ACTIVE", "UPCOMING"].includes(String(event.status))) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Event is not open for participation" });
+    }
 
-    const [participant] = await db.insert(eventParticipants).values({ eventId, userId, score: "0" }).returning();
+    const [existing] = await db
+      .select()
+      .from(eventParticipants)
+      .where(and(eq(eventParticipants.eventId, eventId), eq(eventParticipants.userId, userId)))
+      .limit(1);
+
+    if (existing) {
+      return existing;
+    }
+
+    const [participant] = await db
+      .insert(eventParticipants)
+      .values({
+        eventId,
+        userId,
+        score: "0",
+        status: "ENROLLED" as any,
+        progressJson: { joinedFrom: "APP" },
+      })
+      .returning();
+
     return participant;
   }
 
@@ -78,12 +272,17 @@ export class EventService {
       .where(and(eq(eventParticipants.eventId, eventId), eq(eventParticipants.userId, userId)))
       .limit(1);
 
-    if (!participant) throw new Error("Not a participant");
+    if (!participant) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Participant not found" });
+    }
 
-    const newScore = (Number(participant.score) ?? 0) + scoreDelta;
+    const updatedScore = (Number(participant.score) || 0) + scoreDelta;
     const [updated] = await db
       .update(eventParticipants)
-      .set({ score: String(newScore), updatedAt: new Date() })
+      .set({
+        score: String(updatedScore),
+        updatedAt: new Date(),
+      })
       .where(eq(eventParticipants.id, participant.id))
       .returning();
 
@@ -91,7 +290,7 @@ export class EventService {
   }
 
   async getEventLeaderboard(eventId: string, limit = 50) {
-    return db
+    const rows = await db
       .select({
         userId: eventParticipants.userId,
         score: eventParticipants.score,
@@ -103,9 +302,118 @@ export class EventService {
       .where(eq(eventParticipants.eventId, eventId))
       .orderBy(desc(eventParticipants.score))
       .limit(limit);
+
+    return rows.map((row, index) => ({
+      ...row,
+      rank: index + 1,
+      rankPosition: index + 1,
+      scoreValue: Number(row.score ?? 0),
+    }));
   }
 
-  // ─── Leaderboards ───
+  async distributeEventRewards(eventId: string) {
+    const [event] = await db.select().from(events).where(eq(events.id, eventId)).limit(1);
+    if (!event) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Event not found" });
+    }
+
+    const leaderboard = await db
+      .select()
+      .from(eventParticipants)
+      .where(eq(eventParticipants.eventId, eventId))
+      .orderBy(desc(eventParticipants.score), asc(eventParticipants.joinedAt));
+
+    const rewards = this.parseRewardRules(event.rewardPoolJson);
+    let grantedCount = 0;
+    let totalCoins = 0;
+    let totalDiamonds = 0;
+
+    for (let index = 0; index < leaderboard.length; index++) {
+      const participant = leaderboard[index]!;
+      const rank = index + 1;
+      const reward = rewards.find((rule) => rank >= rule.startRank && rank <= rule.endRank);
+      if (!reward) {
+        continue;
+      }
+
+      const progress = participant.progressJson && typeof participant.progressJson === "object"
+        ? participant.progressJson as Record<string, unknown>
+        : {};
+
+      if (progress.eventReward) {
+        continue;
+      }
+
+      if (reward.rewardType === "COINS" && (reward.amount ?? 0) > 0) {
+        await this.walletService.creditCoins(
+          participant.userId,
+          Math.round(reward.amount ?? 0),
+          "PROMO_BONUS",
+          eventId,
+          `Event reward for ${event.title}`,
+          generateIdempotencyKey(participant.userId, "event_reward_coins", `${eventId}:${rank}`),
+        );
+        totalCoins += Math.round(reward.amount ?? 0);
+      }
+
+      if (reward.rewardType === "DIAMONDS" && (reward.amount ?? 0) > 0) {
+        await this.walletService.creditDiamonds(
+          participant.userId,
+          Math.round(reward.amount ?? 0),
+          "EVENT_REWARD",
+          eventId,
+          `Event reward for ${event.title}`,
+          generateIdempotencyKey(participant.userId, "event_reward_diamonds", `${eventId}:${rank}`),
+        );
+        totalDiamonds += Math.round(reward.amount ?? 0);
+      }
+
+      await db
+        .update(eventParticipants)
+        .set({
+          status: "REWARDED" as any,
+          progressJson: this.buildParticipantReward(participant.progressJson, reward, rank),
+          rank,
+          updatedAt: new Date(),
+        })
+        .where(eq(eventParticipants.id, participant.id));
+
+      grantedCount += 1;
+    }
+
+    return {
+      eventId,
+      grantedCount,
+      totalCoins,
+      totalDiamonds,
+    };
+  }
+
+  async getEventAnalytics(eventId: string) {
+    const [event] = await db.select().from(events).where(eq(events.id, eventId)).limit(1);
+    if (!event) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Event not found" });
+    }
+
+    const [participants, rewarded, leaderboard] = await Promise.all([
+      db.select({ count: count() }).from(eventParticipants).where(eq(eventParticipants.eventId, eventId)),
+      db
+        .select({ count: count() })
+        .from(eventParticipants)
+        .where(and(eq(eventParticipants.eventId, eventId), eq(eventParticipants.status, "REWARDED" as any))),
+      this.getEventLeaderboard(eventId, 5),
+    ]);
+
+    return {
+      event,
+      metrics: {
+        participants: Number(participants[0]?.count ?? 0),
+        rewardedParticipants: Number(rewarded[0]?.count ?? 0),
+      },
+      topParticipants: leaderboard,
+    };
+  }
+
   async getLeaderboard(leaderboardId: string, cursor?: string, limit = 50) {
     const offset = cursor ? decodeCursor(cursor) : 0;
     const results = await db
@@ -124,24 +432,46 @@ export class EventService {
       .offset(offset);
 
     const hasMore = results.length > limit;
-    return { items: hasMore ? results.slice(0, limit) : results, nextCursor: hasMore ? encodeCursor(offset + limit) : null };
+    const items = hasMore ? results.slice(0, limit) : results;
+
+    return {
+      items: items.map((entry) => ({
+        ...entry,
+        rankPosition: entry.rank,
+        scoreValue: Number(entry.score ?? 0),
+      })),
+      nextCursor: hasMore ? encodeCursor(offset + limit) : null,
+    };
   }
 
   async listLeaderboards() {
     return db.select().from(leaderboards).orderBy(desc(leaderboards.createdAt));
   }
 
-  async createLeaderboard(data: { title: string; leaderboardType: string; scoringMetric: string; windowType: string }, createdByAdminId: string) {
+  async createLeaderboard(
+    data: { title: string; leaderboardType: string; scoringMetric: string; windowType: string },
+    createdByAdminId: string,
+  ) {
     const [leaderboard] = await db
       .insert(leaderboards)
-      .values({ ...data, status: "ACTIVE" as any, maxEntries: 100, refreshIntervalSeconds: 300, createdByAdminId } as any)
+      .values({
+        ...data,
+        status: "ACTIVE" as any,
+        maxEntries: 100,
+        refreshIntervalSeconds: 300,
+        createdByAdminId,
+      } as any)
       .returning();
+
     return leaderboard;
   }
 
   async recomputeLeaderboard(leaderboardId: string) {
     const [board] = await db.select().from(leaderboards).where(eq(leaderboards.id, leaderboardId)).limit(1);
-    if (!board) throw new Error("Leaderboard not found");
+    if (!board) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Leaderboard not found" });
+    }
+
     const ranked = await db
       .select({ userId: eventParticipants.userId, score: eventParticipants.score })
       .from(eventParticipants)
@@ -151,12 +481,12 @@ export class EventService {
     await db.transaction(async (tx) => {
       await tx.delete(leaderboardEntries).where(eq(leaderboardEntries.leaderboardId, leaderboardId));
 
-      for (let i = 0; i < ranked.length; i++) {
-        const row = ranked[i]!;
+      for (let index = 0; index < ranked.length; index++) {
+        const row = ranked[index]!;
         await tx.insert(leaderboardEntries).values({
           leaderboardId,
           userId: row.userId,
-          rankPosition: i + 1,
+          rankPosition: index + 1,
           scoreValue: row.score,
           scoreDelta: "0",
           snapshotAt: new Date(),

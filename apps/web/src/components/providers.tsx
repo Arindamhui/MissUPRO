@@ -1,13 +1,23 @@
 "use client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { trpc, getTrpcClient } from "@/lib/trpc";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AuthBridgeProvider, useAuthBridge } from "@/components/auth-bridge";
+import { WebI18nProvider } from "@/i18n";
+import { trpc, createTrpcClient } from "@/lib/trpc";
 
-export function Providers({ children }: { children: React.ReactNode }) {
+function TrpcProviders({ children }: { children: React.ReactNode }) {
+  const auth = useAuthBridge();
+  const getTokenRef = useRef(auth.getToken);
+
+  useEffect(() => {
+    getTokenRef.current = auth.getToken;
+  }, [auth.getToken]);
+
+  const stableGetToken = useCallback(() => getTokenRef.current(), []);
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false } },
   }));
-  const [trpcClient] = useState(() => getTrpcClient());
+  const [trpcClient] = useState(() => createTrpcClient({ getToken: stableGetToken }));
 
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
@@ -15,5 +25,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
         {children}
       </QueryClientProvider>
     </trpc.Provider>
+  );
+}
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <WebI18nProvider>
+      <AuthBridgeProvider>
+        <TrpcProviders>{children}</TrpcProviders>
+      </AuthBridgeProvider>
+    </WebI18nProvider>
   );
 }

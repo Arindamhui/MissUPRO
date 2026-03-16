@@ -4,11 +4,10 @@ import {
   partyRooms, partySeats, partyMembers, partyActivities,
   partyActivityParticipants, partyThemes, users, wallets, coinTransactions,
 } from "@missu/db/schema";
-import { eq, and, desc, asc, sql, count, isNull, ne } from "drizzle-orm";
+import { eq, and, desc, asc, sql, count, or } from "drizzle-orm";
 import { DEFAULTS } from "@missu/config";
 import { decodeCursor, encodeCursor, generateIdempotencyKey, acquireLock, releaseLock } from "@missu/utils";
-import crypto from "crypto";
-import { timingSafeEqual } from "crypto";
+import bcrypt from "bcryptjs";
 
 @Injectable()
 export class PartyService {
@@ -24,7 +23,7 @@ export class PartyService {
         themeId: data.themeId,
         maxSeats,
         passwordHash: data.password ? await this.hashPassword(data.password) : null,
-        status: "ACTIVE" as any,
+        status: "OPEN" as any,
         startedAt: new Date(),
       } as any)
       .returning();
@@ -36,7 +35,7 @@ export class PartyService {
       await db.insert(partySeats).values({
         roomId: room.id,
         seatNumber: i,
-        status: "OPEN" as any,
+        status: "EMPTY" as any,
       } as any);
     }
 
@@ -55,7 +54,7 @@ export class PartyService {
   async joinRoom(roomId: string, userId: string) {
     const [room] = await db.select().from(partyRooms).where(eq(partyRooms.id, roomId)).limit(1);
     if (!room) throw new Error("Room not found");
-    if (room.status !== "ACTIVE") throw new Error("Room is not active");
+    if (room.status !== "ACTIVE" && room.status !== "OPEN") throw new Error("Room is not active");
     if (room.passwordHash) throw new Error("Room requires a password");
 
     return this.addMember(roomId, userId);
@@ -64,13 +63,11 @@ export class PartyService {
   async joinRoomWithPassword(roomId: string, userId: string, password: string) {
     const [room] = await db.select().from(partyRooms).where(eq(partyRooms.id, roomId)).limit(1);
     if (!room) throw new Error("Room not found");
-    if (room.status !== "ACTIVE") throw new Error("Room is not active");
+    if (room.status !== "ACTIVE" && room.status !== "OPEN") throw new Error("Room is not active");
 
     if (room.passwordHash) {
-      const hash = await this.hashPassword(password);
-      const expected = Buffer.from(room.passwordHash);
-      const actual = Buffer.from(hash);
-      if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
+      const matches = await bcrypt.compare(password, room.passwordHash);
+      if (!matches) {
         throw new Error("Invalid password");
       }
     }
@@ -84,17 +81,18 @@ export class PartyService {
 
     const memberCount = await db.select({ count: count() }).from(partyMembers).where(and(eq(partyMembers.roomId, roomId), eq(partyMembers.status, "ACTIVE" as any)));
     const [room] = await db.select().from(partyRooms).where(eq(partyRooms.id, roomId)).limit(1);
-    if (Number(memberCount[0]?.count ?? 0) >= (room?.maxSeats ?? DEFAULTS.PARTY.MAX_MEMBERS)) {
+    const roomCapacity = (room?.maxSeats ?? DEFAULTS.PARTY.MAX_MEMBERS) + (room?.maxAudience ?? 0);
+    if (Number(memberCount[0]?.count ?? 0) >= roomCapacity) {
       throw new Error("Room is full");
     }
 
-    const [member] = await db.insert(partyMembers).values({ roomId, userId, role: "MEMBER" as any, status: "ACTIVE" as any, joinedAt: new Date() }).returning();
+    const [member] = await db.insert(partyMembers).values({ roomId, userId, role: "AUDIENCE" as any, status: "ACTIVE" as any, joinedAt: new Date() }).returning();
     return member;
   }
 
   async leaveRoom(roomId: string, userId: string) {
     await db.update(partyMembers).set({ status: "LEFT" as any, leftAt: new Date() }).where(and(eq(partyMembers.roomId, roomId), eq(partyMembers.userId, userId)));
-    await db.update(partySeats).set({ occupantUserId: null, status: "OPEN" as any }).where(and(eq(partySeats.roomId, roomId), eq(partySeats.occupantUserId, userId)));
+    await db.update(partySeats).set({ occupantUserId: null, status: "EMPTY" as any }).where(and(eq(partySeats.roomId, roomId), eq(partySeats.occupantUserId, userId)));
     return { success: true };
   }
 
@@ -190,15 +188,18 @@ export class PartyService {
       .limit(1);
 
     if (!seat) throw new Error("Seat not found");
-    if (seat.status !== "EMPTY") throw new Error("Seat is not available");
+    if (seat.status !== "EMPTY" && !(seat.status === "RESERVED" && seat.reservedForUserId === userId)) {
+      throw new Error("Seat is not available");
+    }
 
     // Release any current seat
     await db.update(partySeats).set({ occupantUserId: null, status: "EMPTY" as any }).where(and(eq(partySeats.roomId, roomId), eq(partySeats.occupantUserId, userId)));
+    await db.update(partyMembers).set({ role: "SEATED" as any }).where(and(eq(partyMembers.roomId, roomId), eq(partyMembers.userId, userId), eq(partyMembers.status, "ACTIVE" as any)));
 
     const [updated] = await db
       .update(partySeats)
-      .set({ occupantUserId: userId, status: "OCCUPIED" as any, occupiedAt: new Date() })
-      .where(and(eq(partySeats.roomId, roomId), eq(partySeats.seatNumber, seatNumber), eq(partySeats.status, "OPEN" as any)))
+      .set({ occupantUserId: userId, reservedForUserId: null, status: "OCCUPIED" as any, occupiedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(partySeats.id, seat.id), or(eq(partySeats.status, "EMPTY" as any), eq(partySeats.status, "RESERVED" as any))))
       .returning();
 
     if (!updated) throw new Error("Seat was taken");
@@ -206,7 +207,8 @@ export class PartyService {
   }
 
   async vacateSeat(roomId: string, userId: string) {
-    await db.update(partySeats).set({ occupantUserId: null, status: "OPEN" as any }).where(and(eq(partySeats.roomId, roomId), eq(partySeats.occupantUserId, userId)));
+    await db.update(partySeats).set({ occupantUserId: null, status: "EMPTY" as any }).where(and(eq(partySeats.roomId, roomId), eq(partySeats.occupantUserId, userId)));
+    await db.update(partyMembers).set({ role: "AUDIENCE" as any }).where(and(eq(partyMembers.roomId, roomId), eq(partyMembers.userId, userId), eq(partyMembers.status, "ACTIVE" as any)));
     return { success: true };
   }
 
@@ -310,7 +312,7 @@ export class PartyService {
     await this.verifyHost(roomId, hostUserId);
     const [updated] = await db
       .update(partyActivities)
-      .set({ status: "COMPLETED" as any, endedAt: new Date() })
+      .set({ status: "ENDED" as any, endedAt: new Date() })
       .where(and(eq(partyActivities.id, activityId), eq(partyActivities.roomId, roomId)))
       .returning();
     return updated;
@@ -342,6 +344,6 @@ export class PartyService {
   }
 
   private async hashPassword(password: string): Promise<string> {
-    return crypto.createHash("sha256").update(password).digest("hex");
+    return bcrypt.hash(password, 10);
   }
 }

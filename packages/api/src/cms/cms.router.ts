@@ -9,6 +9,8 @@ export class CmsRouter {
 
   get router() {
     return this.trpc.router({
+      listPublicBanners: this.trpc.procedure.query(async () => this.cmsService.listPublicBanners()),
+
       // Banners
       listBanners: this.trpc.adminProcedure.query(async () => this.cmsService.listBanners()),
       createBanner: this.trpc.adminProcedure
@@ -39,10 +41,37 @@ export class CmsRouter {
       // Promotions
       listPromotions: this.trpc.adminProcedure.query(async () => this.cmsService.listPromotions()),
       createPromotion: this.trpc.adminProcedure
-        .input(z.object({ name: z.string(), description: z.string().optional(), promotionType: z.string(), startDate: z.coerce.date(), endDate: z.coerce.date(), targetAudience: z.string().optional(), rewardRulesJson: z.any().optional() }))
+        .input(z.object({
+          name: z.string().min(2).max(120),
+          description: z.string().max(1000).optional(),
+          promotionType: z.enum(["COIN_BONUS", "SEASONAL_EVENT", "REFERRAL_BOOST", "FIRST_PURCHASE_BONUS", "REACTIVATION_BONUS"]),
+          status: z.enum(["DRAFT", "SCHEDULED", "ACTIVE", "PAUSED", "ENDED"]).optional(),
+          startDate: z.coerce.date(),
+          endDate: z.coerce.date(),
+          targetAudience: z.enum(["ALL_USERS", "NEW_USERS", "INACTIVE_USERS", "VIP_USERS", "REGION_SEGMENT"]).optional(),
+          targetRegion: z.string().max(20).optional(),
+          bannerImageUrl: z.string().url().optional(),
+          maxBudget: z.number().nonnegative().optional(),
+          rewardRulesJson: z.any().optional(),
+        }))
         .mutation(async ({ ctx, input }) => this.cmsService.createPromotion({ ...input, createdByAdminId: ctx.userId })),
       updatePromotion: this.trpc.adminProcedure
-        .input(z.object({ promotionId: z.string().uuid(), data: z.record(z.string(), z.any()) }))
+        .input(z.object({
+          promotionId: z.string().uuid(),
+          data: z.object({
+            name: z.string().min(2).max(120).optional(),
+            description: z.string().max(1000).optional(),
+            promotionType: z.enum(["COIN_BONUS", "SEASONAL_EVENT", "REFERRAL_BOOST", "FIRST_PURCHASE_BONUS", "REACTIVATION_BONUS"]).optional(),
+            status: z.enum(["DRAFT", "SCHEDULED", "ACTIVE", "PAUSED", "ENDED"]).optional(),
+            targetAudience: z.enum(["ALL_USERS", "NEW_USERS", "INACTIVE_USERS", "VIP_USERS", "REGION_SEGMENT"]).optional(),
+            targetRegion: z.string().max(20).optional(),
+            bannerImageUrl: z.string().url().optional(),
+            maxBudget: z.number().nonnegative().optional(),
+            startDate: z.coerce.date().optional(),
+            endDate: z.coerce.date().optional(),
+            rewardRulesJson: z.any().optional(),
+          }),
+        }))
         .mutation(async ({ input }) => this.cmsService.updatePromotion(input.promotionId, input.data)),
       getActivePromotions: this.trpc.protectedProcedure
         .query(async () => this.cmsService.getActivePromotions()),

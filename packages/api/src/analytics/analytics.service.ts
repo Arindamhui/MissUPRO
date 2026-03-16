@@ -1,11 +1,13 @@
 import { Injectable } from "@nestjs/common";
+import { Cron } from "@nestjs/schedule";
 import { db } from "@missu/db";
 import {
   analyticsEvents, users, callSessions, chatSessions, payments,
-  giftTransactions, liveStreams, coinTransactions,
+  giftTransactions, liveStreams, liveViewers, coinTransactions,
   diamondTransactions, models, modelCallStats,
+  hostAnalyticsSnapshots, followers, gifts,
 } from "@missu/db/schema";
-import { eq, and, desc, sql, count, sum, between } from "drizzle-orm";
+import { eq, and, desc, sql, count, sum, between, inArray } from "drizzle-orm";
 
 @Injectable()
 export class AnalyticsService {
@@ -139,5 +141,151 @@ export class AnalyticsService {
       totalDiamonds: Number(diamondBalance[0]?.total ?? 0),
       callStats: stats,
     };
+  }
+
+  async getCreatorSnapshots(hostUserId: string, startDate: Date, endDate: Date) {
+    return db
+      .select()
+      .from(hostAnalyticsSnapshots)
+      .where(
+        and(
+          eq(hostAnalyticsSnapshots.hostUserId, hostUserId),
+          between(hostAnalyticsSnapshots.snapshotDate, startDate.toISOString().slice(0, 10) as any, endDate.toISOString().slice(0, 10) as any),
+        ),
+      )
+      .orderBy(desc(hostAnalyticsSnapshots.snapshotDate));
+  }
+
+  async aggregateCreatorSnapshots(snapshotDate: string) {
+    const startOfDay = new Date(snapshotDate + "T00:00:00.000Z");
+    const endOfDay = new Date(snapshotDate + "T23:59:59.999Z");
+
+    const hosts = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(inArray(users.role, ["HOST", "MODEL"]));
+
+    for (const { id: hostUserId } of hosts) {
+      const [diamonds] = await db
+        .select({ total: sum(diamondTransactions.amount) })
+        .from(diamondTransactions)
+        .where(
+          and(
+            eq(diamondTransactions.userId, hostUserId),
+            between(diamondTransactions.createdAt, startOfDay, endOfDay),
+          ),
+        );
+
+      const streams = await db
+        .select({
+          id: liveStreams.id,
+          durationSeconds: liveStreams.durationSeconds,
+        })
+        .from(liveStreams)
+        .where(
+          and(
+            eq(liveStreams.hostUserId, hostUserId),
+            between(liveStreams.startedAt ?? liveStreams.createdAt, startOfDay, endOfDay),
+          ),
+        );
+
+      const totalStreams = streams.length;
+      const totalWatchMinutes = Math.floor(
+        streams.reduce((acc, s) => acc + (s.durationSeconds ?? 0), 0) / 60,
+      );
+
+      let uniqueViewers = 0;
+      if (streams.length > 0) {
+        const streamIds = streams.map((s) => s.id);
+        const [uv] = await db
+          .select({ count: sql<number>`count(distinct ${liveViewers.userId})` })
+          .from(liveViewers)
+          .where(inArray(liveViewers.streamId, streamIds));
+        uniqueViewers = Number(uv?.count ?? 0);
+      }
+
+      const [giftStats] = await db
+        .select({
+          totalGifts: count(),
+          totalDiamondCredit: sum(giftTransactions.diamondCredit),
+        })
+        .from(giftTransactions)
+        .where(
+          and(
+            eq(giftTransactions.receiverUserId, hostUserId),
+            between(giftTransactions.createdAt, startOfDay, endOfDay),
+          ),
+        );
+
+      const topGift = await db
+        .select({
+          giftId: giftTransactions.giftId,
+          giftCode: gifts.giftCode,
+          c: count(),
+        })
+        .from(giftTransactions)
+        .innerJoin(gifts, eq(gifts.id, giftTransactions.giftId))
+        .where(
+          and(
+            eq(giftTransactions.receiverUserId, hostUserId),
+            between(giftTransactions.createdAt, startOfDay, endOfDay),
+          ),
+        )
+        .groupBy(giftTransactions.giftId, gifts.giftCode)
+        .orderBy(desc(sql`count(*)`))
+        .limit(1);
+
+      const [followerDeltaRow] = await db
+        .select({ count: count() })
+        .from(followers)
+        .where(
+          and(
+            eq(followers.followedUserId, hostUserId),
+            between(followers.createdAt, startOfDay, endOfDay),
+          ),
+        );
+
+      const existing = await db
+        .select({ id: hostAnalyticsSnapshots.id })
+        .from(hostAnalyticsSnapshots)
+        .where(
+          and(
+            eq(hostAnalyticsSnapshots.hostUserId, hostUserId),
+            eq(hostAnalyticsSnapshots.snapshotDate, snapshotDate as any),
+          ),
+        )
+        .limit(1);
+
+      const payload = {
+        totalDiamondsEarned: Number(diamonds?.total ?? 0),
+        totalStreams,
+        totalWatchMinutes,
+        uniqueViewers,
+        totalGiftsReceived: Number(giftStats?.totalGifts ?? 0),
+        topGiftType: topGift[0]?.giftCode ?? null,
+        followerDelta: Number(followerDeltaRow?.count ?? 0),
+      };
+
+      if (existing[0]) {
+        await db
+          .update(hostAnalyticsSnapshots)
+          .set(payload as any)
+          .where(eq(hostAnalyticsSnapshots.id, existing[0].id));
+      } else {
+        await db.insert(hostAnalyticsSnapshots).values({
+          hostUserId,
+          snapshotDate: snapshotDate as any,
+          ...payload,
+        } as any);
+      }
+    }
+  }
+
+  @Cron("0 1 * * *")
+  async runNightlyCreatorSnapshots() {
+    const yesterday = new Date();
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    const snapshotDate = yesterday.toISOString().slice(0, 10);
+    await this.aggregateCreatorSnapshots(snapshotDate);
   }
 }

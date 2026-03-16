@@ -1,24 +1,24 @@
 import { CanActivate, Injectable } from "@nestjs/common";
+import { AuthService } from "../auth/auth.service";
 import { WsException } from "@nestjs/websockets";
 import { Socket } from "socket.io";
 
 @Injectable()
 export class RealtimeAuthGuard implements CanActivate {
+  constructor(private readonly authService: AuthService) {}
+
   async canActivate(context: any): Promise<boolean> {
     const client: Socket = context.switchToWs().getClient();
-    const token = client.handshake.auth?.token || client.handshake.headers?.authorization?.replace("Bearer ", "");
+    const authHeader = client.handshake.headers?.authorization;
+    const token = client.handshake.auth?.token || this.authService.extractBearerToken(authHeader as string | string[] | undefined);
 
     if (!token) {
       throw new WsException("Missing authentication token");
     }
 
     try {
-      // Clerk token verification would go here
-      // For now extract userId from handshake
-      const userId = client.handshake.auth?.userId;
-      if (!userId) throw new WsException("Invalid token");
-
-      (client as any).userId = userId;
+      const authenticatedUser = await this.authService.authenticateToken(token);
+      (client as any).userId = authenticatedUser.userId;
       return true;
     } catch {
       throw new WsException("Authentication failed");

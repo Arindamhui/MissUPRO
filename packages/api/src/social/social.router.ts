@@ -9,6 +9,10 @@ export class SocialRouter {
 
   get router() {
     return this.trpc.router({
+      getOrCreateConversation: this.trpc.protectedProcedure
+        .input(z.object({ otherUserId: z.string().uuid() }))
+        .query(async ({ ctx, input }) => this.socialService.getOrCreateConversation(ctx.userId, input.otherUserId)),
+
       listConversations: this.trpc.protectedProcedure
         .input(z.object({ cursor: z.string().optional(), limit: z.number().int().min(1).max(50).default(20) }))
         .query(async ({ ctx, input }) => this.socialService.listConversations(ctx.userId, input.cursor, input.limit)),

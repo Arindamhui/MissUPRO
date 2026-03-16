@@ -112,6 +112,158 @@ io.on("connection", (socket) => {
     });
   });
 
+  // Gift broadcast events
+  socket.on("gift.send", (payload: { targetRoom: string; giftId: string; giftName: string; coinCost: number; receiverUserId: string; comboCount?: number; animationKey?: string }) => {
+    if (!payload?.targetRoom || !payload?.giftId) return;
+    publishToRoom(payload.targetRoom, "gift.broadcast", {
+      senderId: userId,
+      receiverUserId: payload.receiverUserId,
+      giftId: payload.giftId,
+      giftName: payload.giftName,
+      coinCost: payload.coinCost,
+      comboCount: payload.comboCount ?? 1,
+      animationKey: payload.animationKey,
+      at: new Date().toISOString(),
+    });
+  });
+
+  // PK battle events
+  socket.on("pk.score.update", (payload: { pkSessionId: string; hostAScore: number; hostBScore: number }) => {
+    if (!payload?.pkSessionId) return;
+    publishToRoom(`pk:${payload.pkSessionId}`, "pk.score.updated", {
+      pkSessionId: payload.pkSessionId,
+      hostAScore: payload.hostAScore,
+      hostBScore: payload.hostBScore,
+      at: new Date().toISOString(),
+    });
+  });
+
+  socket.on("pk.join", (payload: { pkSessionId: string }) => {
+    if (!payload?.pkSessionId) return;
+    socket.join(`pk:${payload.pkSessionId}`);
+    publishToRoom(`pk:${payload.pkSessionId}`, "pk.viewer.joined", {
+      userId,
+      at: new Date().toISOString(),
+    });
+  });
+
+  // Group audio events
+  socket.on("group_audio.hand_raise", (payload: { roomId: string }) => {
+    if (!payload?.roomId) return;
+    publishToRoom(`ga:${payload.roomId}`, "group_audio.hand_raised", {
+      userId,
+      at: new Date().toISOString(),
+    });
+  });
+
+  socket.on("group_audio.speaker_change", (payload: { roomId: string; targetUserId: string; action: "promote" | "demote" }) => {
+    if (!payload?.roomId) return;
+    publishToRoom(`ga:${payload.roomId}`, "group_audio.speaker_changed", {
+      userId,
+      targetUserId: payload.targetUserId,
+      action: payload.action,
+      at: new Date().toISOString(),
+    });
+  });
+
+  socket.on("group_audio.mute", (payload: { roomId: string; targetUserId: string; muted: boolean }) => {
+    if (!payload?.roomId) return;
+    publishToRoom(`ga:${payload.roomId}`, "group_audio.mute_changed", {
+      targetUserId: payload.targetUserId,
+      muted: payload.muted,
+      by: userId,
+      at: new Date().toISOString(),
+    });
+  });
+
+  // Party activity events
+  socket.on("party.activity.start", (payload: { roomId: string; activityType: string; config?: Record<string, unknown> }) => {
+    if (!payload?.roomId) return;
+    publishToRoom(`party:${payload.roomId}`, "party.activity.started", {
+      activityType: payload.activityType,
+      config: payload.config,
+      startedBy: userId,
+      at: new Date().toISOString(),
+    });
+  });
+
+  socket.on("party.activity.action", (payload: { roomId: string; activityId: string; action: unknown }) => {
+    if (!payload?.roomId) return;
+    publishToRoom(`party:${payload.roomId}`, "party.activity.action", {
+      activityId: payload.activityId,
+      userId,
+      action: payload.action,
+      at: new Date().toISOString(),
+    });
+  });
+
+  socket.on("party.chat", (payload: { roomId: string; message: string }) => {
+    if (!payload?.roomId || !payload?.message) return;
+    publishToRoom(`party:${payload.roomId}`, "party.chat.message", {
+      userId,
+      message: payload.message.slice(0, 500),
+      messageId: randomUUID(),
+      at: new Date().toISOString(),
+    });
+  });
+
+  // Presence updates
+  socket.on("presence.update", (payload: { status: "online" | "busy" | "in_call" | "streaming" }) => {
+    if (!payload?.status) return;
+    pubClient.set(`presence:${userId}`, payload.status, "EX", 90);
+    pubClient.publish("presence:updates", JSON.stringify({ userId, status: payload.status, at: new Date().toISOString() }));
+  });
+
+  // Call signaling enhancements
+  socket.on("call.accept", (payload: { sessionId: string; callerId: string }) => {
+    if (!payload?.sessionId || !payload?.callerId) return;
+    publishToRoom(`user:${payload.callerId}`, "call.accepted", {
+      sessionId: payload.sessionId,
+      modelId: userId,
+      at: new Date().toISOString(),
+    });
+  });
+
+  socket.on("call.reject", (payload: { sessionId: string; callerId: string; reason?: string }) => {
+    if (!payload?.sessionId || !payload?.callerId) return;
+    publishToRoom(`user:${payload.callerId}`, "call.rejected", {
+      sessionId: payload.sessionId,
+      reason: payload.reason ?? "declined",
+      at: new Date().toISOString(),
+    });
+  });
+
+  socket.on("call.end", (payload: { sessionId: string; otherUserId: string; reason?: string }) => {
+    if (!payload?.sessionId || !payload?.otherUserId) return;
+    publishToRoom(`user:${payload.otherUserId}`, "call.ended", {
+      sessionId: payload.sessionId,
+      endedBy: userId,
+      reason: payload.reason ?? "normal",
+      at: new Date().toISOString(),
+    });
+  });
+
+  // Stream chat
+  socket.on("stream.chat", (payload: { streamId: string; message: string; messageType?: string }) => {
+    if (!payload?.streamId || !payload?.message) return;
+    publishToRoom(`stream:${payload.streamId}`, "stream.chat.message", {
+      userId,
+      message: payload.message.slice(0, 500),
+      messageType: payload.messageType ?? "TEXT",
+      messageId: randomUUID(),
+      at: new Date().toISOString(),
+    });
+  });
+
+  socket.on("stream.leave", (payload: { streamId: string }) => {
+    if (!payload?.streamId) return;
+    socket.leave(`stream:${payload.streamId}`);
+    publishToRoom(`stream:${payload.streamId}`, "stream.viewer.left", {
+      userId,
+      at: new Date().toISOString(),
+    });
+  });
+
   socket.on("disconnect", () => {
     connectedSockets = Math.max(0, connectedSockets - 1);
   });

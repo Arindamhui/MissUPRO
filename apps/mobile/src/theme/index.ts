@@ -6,6 +6,7 @@ export const COLORS = {
   success: "#00B894",
   warning: "#FDCB6E",
   danger: "#E17055",
+  error: "#E17055",
   background: "#FFFFFF",
   surface: "#F8F9FA",
   card: "#FFFFFF",

@@ -29,6 +29,13 @@
       "when": 1773420000000,
       "tag": "0003_webhook_event_uniqueness",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1773496800000,
+      "tag": "0004_ops_trust_hardening",
+      "breakpoints": true
     }
   ]
 }

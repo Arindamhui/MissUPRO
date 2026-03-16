@@ -13,6 +13,30 @@ export class LiveRouter {
 
   get router() {
     return this.trpc.router({
+      getDiscoveryFeed: this.trpc.procedure
+        .input(
+          z.object({
+            category: z.string().min(1).optional(),
+            sort: z.enum(["trending", "viewers", "newest"]).default("trending"),
+            limit: z.number().int().min(1).max(24).default(18),
+          }),
+        )
+        .query(async ({ input }) => {
+          return this.liveService.getDiscoveryFeed(input);
+        }),
+
+      getStreamPreview: this.trpc.procedure
+        .input(z.object({ streamId: z.string().uuid() }))
+        .query(async ({ input }) => {
+          return this.liveService.getStreamPreview(input.streamId);
+        }),
+
+      getViewerRoom: this.trpc.procedure
+        .input(z.object({ streamId: z.string().uuid() }))
+        .query(async ({ input }) => {
+          return this.liveService.getViewerRoom(input.streamId);
+        }),
+
       createRoom: this.trpc.protectedProcedure
         .input(z.object({ roomName: z.string().min(1), category: z.string().min(1), roomType: z.string().default("PUBLIC") }))
         .mutation(async ({ ctx, input }) => {

@@ -11,7 +11,7 @@ import { useAuthStore } from "@/store";
 export default function GroupAudioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const userId = useAuthStore((s) => s.userId);
-  const { emit, on } = useSocket();
+  const { emit, emitWithAck, on } = useSocket();
   const [messages, setMessages] = useState<any[]>([]);
   const [inputText, setInputText] = useState("");
   const [isMuted, setIsMuted] = useState(false);
@@ -22,6 +22,7 @@ export default function GroupAudioScreen() {
 
   useEffect(() => {
     emit(SOCKET_EVENTS.GROUP_AUDIO.JOIN, { roomId: id });
+    emit(SOCKET_EVENTS.GROUP_AUDIO.SYNC_REQUEST, { roomId: id, limit: 30 });
 
     const unsub1 = on(SOCKET_EVENTS.GROUP_AUDIO.CHAT, (msg: any) => {
       setMessages((prev) => [...prev.slice(-200), msg]);
@@ -29,10 +30,19 @@ export default function GroupAudioScreen() {
     const unsub2 = on(SOCKET_EVENTS.GROUP_AUDIO.MEMBER_JOINED, () => { room.refetch(); });
     const unsub3 = on(SOCKET_EVENTS.GROUP_AUDIO.MEMBER_LEFT, () => { room.refetch(); });
     const unsub4 = on(SOCKET_EVENTS.GROUP_AUDIO.SPEAKER_UPDATE, () => { room.refetch(); });
+    const unsub5 = on(SOCKET_EVENTS.GROUP_AUDIO.SYNC_STATE, (payload: { roomState?: any; recentEvents?: any[] }) => {
+      if (payload?.roomState) {
+        room.refetch();
+      }
+      const replayed = (payload?.recentEvents ?? [])
+        .filter((event) => event.event === SOCKET_EVENTS.GROUP_AUDIO.CHAT)
+        .map((event) => event.payload);
+      setMessages(replayed.slice(-200));
+    });
 
     return () => {
       emit(SOCKET_EVENTS.GROUP_AUDIO.LEAVE, { roomId: id });
-      unsub1?.(); unsub2?.(); unsub3?.(); unsub4?.();
+      unsub1?.(); unsub2?.(); unsub3?.(); unsub4?.(); unsub5?.();
     };
   }, [id]);
 
@@ -46,9 +56,10 @@ export default function GroupAudioScreen() {
     emit(SOCKET_EVENTS.GROUP_AUDIO.HAND_RAISE, { roomId: id, raised: !handRaised });
   };
 
-  const sendChat = () => {
+  const sendChat = async () => {
     if (!inputText.trim()) return;
-    emit(SOCKET_EVENTS.GROUP_AUDIO.CHAT, { roomId: id, message: inputText.trim() });
+    const response = await emitWithAck<{ ok: boolean }>(SOCKET_EVENTS.GROUP_AUDIO.CHAT, { roomId: id, message: inputText.trim() }).catch(() => ({ ok: false }));
+    if (!response?.ok) return;
     setInputText("");
   };
 

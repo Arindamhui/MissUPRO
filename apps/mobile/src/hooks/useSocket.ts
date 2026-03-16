@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from "react";
-import { getSocket } from "@/lib/socket";
+import { router } from "expo-router";
+import { disconnectSocket, getSocket } from "@/lib/socket";
 import { useAuthStore
 
  } from "@/store";
@@ -13,14 +14,39 @@ export function useSocket() {
   useEffect(() => {
     if (!token) return;
     socketRef.current = getSocket(token);
+    const socket = socketRef.current;
+    const heartbeat = () => {
+      socket.emit(SOCKET_EVENTS.PRESENCE.HEARTBEAT, { status: "online" });
+    };
+    socket.on("connect", heartbeat);
+    heartbeat();
+
     return () => {
-      socketRef.current?.disconnect();
+      socket.off("connect", heartbeat);
+      disconnectSocket();
       socketRef.current = null;
     };
   }, [token]);
 
   const emit = useCallback((event: string, data: any) => {
     socketRef.current?.emit(event, data);
+  }, []);
+
+  const emitWithAck = useCallback(<TResponse = unknown,>(event: string, data: any, timeoutMs = 5000) => {
+    return new Promise<TResponse>((resolve, reject) => {
+      if (!socketRef.current) {
+        reject(new Error("Socket not connected"));
+        return;
+      }
+
+      socketRef.current.timeout(timeoutMs).emit(event, data, (error: Error | null, response: TResponse) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(response);
+      });
+    });
   }, []);
 
   const on = useCallback((event: string, handler: (...args: any[]) => void) => {
@@ -30,20 +56,26 @@ export function useSocket() {
     };
   }, []);
 
-  return { emit, on, socket: socketRef.current };
+  return { emit, emitWithAck, on, socket: socketRef.current };
 }
 
 export function useCallSocket() {
   const { on } = useSocket();
-  const { acceptCall, endCall } = useCallStore();
+  const { acceptCall, endCall, setLowBalance } = useCallStore();
 
   useEffect(() => {
     const unsub1 = on(SOCKET_EVENTS.CALL.INCOMING, (data: any) => {
-      // Show incoming call UI
-      useCallStore.getState().startCall(data.callSessionId, data.callType, data.callerId);
+      if (data?.deliveryId) {
+        useSocketAck(data.deliveryId);
+      }
+      useCallStore.getState().startCall(data.callSessionId, data.callType, data.callerId, "incoming");
+      router.push(`/call/${data.callSessionId}`);
     });
     const unsub2 = on(SOCKET_EVENTS.CALL.ACCEPTED, (data: any) => {
-      acceptCall(data.callSessionId, data.agoraChannel, data.agoraToken);
+      if (data?.deliveryId) {
+        useSocketAck(data.deliveryId);
+      }
+      acceptCall(data.callSessionId, data.agoraChannel, data.agoraToken, data.agoraAppId, data.expiresAt);
     });
     const unsub3 = on(SOCKET_EVENTS.CALL.ENDED, () => {
       endCall();
@@ -51,21 +83,43 @@ export function useCallSocket() {
     const unsub4 = on(SOCKET_EVENTS.CALL.REJECTED, () => {
       endCall();
     });
+    const unsub5 = on(SOCKET_EVENTS.CALL.LOW_BALANCE, () => {
+      setLowBalance(true);
+    });
+    const unsub6 = on(SOCKET_EVENTS.CALL.INSUFFICIENT_BALANCE, () => {
+      setLowBalance(true);
+      endCall();
+    });
+    const unsub7 = on(SOCKET_EVENTS.CALL.SESSION_ENDED, () => {
+      endCall();
+    });
     return () => {
       unsub1?.();
       unsub2?.();
       unsub3?.();
       unsub4?.();
+      unsub5?.();
+      unsub6?.();
+      unsub7?.();
     };
-  }, [on, acceptCall, endCall]);
+  }, [on, acceptCall, endCall, setLowBalance]);
 }
 
 export function usePresence() {
-  const { on } = useSocket();
+  const { emit, on } = useSocket();
 
   const subscribe = useCallback((callback: (data: { userId: string; status: string }) => void) => {
     return on(SOCKET_EVENTS.PRESENCE.STATUS_CHANGED, callback);
   }, [on]);
 
-  return { subscribe };
+  const watchUsers = useCallback((userIds: string[]) => {
+    emit(SOCKET_EVENTS.PRESENCE.SUBSCRIBE, { userIds });
+  }, [emit]);
+
+  return { subscribe, watchUsers };
+}
+
+function useSocketAck(deliveryId: string) {
+  const socket = useAuthStore.getState().token ? getSocket(useAuthStore.getState().token!) : null;
+  socket?.emit(SOCKET_EVENTS.DELIVERY.ACK, { deliveryId });
 }

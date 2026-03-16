@@ -99,6 +99,9 @@ export type SocketEvent = (typeof SocketEvents)[keyof typeof SocketEvents];
 // ─── Nested Socket Events (used by gateway & mobile) ───
 
 export const SOCKET_EVENTS = {
+  DELIVERY: {
+    ACK: "delivery.ack",
+  },
   CALL: {
     REQUEST: "call.request",
     INCOMING: "call.incoming",
@@ -108,8 +111,12 @@ export const SOCKET_EVENTS = {
     REJECTED: "call.rejected",
     END: "call.end",
     ENDED: "call.ended",
+    SYNC_REQUEST: "call.sync.request",
+    SYNC_STATE: "call.sync.state",
     BILLING_TICK: "call.billing.tick",
     LOW_BALANCE: "call.billing.low_balance",
+    INSUFFICIENT_BALANCE: "call.billing.insufficient_balance",
+    SESSION_ENDED: "call.billing.session_ended",
   },
   GIFT: {
     SENT: "gift.sent",
@@ -117,6 +124,8 @@ export const SOCKET_EVENTS = {
     RECEIVED_LIVE: "gift.received_live",
     COMBO_UPDATED: "gift.combo.updated",
     DELIVERY_ACK: "gift.delivery.ack",
+    SYNC_REQUEST: "gift.sync.request",
+    SYNC_STATE: "gift.sync.state",
   },
   STREAM: {
     JOIN: "stream.join",
@@ -126,19 +135,26 @@ export const SOCKET_EVENTS = {
     VIEWER_JOINED: "stream.viewer.joined",
     VIEWER_LEFT: "stream.viewer.left",
     VIEWER_COUNT: "stream.viewer.count",
+    SYNC_REQUEST: "stream.sync.request",
+    SYNC_STATE: "stream.sync.state",
     ENDED: "stream.ended",
   },
   PK: {
+    JOIN: "pk.join",
     REQUEST: "pk.request",
     ACCEPT: "pk.accept",
     STARTED: "pk.battle.started",
     SCORE_UPDATE: "pk.score.updated",
+    SYNC_REQUEST: "pk.sync.request",
+    SYNC_STATE: "pk.sync.state",
     ENDED: "pk.battle.ended",
   },
   GAME: {
     JOIN: "game.join",
     MOVE: "game.move.submit",
     STATE_DELTA: "game.state.delta",
+    SYNC_REQUEST: "game.sync.request",
+    SYNC_STATE: "game.sync.state",
     START: "game.session.started",
     END: "game.session.ended",
     ERROR: "game.error",
@@ -161,6 +177,8 @@ export const SOCKET_EVENTS = {
     HAND_RAISE: "group_audio.hand_raise",
     REACTION: "group_audio.reaction",
     TOPIC_UPDATED: "group_audio.topic.updated",
+    SYNC_REQUEST: "group_audio.sync.request",
+    SYNC_STATE: "group_audio.sync.state",
   },
   PARTY: {
     JOIN: "party.join",
@@ -174,12 +192,15 @@ export const SOCKET_EVENTS = {
     ACTIVITY_UPDATE: "party.activity.update",
     ACTIVITY_END: "party.activity.ended",
     GIFT_SENT: "party.gift.sent",
+    SYNC_REQUEST: "party.sync.request",
+    SYNC_STATE: "party.sync.state",
   },
   PRESENCE: {
     STATUS_CHANGED: "presence.status_changed",
     ONLINE: "presence.online",
     OFFLINE: "presence.offline",
     HEARTBEAT: "presence.heartbeat",
+    SUBSCRIBE: "presence.subscribe",
   },
   DISCOVERY: {
     SUBSCRIBE: "discovery.subscribe",

@@ -28,6 +28,23 @@ export class SecurityRouter {
 
       getSecurityDashboard: this.trpc.adminProcedure
         .query(async () => this.securityService.getSecurityDashboard()),
+
+      listSessions: this.trpc.adminProcedure
+        .input(z.object({ userId: z.string().uuid().optional(), cursor: z.string().optional(), limit: z.number().int().min(1).max(100).default(50) }))
+        .query(async ({ input }) => this.securityService.listSessions(input.userId, input.cursor, input.limit)),
+
+      getSessionMonitoringSummary: this.trpc.adminProcedure
+        .query(async () => this.securityService.getSessionMonitoringSummary()),
+
+      revokeSessionByAdmin: this.trpc.adminProcedure
+        .input(z.object({ sessionId: z.string().uuid() }))
+        .mutation(async ({ ctx, input }) => this.securityService.revokeSessionByAdmin(input.sessionId, ctx.userId)),
+
+      requireSessionStepUp: this.trpc.adminProcedure
+        .input(z.object({ sessionId: z.string().uuid(), reason: z.string().min(3).max(500) }))
+        .mutation(async ({ ctx, input }) =>
+          this.securityService.requireSessionStepUp(input.sessionId, ctx.userId, input.reason),
+        ),
     });
   }
 }

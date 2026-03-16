@@ -36,6 +36,12 @@ export class AnalyticsRouter {
         .query(async ({ input }) =>
           this.analyticsService.getModelEarningsReport(input.modelUserId, input.startDate, input.endDate),
         ),
+
+      getCreatorSnapshots: this.trpc.protectedProcedure
+        .input(z.object({ startDate: z.coerce.date(), endDate: z.coerce.date() }))
+        .query(async ({ ctx, input }) =>
+          this.analyticsService.getCreatorSnapshots(ctx.userId, input.startDate, input.endDate),
+        ),
     });
   }
 }

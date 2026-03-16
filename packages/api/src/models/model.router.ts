@@ -1,7 +1,12 @@
 import { Injectable } from "@nestjs/common";
 import { TrpcService } from "../trpc/trpc.service";
 import { ModelService } from "./model.service";
-import { submitModelApplicationSchema, updateAvailabilitySchema, setOnlineOverrideSchema } from "@missu/types";
+import {
+  submitModelApplicationSchema,
+  updateAvailabilitySchema,
+  setOnlineOverrideSchema,
+  createModelDemoVideoSchema,
+} from "@missu/types";
 
 @Injectable()
 export class ModelRouter {
@@ -39,6 +44,16 @@ export class ModelRouter {
         .mutation(async ({ ctx, input }) => {
           return this.modelService.setOnlineOverride(ctx.userId, input.isOnline);
         }),
+
+      getMyDemoVideos: this.trpc.protectedProcedure
+        .query(async ({ ctx }) => this.modelService.getDemoVideos(ctx.userId)),
+
+      createDemoVideo: this.trpc.protectedProcedure
+        .input(createModelDemoVideoSchema)
+        .mutation(async ({ ctx, input }) => this.modelService.createDemoVideo(ctx.userId, input)),
+
+      getMyStats: this.trpc.protectedProcedure
+        .query(async ({ ctx }) => this.modelService.getMyStats(ctx.userId)),
 
       getMyLevel: this.trpc.protectedProcedure
         .query(async ({ ctx }) => {
