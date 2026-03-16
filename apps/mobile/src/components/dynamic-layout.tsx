@@ -39,9 +39,9 @@ function navigateTo(route?: string) {
 function AccentCard({ title, subtitle, onPress, accent = COLORS.primary }: { title: string; subtitle?: string; onPress?: () => void; accent?: string }) {
   return (
     <TouchableOpacity activeOpacity={onPress ? 0.85 : 1} onPress={onPress}>
-      <Card style={{ borderLeftWidth: 4, borderLeftColor: accent }}>
-        <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.text }}>{title}</Text>
-        {subtitle ? <Text style={{ marginTop: 6, color: COLORS.textSecondary }}>{subtitle}</Text> : null}
+      <Card style={{ borderLeftWidth: 4, borderLeftColor: accent, backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
+        <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.white }}>{title}</Text>
+        {subtitle ? <Text style={{ marginTop: 6, color: "rgba(255,255,255,0.72)" }}>{subtitle}</Text> : null}
       </Card>
     </TouchableOpacity>
   );
@@ -53,12 +53,12 @@ function renderBanner(item: LayoutItem) {
     <TouchableOpacity key={item.id} activeOpacity={0.9} onPress={() => navigateTo(props.ctaRoute)}>
       <View
         style={{
-          backgroundColor: "#10172B",
+          backgroundColor: "rgba(15,21,67,0.8)",
           borderRadius: RADIUS.xl,
           padding: SPACING.lg,
           marginBottom: SPACING.lg,
           borderWidth: 1,
-          borderColor: "rgba(108,92,231,0.18)",
+          borderColor: "rgba(255,255,255,0.12)",
         }}
       >
         {props.eyebrow ? <Text style={{ color: "#98A9FF", fontWeight: "700", marginBottom: 8 }}>{String(props.eyebrow).toUpperCase()}</Text> : null}
@@ -85,15 +85,15 @@ function renderCta(item: LayoutItem) {
           onPress={() => navigateTo(button.route)}
           style={{
             width: "48%",
-            backgroundColor: COLORS.card,
+            backgroundColor: "rgba(255,255,255,0.1)",
             borderRadius: RADIUS.lg,
             padding: SPACING.md,
             borderWidth: 1,
-            borderColor: COLORS.border,
+            borderColor: "rgba(255,255,255,0.1)",
           }}
         >
           <Text style={{ fontSize: 26 }}>{button.icon ?? "•"}</Text>
-          <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.text, marginTop: 8 }}>{button.label}</Text>
+          <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.white, marginTop: 8 }}>{button.label}</Text>
         </TouchableOpacity>
       ))}
     </View>
@@ -131,11 +131,11 @@ function renderCarousel(item: LayoutItem) {
             <TouchableOpacity
               key={`${item.id}-${index}`}
               onPress={() => navigateTo(entry.route)}
-              style={{ width: 240, backgroundColor: COLORS.card, borderRadius: RADIUS.lg, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border }}
+              style={{ width: 240, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: RADIUS.lg, padding: SPACING.md, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}
             >
               <Badge text={entry.badge ?? "Promo"} color={COLORS.primary} />
-              <Text style={{ fontSize: 17, fontWeight: "700", color: COLORS.text, marginTop: 10 }}>{entry.title ?? "Untitled"}</Text>
-              {entry.subtitle ? <Text style={{ color: COLORS.textSecondary, marginTop: 6 }}>{entry.subtitle}</Text> : null}
+              <Text style={{ fontSize: 17, fontWeight: "700", color: COLORS.white, marginTop: 10 }}>{entry.title ?? "Untitled"}</Text>
+              {entry.subtitle ? <Text style={{ color: "rgba(255,255,255,0.72)", marginTop: 6 }}>{entry.subtitle}</Text> : null}
             </TouchableOpacity>
           ))}
         </View>
@@ -164,14 +164,14 @@ function renderTabs(item: LayoutItem) {
               style={{
                 paddingHorizontal: 16,
                 paddingVertical: 12,
-                backgroundColor: COLORS.card,
+                backgroundColor: "rgba(255,255,255,0.1)",
                 borderRadius: RADIUS.full,
                 borderWidth: 1,
-                borderColor: COLORS.border,
+                borderColor: "rgba(255,255,255,0.1)",
               }}
             >
-              <Text style={{ color: COLORS.text, fontWeight: "700" }}>{tab.label ?? `Tab ${index + 1}`}</Text>
-              {tab.badge ? <Text style={{ color: COLORS.textSecondary, marginTop: 4, fontSize: 12 }}>{tab.badge}</Text> : null}
+              <Text style={{ color: COLORS.white, fontWeight: "700" }}>{tab.label ?? `Tab ${index + 1}`}</Text>
+              {tab.badge ? <Text style={{ color: "rgba(255,255,255,0.68)", marginTop: 4, fontSize: 12 }}>{tab.badge}</Text> : null}
             </TouchableOpacity>
           ))}
         </View>
@@ -234,8 +234,8 @@ export function DynamicHomeLayout({ config }: { config?: LayoutResponse | null }
         </View>
       ))}
       {sectionOrder.length === 0 ? (
-        <Card>
-          <Text style={{ color: COLORS.textSecondary }}>Home sections are being refreshed. Browse live rooms and discovery in the meantime.</Text>
+        <Card style={{ backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
+          <Text style={{ color: "rgba(255,255,255,0.72)" }}>Home sections are being refreshed. Browse live rooms and discovery in the meantime.</Text>
         </Card>
       ) : null}
     </>

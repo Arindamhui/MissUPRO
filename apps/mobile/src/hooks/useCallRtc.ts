@@ -71,6 +71,7 @@ export function useCallRtc({ enabled, callType, credentials }: UseCallRtcArgs) {
   useEffect(() => {
     let cancelled = false;
     let handler: IRtcEngineEventHandler | null = null;
+    const ignoreCleanupError = () => undefined;
 
     const cleanup = () => {
       const engine = engineRef.current;
@@ -82,21 +83,29 @@ export function useCallRtc({ enabled, callType, credentials }: UseCallRtcArgs) {
         if (callType === "video") {
           engine.stopPreview();
         }
-      } catch {}
+      } catch {
+        ignoreCleanupError();
+      }
 
       try {
         engine.leaveChannel();
-      } catch {}
+      } catch {
+        ignoreCleanupError();
+      }
 
       if (handler) {
         try {
           engine.unregisterEventHandler(handler);
-        } catch {}
+        } catch {
+          ignoreCleanupError();
+        }
       }
 
       try {
         engine.release();
-      } catch {}
+      } catch {
+        ignoreCleanupError();
+      }
 
       engineRef.current = null;
       setJoined(false);

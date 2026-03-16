@@ -10,25 +10,26 @@ import { SOCKET_EVENTS } from "@missu/types";
 
 export default function ProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const authMode = useAuthStore((state) => state.authMode);
+  const isAuthenticated = authMode === "authenticated";
   const { emit } = useSocket();
   const requestCall = trpc.call.requestModelCall.useMutation();
-  const pricingPreview = trpc.call.getCallPricingPreview.useQuery({ modelUserId }, { retry: false, enabled: !!modelUserId });
-
-  const profile = trpc.discovery.modelCard.useQuery({ modelId: id! }, { retry: false, enabled: !!id });
+  const profile = trpc.discovery.getModelCard.useQuery({ modelId: id! }, { retry: false, enabled: !!id && isAuthenticated });
   const model = profile.data as any;
   const modelUserId = String(model?.userId ?? "");
+  const pricingPreview = trpc.call.getCallPricingPreview.useQuery({ modelUserId }, { retry: false, enabled: !!modelUserId && isAuthenticated });
 
   const availability = trpc.user.getModelAvailability.useQuery(
     { modelUserId },
-    { retry: false, enabled: !!model?.userId },
+    { retry: false, enabled: !!model?.userId && isAuthenticated },
   );
   const reviews = trpc.user.getModelReviews.useQuery(
     { modelUserId, limit: 5 },
-    { retry: false, enabled: !!model?.userId },
+    { retry: false, enabled: !!model?.userId && isAuthenticated },
   );
   const demoVideos = trpc.user.getModelDemoVideos.useQuery(
     { modelUserId, status: "APPROVED" },
-    { retry: false, enabled: !!model?.userId },
+    { retry: false, enabled: !!model?.userId && isAuthenticated },
   );
 
   const availabilitySummary = availability.data as any;
@@ -41,6 +42,18 @@ export default function ProfileScreen() {
       : 0;
   const isCallable = availabilitySummary?.availabilityStatus === "AVAILABLE_NOW";
   const preview = pricingPreview.data as any;
+
+  if (!isAuthenticated) {
+    return (
+      <Screen scroll>
+        <Card>
+          <Text style={{ fontSize: 18, fontWeight: "700", color: COLORS.text }}>Sign in required</Text>
+          <Text style={{ color: COLORS.textSecondary, marginTop: SPACING.sm }}>Creator profiles use protected data and call pricing previews. Sign in to open this screen fully.</Text>
+          <Button title="Go to Login" onPress={() => router.replace("/(auth)/login")} style={{ marginTop: SPACING.md }} />
+        </Card>
+      </Screen>
+    );
+  }
 
   const startCall = (type: "audio" | "video") => {
     requestCall.mutate({ modelUserId, callType: type.toUpperCase() as "AUDIO" | "VIDEO" }, {

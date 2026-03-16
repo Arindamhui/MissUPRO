@@ -1,9 +1,12 @@
 import { useAuth } from "@clerk/clerk-expo";
 import { LinearGradient } from "expo-linear-gradient";
+import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 import React, { useEffect, useRef } from "react";
-import { Animated, Text, View } from "react-native";
+import { Animated, View } from "react-native";
 import { AnimatedSnow } from "@/components/AnimatedSnow";
+import { BackgroundCollage } from "@/components/BackgroundCollage";
+import { BrandLogo } from "@/components/BrandLogo";
 import { useAuthStore } from "@/store";
 
 export default function SplashScreen() {
@@ -34,25 +37,19 @@ export default function SplashScreen() {
 
   return (
     <View style={{ flex: 1 }}>
+      <StatusBar style="light" />
+      <BackgroundCollage variant="splash" />
       <LinearGradient
-        colors={["#0E1427", "#131C34", "#060911"]}
-        end={{ x: 1, y: 1 }}
-        start={{ x: 0, y: 0 }}
+        colors={["rgba(21,23,70,0.1)", "rgba(17,21,75,0.22)", "rgba(10,18,60,0.82)"]}
+        end={{ x: 0.5, y: 1 }}
+        start={{ x: 0.5, y: 0 }}
         style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}
       />
-      <AnimatedSnow density={22} />
-      <View style={{ position: "absolute", top: -40, right: -30, width: 220, height: 220, borderRadius: 999, backgroundColor: "rgba(255,107,107,0.18)" }} />
-      <View style={{ position: "absolute", bottom: -50, left: -20, width: 260, height: 260, borderRadius: 999, backgroundColor: "rgba(108,92,231,0.2)" }} />
+      <AnimatedSnow density={26} />
 
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}>
         <Animated.View style={{ alignItems: "center", opacity, transform: [{ translateY }] }}>
-          <View style={{ width: 106, height: 106, borderRadius: 32, backgroundColor: "rgba(255,255,255,0.14)", alignItems: "center", justifyContent: "center", marginBottom: 22, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" }}>
-            <Text style={{ fontSize: 40 }}>❄️</Text>
-          </View>
-          <Text style={{ color: "white", fontSize: 40, fontWeight: "800", letterSpacing: 1.2 }}>SK Lite</Text>
-          <Text style={{ color: "rgba(255,255,255,0.72)", fontSize: 15, marginTop: 10, textAlign: "center" }}>
-            Jashn Har Din, Party Har Waqt!
-          </Text>
+          <BrandLogo size={118} subtitle="Jashn Har Din, Party Har Waqt!" />
         </Animated.View>
       </View>
     </View>

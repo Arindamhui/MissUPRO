@@ -9,7 +9,7 @@ type SocialButtonProps = {
   icon: React.ComponentProps<typeof MaterialCommunityIcons>["name"];
   onPress: () => void;
   loading?: boolean;
-  variant?: "primary" | "muted" | "icon";
+  variant?: "primary" | "muted" | "brand" | "icon";
 };
 
 export function SocialButton({
@@ -48,12 +48,21 @@ export function SocialButton({
 
   const palette = variant === "primary"
     ? {
-        backgroundColor: COLORS.white,
-        borderColor: COLORS.white,
-        titleColor: "#0B1020",
-        subtitleColor: "rgba(11,16,32,0.64)",
-        iconBackground: "rgba(108,92,231,0.12)",
-        iconColor: COLORS.primary,
+        backgroundColor: "rgba(255,255,255,0.96)",
+        borderColor: "rgba(255,255,255,0.98)",
+        titleColor: "#1E2035",
+        subtitleColor: "rgba(30,32,53,0.62)",
+        iconBackground: "#2175F3",
+        iconColor: COLORS.white,
+      }
+    : variant === "brand"
+      ? {
+          backgroundColor: "rgba(61,137,247,0.96)",
+          borderColor: "rgba(126,184,255,0.6)",
+          titleColor: COLORS.white,
+          subtitleColor: "rgba(255,255,255,0.72)",
+          iconBackground: "rgba(255,255,255,0.18)",
+          iconColor: COLORS.white,
       }
     : {
         backgroundColor: "rgba(255,255,255,0.08)",
@@ -73,19 +82,23 @@ export function SocialButton({
         flexDirection: "row",
         alignItems: "center",
         gap: SPACING.md,
-        borderRadius: 22,
+        borderRadius: 999,
         paddingHorizontal: SPACING.md,
-        paddingVertical: SPACING.md,
+        paddingVertical: 16,
         backgroundColor: palette.backgroundColor,
         borderWidth: 1,
         borderColor: palette.borderColor,
+        shadowColor: "#02112F",
+        shadowOpacity: variant === "icon" ? 0 : 0.18,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 8 },
       }}
     >
       <View
         style={{
           width: 44,
           height: 44,
-          borderRadius: 16,
+          borderRadius: 14,
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: palette.iconBackground,
@@ -97,13 +110,12 @@ export function SocialButton({
           <MaterialCommunityIcons color={palette.iconColor} name={icon} size={22} />
         )}
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: palette.titleColor, fontSize: FONT.sizes.md, fontWeight: "700" }}>{title}</Text>
+      <View style={{ flex: 1, alignItems: subtitle ? "flex-start" : "center", paddingRight: 20 }}>
+        <Text style={{ color: palette.titleColor, fontSize: 18, fontWeight: "500" }}>{title}</Text>
         {subtitle ? (
           <Text style={{ color: palette.subtitleColor, fontSize: FONT.sizes.sm, marginTop: 2 }}>{subtitle}</Text>
         ) : null}
       </View>
-      <MaterialCommunityIcons color={palette.subtitleColor} name="chevron-right" size={22} />
     </TouchableOpacity>
   );
 }

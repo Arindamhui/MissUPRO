@@ -4,20 +4,22 @@ import { trpc } from "@/lib/trpc";
 import { Screen, Avatar, Badge, SectionHeader } from "@/components/ui";
 import { COLORS, SPACING, RADIUS } from "@/theme";
 import { router } from "expo-router";
+import { useAuthStore } from "@/store";
 
 export default function DiscoverScreen() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string | null>(null);
+  const isAuthenticated = useAuthStore((state) => state.authMode === "authenticated");
 
-  const results = trpc.discovery.search.useQuery(
+  const results = trpc.discovery.searchModels.useQuery(
     { query: search || undefined, gender: filter as any, limit: 20 },
-    { retry: false, enabled: true },
+    { retry: false, enabled: isAuthenticated },
   );
-  const trending = trpc.discovery.trending.useQuery({ limit: 10 }, { retry: false });
+  const trending = trpc.discovery.getOnlineModels.useQuery({ limit: 10 }, { retry: false, enabled: isAuthenticated });
   const bannersQuery = trpc.cms.listPublicBanners.useQuery(undefined, { retry: false });
 
-  const models = (results.data?.models ?? []) as any[];
-  const trendingModels = (trending.data?.models ?? []) as any[];
+  const models = (results.data?.items ?? []) as any[];
+  const trendingModels = (trending.data?.items ?? []) as any[];
   const banners = (bannersQuery.data ?? []) as any[];
 
   const filters = [
@@ -135,22 +137,28 @@ export default function DiscoverScreen() {
                 </>
               )}
               <SectionHeader title="🔥 Trending" />
-              <FlatList
-                data={trendingModels}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    onPress={() => router.push(`/profile/${item.userId ?? item.modelId ?? item.id}`)}
-                    style={{ width: 120, marginRight: SPACING.sm, alignItems: "center" }}
-                  >
-                    <Avatar uri={item.avatarUrl ?? item.profileImage} size={64} online />
-                    <Text style={{ fontSize: 13, fontWeight: "500", marginTop: 6 }}>{item.displayName ?? "Model"}</Text>
-                  </TouchableOpacity>
-                )}
-                style={{ marginBottom: SPACING.md }}
-              />
+              {isAuthenticated ? (
+                <FlatList
+                  data={trendingModels}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyExtractor={(item) => item.id ?? item.modelId ?? item.userId}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      onPress={() => router.push(`/profile/${item.userId ?? item.modelId ?? item.id}`)}
+                      style={{ width: 120, marginRight: SPACING.sm, alignItems: "center" }}
+                    >
+                      <Avatar uri={item.avatarUrl ?? item.profileImage} size={64} online />
+                      <Text style={{ fontSize: 13, fontWeight: "500", marginTop: 6 }}>{item.displayName ?? "Model"}</Text>
+                    </TouchableOpacity>
+                  )}
+                  style={{ marginBottom: SPACING.md }}
+                />
+              ) : (
+                <View style={{ paddingVertical: SPACING.md }}>
+                  <Text style={{ color: COLORS.textSecondary }}>Sign in to browse personalized discovery results.</Text>
+                </View>
+              )}
               <SectionHeader title="All Models" />
             </>
           ) : null
@@ -158,7 +166,7 @@ export default function DiscoverScreen() {
         ListEmptyComponent={
           <View style={{ alignItems: "center", paddingVertical: SPACING.xxl }}>
             <Text style={{ fontSize: 48, marginBottom: SPACING.sm }}>🔍</Text>
-            <Text style={{ color: COLORS.textSecondary }}>No models found</Text>
+            <Text style={{ color: COLORS.textSecondary }}>{isAuthenticated ? "No models found" : "Sign in to search models"}</Text>
           </View>
         }
       />

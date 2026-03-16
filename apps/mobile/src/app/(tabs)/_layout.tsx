@@ -1,21 +1,62 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/clerk-expo";
+import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, Redirect } from "expo-router";
 import { COLORS } from "@/theme";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { useAuthStore } from "@/store";
 import { useCallSocket } from "@/hooks/useSocket";
 import { trpc } from "@/lib/trpc";
 import { getMobileLayoutScope, getMobileRuntimeScope } from "@/lib/runtime-config";
 
-function TabIcon({ icon, label, focused }: { icon: string; label: string; focused: boolean }) {
+const routeMeta: Record<string, { label: string; icon: React.ComponentProps<typeof MaterialCommunityIcons>["name"] }> = {
+  index: { label: "Live", icon: "video-wireless-outline" },
+  discover: { label: "Shorts", icon: "play-box-multiple-outline" },
+  live: { label: "", icon: "snowflake-variant" },
+  messages: { label: "Message", icon: "message-processing-outline" },
+  me: { label: "Me", icon: "account-circle-outline" },
+};
+
+function TabIcon({ route, label, focused }: { route: string; label: string; focused: boolean }) {
+  const meta = routeMeta[route] ?? routeMeta.index;
+
   return (
-    <View style={{ alignItems: "center", paddingTop: 6 }}>
-      <Text style={{ fontSize: 22 }}>{icon}</Text>
+    <View style={{ alignItems: "center", justifyContent: "center", paddingTop: 8 }}>
+      <MaterialCommunityIcons color={focused ? "#FFFFFF" : "rgba(226,231,255,0.62)"} name={meta.icon} size={24} />
       <Text style={{
-        fontSize: 10, fontWeight: focused ? "600" : "400",
-        color: focused ? COLORS.primary : COLORS.textSecondary, marginTop: 2,
+        fontSize: 11,
+        fontWeight: focused ? "700" : "500",
+        color: focused ? "#FFFFFF" : "rgba(226,231,255,0.62)",
+        marginTop: 2,
       }}>{label}</Text>
     </View>
+  );
+}
+
+function LiveTabButton({ onPress, accessibilityState }: { onPress?: () => void; accessibilityState?: { selected?: boolean } }) {
+  const focused = accessibilityState?.selected;
+
+  return (
+    <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={{ top: -26, justifyContent: "center", alignItems: "center" }}>
+      <LinearGradient
+        colors={focused ? ["#F7FCFF", "#E2F0FF"] : ["#FFFFFF", "#F0F6FF"]}
+        style={{
+          width: 72,
+          height: 72,
+          borderRadius: 36,
+          alignItems: "center",
+          justifyContent: "center",
+          borderWidth: 4,
+          borderColor: "rgba(25,31,89,0.88)",
+          shadowColor: "#01051B",
+          shadowOpacity: 0.34,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 10 },
+        }}
+      >
+        <MaterialCommunityIcons color="#7D8DE6" name="snowflake-variant" size={34} />
+      </LinearGradient>
+    </TouchableOpacity>
   );
 }
 
@@ -31,11 +72,11 @@ export default function TabsLayout() {
 
   const hasAppAccess = isSignedIn || authMode === "guest";
   const defaultTabs = [
-    { route: "index", label: "Home", icon: "🏠", order: 0, visible: true },
-    { route: "discover", label: "Discover", icon: "🔍", order: 1, visible: true },
-    { route: "live", label: "Live", icon: "📺", order: 2, visible: true },
-    { route: "messages", label: "Messages", icon: "💬", order: 3, visible: true },
-    { route: "me", label: "Me", icon: "👤", order: 4, visible: true },
+    { route: "index", label: "Live", order: 0, visible: true },
+    { route: "discover", label: "Shorts", order: 1, visible: true },
+    { route: "live", label: "", order: 2, visible: true },
+    { route: "messages", label: "Message", order: 3, visible: true },
+    { route: "me", label: "Me", order: 4, visible: true },
   ];
   const apiTabs = Array.isArray(layoutQuery.data?.tabNavigation) ? layoutQuery.data?.tabNavigation : [];
   const enabledFlags = new Map(((bootstrapQuery.data?.featureFlags ?? []) as any[]).map((flag) => [String(flag.flagKey), Boolean(flag.enabled)]));
@@ -76,10 +117,20 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: COLORS.white,
-          borderTopColor: COLORS.border,
-          height: 65,
-          paddingBottom: 8,
+          position: "absolute",
+          left: 12,
+          right: 12,
+          bottom: 12,
+          backgroundColor: "rgba(21,25,79,0.98)",
+          borderTopWidth: 0,
+          height: 78,
+          paddingBottom: 10,
+          paddingTop: 8,
+          borderRadius: 28,
+          shadowColor: "#03061A",
+          shadowOpacity: 0.32,
+          shadowRadius: 20,
+          shadowOffset: { width: 0, height: 10 },
         },
         tabBarShowLabel: false,
       }}
@@ -89,7 +140,8 @@ export default function TabsLayout() {
           key={String(tab.route)}
           name={String(tab.route)}
           options={{
-            tabBarIcon: ({ focused }) => <TabIcon icon={String(tab.icon ?? "•")} label={String(tab.label ?? tab.route)} focused={focused} />,
+            tabBarIcon: ({ focused }) => <TabIcon route={String(tab.route)} label={String(tab.label ?? routeMeta[String(tab.route)]?.label ?? tab.route)} focused={focused} />,
+            tabBarButton: String(tab.route) === "live" ? (props) => <LiveTabButton {...props} /> : undefined,
           }}
         />
       ))}

@@ -24,7 +24,7 @@ export default function MeScreen() {
     { icon: "📞", label: "Call History", route: "/call-history" },
     { icon: "🎁", label: "Referrals", route: "/referrals" },
     { icon: "🏆", label: "Levels & Badges", route: "/levels" },
-    { icon: "📊", label: "My Activity", route: "/activity" },
+    { icon: "📊", label: "Creator Dashboard", route: "/creator-dashboard" },
     { icon: "⚙️", label: "Settings", route: "/settings" },
   ];
 
