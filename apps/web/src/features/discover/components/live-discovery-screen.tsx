@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsButton } from "@/components/ui/tabs";
 import { trpc } from "@/lib/trpc";
+import { getWebRuntimeScope } from "@/lib/runtime-config";
 import { formatNumber } from "@/lib/utils";
 import { LiveStreamCard, type DiscoveryStreamCardData } from "./live-stream-card";
 
@@ -78,9 +79,15 @@ function DiscoveryLoadingState() {
 export function LiveDiscoveryScreen() {
   const [category, setCategory] = useState("ALL");
   const [sort, setSort] = useState<(typeof sortOptions)[number]["id"]>("trending");
+  const runtimeScope = getWebRuntimeScope();
 
   const deferredCategory = useDeferredValue(category);
   const deferredSort = useDeferredValue(sort);
+  const bootstrapQuery = trpc.config.getBootstrap.useQuery(runtimeScope, { retry: false });
+  const liveStreamingFlag = ((bootstrapQuery.data?.featureFlags ?? []) as Array<{ flagKey?: string; enabled?: boolean }>).find(
+    (flag) => String(flag.flagKey ?? "") === "live_streaming",
+  );
+  const liveStreamingEnabled = liveStreamingFlag?.enabled ?? true;
 
   const discoveryQuery = trpc.live.getDiscoveryFeed.useQuery(
     {
@@ -89,6 +96,7 @@ export function LiveDiscoveryScreen() {
       limit: 18,
     },
     {
+      enabled: liveStreamingEnabled !== false,
       retry: false,
       placeholderData: keepPreviousData,
     },
@@ -99,6 +107,26 @@ export function LiveDiscoveryScreen() {
   const categories = discoveryData?.categories ?? [];
   const spotlight = discoveryData?.spotlight?.[0];
   const liveNow = discoveryData?.liveNow ?? [];
+
+  if (liveStreamingEnabled === false) {
+    return (
+      <div className="min-h-screen bg-[#050816] text-white">
+        <div className="mx-auto flex max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
+          <Card className="w-full border-dashed border-white/12 bg-white/4">
+            <CardContent className="space-y-4 p-8">
+              <Badge variant="neutral" className="w-fit">Disabled</Badge>
+              <div>
+                <h1 className="text-2xl font-semibold text-white">Live discovery is disabled for this web version</h1>
+                <p className="mt-2 max-w-2xl text-sm leading-7 text-white/62">
+                  The `live_streaming` feature flag is currently off for the active web runtime scope, so the public lobby stays hidden.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#050816] text-white">

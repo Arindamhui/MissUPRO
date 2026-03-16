@@ -26,6 +26,14 @@ export class SupportRouter {
         .input(z.object({ status: z.string().optional(), category: z.string().optional() }).optional())
         .query(async ({ input }) => this.supportService.listTickets(input ?? {})),
 
+      getTicketDetail: this.trpc.adminProcedure
+        .input(z.object({ ticketId: z.string().uuid() }))
+        .query(async ({ input }) => this.supportService.getTicketDetail(input.ticketId)),
+
+      getOperationsReport: this.trpc.adminProcedure
+        .input(z.object({ startDate: z.coerce.date(), endDate: z.coerce.date() }))
+        .query(async ({ input }) => this.supportService.getOperationsReport(input.startDate, input.endDate)),
+
       assignTicket: this.trpc.adminProcedure
         .input(z.object({ ticketId: z.string().uuid() }))
         .mutation(async ({ ctx, input }) => this.supportService.assignTicket(input.ticketId, ctx.userId)),

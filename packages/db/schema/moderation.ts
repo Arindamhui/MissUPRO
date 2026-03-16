@@ -6,8 +6,10 @@ import {
   mediaVisibilityEnum, scanStatusEnum,
   fraudEntityTypeEnum, fraudSignalTypeEnum,
   fraudFlagEntityTypeEnum, fraudRiskLevelEnum, fraudFlagStatusEnum,
+  reportEntityTypeEnum, reportStatusEnum, banScopeEnum, banStatusEnum, banReasonEnum,
 } from "./enums";
 import { users } from "./users";
+import { admins } from "./admin";
 
 // ─── media_assets ───
 export const mediaAssets = pgTable("media_assets", {
@@ -72,6 +74,50 @@ export const fraudSignals = pgTable("fraud_signals", {
   index("fraud_signals_flag_idx").on(t.fraudFlagId),
 ]);
 
+// ─── reports ───
+export const reports = pgTable("reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  reporterUserId: uuid("reporter_user_id").notNull().references(() => users.id),
+  entityType: reportEntityTypeEnum("entity_type").notNull(),
+  entityId: uuid("entity_id").notNull(),
+  reasonCode: text("reason_code").notNull(),
+  description: text("description"),
+  evidenceJson: jsonb("evidence_json"),
+  status: reportStatusEnum("status").default("OPEN").notNull(),
+  priorityScore: integer("priority_score").default(0).notNull(),
+  reviewedByAdminId: uuid("reviewed_by_admin_id").references(() => admins.id),
+  reviewedAt: timestamp("reviewed_at"),
+  resolutionNotes: text("resolution_notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("reports_entity_status_created_idx").on(t.entityType, t.entityId, t.status, t.createdAt),
+  index("reports_reporter_created_idx").on(t.reporterUserId, t.createdAt),
+  index("reports_status_priority_idx").on(t.status, t.priorityScore, t.createdAt),
+]);
+
+// ─── bans ───
+export const bans = pgTable("bans", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  scope: banScopeEnum("scope").notNull(),
+  status: banStatusEnum("status").default("ACTIVE").notNull(),
+  reason: banReasonEnum("reason").notNull(),
+  sourceReportId: uuid("source_report_id").references(() => reports.id),
+  imposedByAdminId: uuid("imposed_by_admin_id").references(() => admins.id),
+  notes: text("notes"),
+  startsAt: timestamp("starts_at").defaultNow().notNull(),
+  endsAt: timestamp("ends_at"),
+  revokedAt: timestamp("revoked_at"),
+  revokedByAdminId: uuid("revoked_by_admin_id").references(() => admins.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("bans_user_status_scope_idx").on(t.userId, t.status, t.scope),
+  index("bans_source_report_idx").on(t.sourceReportId),
+  index("bans_status_ends_idx").on(t.status, t.endsAt),
+]);
+
 // ─── Relations ───
 export const mediaAssetsRelations = relations(mediaAssets, ({ one, many }) => ({
   owner: one(users, { fields: [mediaAssets.ownerUserId], references: [users.id] }),
@@ -88,4 +134,17 @@ export const fraudSignalsRelations = relations(fraudSignals, ({ one }) => ({
 
 export const fraudFlagsRelations = relations(fraudFlags, ({ many }) => ({
   signals: many(fraudSignals),
+}));
+
+export const reportsRelations = relations(reports, ({ one, many }) => ({
+  reporter: one(users, { fields: [reports.reporterUserId], references: [users.id], relationName: "reporter" }),
+  reviewedBy: one(admins, { fields: [reports.reviewedByAdminId], references: [admins.id] }),
+  bans: many(bans),
+}));
+
+export const bansRelations = relations(bans, ({ one }) => ({
+  user: one(users, { fields: [bans.userId], references: [users.id] }),
+  sourceReport: one(reports, { fields: [bans.sourceReportId], references: [reports.id] }),
+  imposedBy: one(admins, { fields: [bans.imposedByAdminId], references: [admins.id], relationName: "banImposedBy" }),
+  revokedBy: one(admins, { fields: [bans.revokedByAdminId], references: [admins.id], relationName: "banRevokedBy" }),
 }));

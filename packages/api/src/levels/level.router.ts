@@ -9,6 +9,9 @@ export class LevelRouter {
 
   get router() {
     return this.trpc.router({
+      myLevel: this.trpc.protectedProcedure
+        .query(async ({ ctx }) => this.levelService.getMyLevelSummary(ctx.userId)),
+
       getUserLevel: this.trpc.protectedProcedure
         .query(async ({ ctx }) => this.levelService.getUserLevel(ctx.userId)),
 

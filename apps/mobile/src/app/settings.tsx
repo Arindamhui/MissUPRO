@@ -15,19 +15,21 @@ export default function SettingsScreen() {
   const compliance = trpc.compliance;
   const deletionRequest = compliance.getMyDeletionRequest.useQuery(undefined, { retry: false });
   const dataExports = compliance.listMyDataExports.useQuery(undefined, { retry: false });
+  const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : "Please try again.";
+
   const requestDeletion = compliance.requestAccountDeletion.useMutation({
     onSuccess: () => {
       deletionRequest.refetch();
       Alert.alert("Deletion requested", "Your account has entered the cooling-off period.");
     },
-    onError: (error) => Alert.alert("Request failed", error.message),
+    onError: (error: unknown) => Alert.alert("Request failed", getErrorMessage(error)),
   });
   const requestDataExport = compliance.requestDataExport.useMutation({
     onSuccess: () => {
       dataExports.refetch();
       Alert.alert("Export requested", "We started preparing your data export.");
     },
-    onError: (error) => Alert.alert("Request failed", error.message),
+    onError: (error: unknown) => Alert.alert("Request failed", getErrorMessage(error)),
   });
   const [pushNotifications, setPushNotifications] = useState(true);
   const [callNotifications, setCallNotifications] = useState(true);

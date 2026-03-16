@@ -90,6 +90,9 @@ export class CmsRouter {
       addLevelReward: this.trpc.adminProcedure
         .input(z.object({ levelId: z.string().uuid(), rewardType: z.string(), rewardValue: z.string(), rewardName: z.string(), description: z.string() }))
         .mutation(async ({ input }) => this.cmsService.addLevelReward(input.levelId, input)),
+      updateLevelReward: this.trpc.adminProcedure
+        .input(z.object({ rewardId: z.string().uuid(), data: z.record(z.string(), z.any()) }))
+        .mutation(async ({ input }) => this.cmsService.updateLevelReward(input.rewardId, input.data)),
 
       // Homepage Sections
       listHomepageSections: this.trpc.adminProcedure.query(async () => this.cmsService.listHomepageSections()),

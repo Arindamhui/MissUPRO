@@ -163,6 +163,15 @@ export class CmsService {
     return reward;
   }
 
+  async updateLevelReward(rewardId: string, data: Record<string, any>) {
+    const [updated] = await db
+      .update(levelRewards)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(levelRewards.id, rewardId))
+      .returning();
+    return updated;
+  }
+
   // ─── Homepage Sections ───
   async listHomepageSections() {
     return db.select().from(homepageSections).orderBy(asc(homepageSections.position));

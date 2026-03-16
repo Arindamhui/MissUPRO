@@ -21,6 +21,7 @@ export default function MeScreen() {
   const menuItems = [
     { icon: "🪙", label: "Wallet", route: "/wallet" },
     { icon: "👑", label: "VIP", route: "/vip" },
+    { icon: "📞", label: "Call History", route: "/call-history" },
     { icon: "🎁", label: "Referrals", route: "/referrals" },
     { icon: "🏆", label: "Levels & Badges", route: "/levels" },
     { icon: "📊", label: "My Activity", route: "/activity" },

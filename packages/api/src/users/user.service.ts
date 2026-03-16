@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { db } from "@missu/db";
 import {
   users, profiles, followers, userBlocks, accountDeletionRequests,
-  modelReviews, pushTokens,
+  modelReviews, pushTokens, userLevels, levels, userBadges, badges,
 } from "@missu/db/schema";
 import { eq, and, desc, gt, lt } from "drizzle-orm";
 import { getPresence, getPresenceBulk as redisGetPresenceBulk } from "@missu/utils";
@@ -17,6 +17,51 @@ export class UserService {
   async getProfile(userId: string) {
     const [profile] = await db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1);
     return profile ?? null;
+  }
+
+  async getPublicUserSummary(userId: string) {
+    const [result] = await db
+      .select({
+        userId: users.id,
+        displayName: users.displayName,
+        username: users.username,
+        avatarUrl: users.avatarUrl,
+        bio: profiles.bio,
+        locationDisplay: profiles.locationDisplay,
+        currentLevel: levels.levelNumber,
+        levelName: levels.levelName,
+      })
+      .from(users)
+      .leftJoin(profiles, eq(profiles.userId, users.id))
+      .leftJoin(userLevels, and(eq(userLevels.userId, users.id), eq(userLevels.levelTrack, "USER" as any)))
+      .leftJoin(levels, eq(levels.id, userLevels.currentLevelId))
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!result) {
+      return null;
+    }
+
+    const presence = await getPresence(userId);
+    const [activeBadge] = await db
+      .select({
+        badgeKey: badges.badgeKey,
+        name: badges.name,
+        iconUrl: badges.iconUrl,
+      })
+      .from(userBadges)
+      .innerJoin(badges, eq(badges.id, userBadges.badgeId))
+      .where(eq(userBadges.userId, userId))
+      .orderBy(desc(userBadges.awardedAt))
+      .limit(1);
+
+    return {
+      ...result,
+      currentLevel: Number(result.currentLevel ?? 1),
+      levelName: result.levelName ?? "Spark",
+      activeBadge: activeBadge ?? null,
+      presenceStatus: presence ?? "OFFLINE",
+    };
   }
 
   async blockUser(userId: string, targetUserId: string, reason?: string) {

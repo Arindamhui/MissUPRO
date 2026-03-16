@@ -54,6 +54,10 @@ export function AnimatedSnow({ density = 18 }: { density?: number }) {
   return (
     <View pointerEvents="none" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}>
       {flakes.map((flake, index) => (
+        (() => {
+          const translateY = animatedValues[index] ?? new Animated.Value(-40);
+          const translateX = translateY.interpolate({ inputRange: [-40, height + 40], outputRange: [0, index % 2 === 0 ? 18 : -18] });
+          return (
         <Animated.View
           key={flake.id}
           style={{
@@ -64,9 +68,11 @@ export function AnimatedSnow({ density = 18 }: { density?: number }) {
             borderRadius: 999,
             backgroundColor: "rgba(255,255,255,0.85)",
             opacity: flake.opacity,
-            transform: [{ translateY: animatedValues[index] }, { translateX: animatedValues[index].interpolate({ inputRange: [-40, height + 40], outputRange: [0, (index % 2 === 0 ? 18 : -18)] }) }],
+            transform: [{ translateY }, { translateX }],
           }}
         />
+          );
+        })()
       ))}
     </View>
   );

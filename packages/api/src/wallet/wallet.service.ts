@@ -5,11 +5,16 @@ import { eq, sql, desc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { acquireLock, releaseLock } from "@missu/utils";
 import { generateIdempotencyKey } from "@missu/utils";
+import { randomUUID } from "node:crypto";
 import { IdempotencyService } from "../common/idempotency.service";
+import { ConfigService } from "../config/config.service";
 
 @Injectable()
 export class WalletService {
-  constructor(private readonly idempotencyService: IdempotencyService) {}
+  constructor(
+    private readonly idempotencyService: IdempotencyService,
+    private readonly configService: ConfigService,
+  ) {}
 
   async getOrCreateWallet(userId: string) {
     const [existing] = await db.select().from(wallets).where(eq(wallets.userId, userId)).limit(1);
@@ -181,6 +186,61 @@ export class WalletService {
     );
   }
 
+  async debitDiamonds(
+    userId: string,
+    amount: number,
+    type: string,
+    referenceId: string,
+    description: string,
+    idempotencyKey?: string,
+  ) {
+    const idemKey = idempotencyKey ?? generateIdempotencyKey(userId, "diamond_debit", referenceId);
+
+    return this.idempotencyService.execute(
+      {
+        key: idemKey,
+        operationScope: "wallet:diamond-debit",
+        actorUserId: userId,
+        requestData: { amount, type, referenceId, description },
+      },
+      async () => {
+        const lockToken = await acquireLock(`wallet:${userId}`, 5000);
+        if (!lockToken) throw new TRPCError({ code: "CONFLICT", message: "Wallet operation in progress" });
+
+        try {
+          const wallet = await this.getOrCreateWallet(userId);
+          if (wallet.diamondBalance < amount) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Insufficient diamond balance" });
+          }
+
+          await db.transaction(async (tx) => {
+            await tx
+              .update(wallets)
+              .set({
+                diamondBalance: sql`${wallets.diamondBalance} - ${amount}`,
+                updatedAt: new Date(),
+              })
+              .where(eq(wallets.userId, userId));
+
+            await tx.insert(diamondTransactions).values({
+              userId,
+              transactionType: type as any,
+              amount: -amount,
+              balanceAfter: wallet.diamondBalance - amount,
+              referenceId,
+              description,
+              idempotencyKey: idemKey,
+            });
+          });
+
+          return { success: true, newBalance: wallet.diamondBalance - amount };
+        } finally {
+          await releaseLock(`wallet:${userId}`, lockToken);
+        }
+      },
+    );
+  }
+
   async getCoinPackages() {
     const packages = await db
       .select()
@@ -227,32 +287,86 @@ export class WalletService {
     payoutMethod: string,
     payoutDetails: Record<string, string>,
   ) {
-    const wallet = await this.getOrCreateWallet(userId);
-    if (wallet.diamondBalance < amountDiamonds) {
-      throw new TRPCError({ code: "BAD_REQUEST", message: "Insufficient diamond balance" });
+    const policy = await this.configService.getCreatorEconomyPolicy();
+    const amountUsd = Number(((amountDiamonds / 100) * policy.diamondValueUsdPer100).toFixed(2));
+
+    if (amountUsd < policy.withdrawLimits.minUsd) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: `Minimum withdrawal is $${policy.withdrawLimits.minUsd.toFixed(2)}`,
+      });
     }
 
-    const amountUsd = (amountDiamonds / 100) * 0.25;
+    if (policy.withdrawLimits.maxUsd != null && amountUsd > policy.withdrawLimits.maxUsd) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: `Maximum withdrawal is $${policy.withdrawLimits.maxUsd.toFixed(2)}`,
+      });
+    }
 
-    const [request] = await db
-      .insert(withdrawRequests)
-      .values({
-        modelUserId: userId,
-        audioMinutesSnapshot: 0,
-        videoMinutesSnapshot: 0,
-        audioRateSnapshot: "0",
-        videoRateSnapshot: "0",
-        callEarningsSnapshot: "0",
-        diamondBalanceSnapshot: amountDiamonds,
-        diamondEarningsSnapshot: "0",
-        totalPayoutAmount: amountUsd.toFixed(2),
-        currency: "USD",
-        payoutMethod: payoutMethod as any,
-        payoutDetailsJson: payoutDetails,
-      } as any)
-      .returning();
+    const lockToken = await acquireLock(`wallet:${userId}`, 5000);
+    if (!lockToken) throw new TRPCError({ code: "CONFLICT", message: "Wallet operation in progress" });
 
-    return request!;
+    try {
+      const wallet = await this.getOrCreateWallet(userId);
+      if (wallet.diamondBalance < amountDiamonds) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Insufficient diamond balance" });
+      }
+
+      const withdrawRequestId = randomUUID();
+      const withdrawIdempotencyKey = generateIdempotencyKey(userId, "withdraw_request", withdrawRequestId);
+
+      const [request] = await db.transaction(async (tx) => {
+        await tx
+          .update(wallets)
+          .set({
+            diamondBalance: sql`${wallets.diamondBalance} - ${amountDiamonds}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(wallets.userId, userId));
+
+        await tx.insert(diamondTransactions).values({
+          userId,
+          transactionType: "WITHDRAWAL_DEBIT" as any,
+          amount: -amountDiamonds,
+          balanceAfter: wallet.diamondBalance - amountDiamonds,
+          referenceType: "withdraw_request",
+          referenceId: withdrawRequestId,
+          description: `Withdrawal requested: ${amountDiamonds} diamonds`,
+          idempotencyKey: withdrawIdempotencyKey,
+        });
+
+        return tx
+          .insert(withdrawRequests)
+          .values({
+            id: withdrawRequestId,
+            modelUserId: userId,
+            audioMinutesSnapshot: 0,
+            videoMinutesSnapshot: 0,
+            audioRateSnapshot: "0",
+            videoRateSnapshot: "0",
+            callEarningsSnapshot: "0",
+            diamondBalanceSnapshot: amountDiamonds,
+            diamondEarningsSnapshot: amountUsd.toFixed(2),
+            totalPayoutAmount: amountUsd.toFixed(2),
+            currency: "USD",
+            payoutMethod: payoutMethod as any,
+            payoutDetailsJson: {
+              ...payoutDetails,
+              creatorEconomySnapshot: {
+                diamondValueUsdPer100: policy.diamondValueUsdPer100,
+                minWithdrawalUsd: policy.withdrawLimits.minUsd,
+                maxWithdrawalUsd: policy.withdrawLimits.maxUsd,
+              },
+            },
+          } as any)
+          .returning();
+      });
+
+      return request!;
+    } finally {
+      await releaseLock(`wallet:${userId}`, lockToken);
+    }
   }
 
   async runReconciliation(userId: string) {

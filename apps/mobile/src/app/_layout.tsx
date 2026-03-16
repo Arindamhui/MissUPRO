@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { trpc, createTrpcClient } from "@/lib/trpc";
 import { I18nProvider, useI18n } from "@/i18n";
 import { useAuthStore } from "@/store";
-import { Stack } from "expo-router";
+import { Stack, router, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, LogBox, Text, View } from "react-native";
 import React, { Component, useCallback, useEffect, useRef, useState } from "react";
@@ -121,9 +121,71 @@ function AuthBootstrap() {
   return null;
 }
 
-function RootLayoutNav() {
+function GuardedStack() {
   const { t } = useI18n();
-  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const { isSignedIn } = useAuth();
+  const segments = useSegments();
+  const me = trpc.user.getMe.useQuery(undefined, { enabled: isSignedIn, retry: false });
+
+  useEffect(() => {
+    const rootSegment = segments[0];
+    if (!rootSegment) return;
+
+    if (rootSegment === "admin") {
+      router.replace("/(tabs)");
+      return;
+    }
+
+    if (rootSegment === "agency" && !isSignedIn) {
+      router.replace("/(auth)/login");
+      return;
+    }
+
+    const role = String(me.data?.role ?? "");
+    if (rootSegment === "agency" && isSignedIn && me.data && !["ADMIN", "HOST", "MODEL"].includes(role)) {
+      router.replace("/(tabs)");
+    }
+  }, [isSignedIn, me.data, segments]);
+
+  return (
+    <Stack
+      screenOptions={{
+        headerStyle: { backgroundColor: COLORS.background },
+        headerTintColor: COLORS.text,
+        headerTitleStyle: { fontWeight: "600" },
+        contentStyle: { backgroundColor: COLORS.background },
+      }}
+    >
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="sso-callback" options={{ headerShown: false }} />
+      <Stack.Screen name="call/[id]" options={{ headerShown: false, presentation: "fullScreenModal" }} />
+      <Stack.Screen name="stream/[id]" options={{ headerShown: false, presentation: "fullScreenModal" }} />
+      <Stack.Screen name="party/[id]" options={{ title: t("navigation.partyRoom") }} />
+      <Stack.Screen name="group-audio/[id]" options={{ title: t("navigation.audioRoom") }} />
+      <Stack.Screen name="profile/[id]" options={{ title: t("navigation.profile") }} />
+      <Stack.Screen name="chat/[id]" options={{ title: t("navigation.chat") }} />
+      <Stack.Screen name="wallet" options={{ title: t("navigation.wallet") }} />
+      <Stack.Screen name="gifts" options={{ title: t("navigation.gifts") }} />
+      <Stack.Screen name="notifications" options={{ title: t("navigation.notifications") }} />
+      <Stack.Screen name="creator-dashboard" options={{ title: t("navigation.creatorDashboard") }} />
+      <Stack.Screen name="events" options={{ title: t("navigation.events") }} />
+      <Stack.Screen name="games" options={{ title: t("navigation.games") }} />
+      <Stack.Screen name="vip" options={{ title: t("navigation.vip") }} />
+      <Stack.Screen name="settings" options={{ title: t("navigation.settings") }} />
+      <Stack.Screen name="referrals" options={{ title: t("navigation.referrals") }} />
+      <Stack.Screen name="leaderboards" options={{ title: t("navigation.leaderboards") }} />
+      <Stack.Screen name="pk/battle" options={{ title: "PK Battle" }} />
+      <Stack.Screen name="pk/results" options={{ title: "PK Results" }} />
+      <Stack.Screen name="agency/dashboard" options={{ title: "Agency Dashboard" }} />
+      <Stack.Screen name="agency/members" options={{ title: "Agency Members" }} />
+    </Stack>
+  );
+}
+
+function RootLayoutNav() {
+  const { isLoaded, getToken } = useAuth();
 
   // Keep a ref to the latest getToken so the tRPC client never needs to be
   // recreated. React 19 Fabric profiling crashes when diffing Proxy-based
@@ -156,35 +218,7 @@ function RootLayoutNav() {
       <QueryClientProvider client={queryClient}>
         <AuthBootstrap />
         <StatusBar style="dark" />
-        <Stack
-          screenOptions={{
-            headerStyle: { backgroundColor: COLORS.background },
-            headerTintColor: COLORS.text,
-            headerTitleStyle: { fontWeight: "600" },
-            contentStyle: { backgroundColor: COLORS.background },
-          }}
-        >
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="sso-callback" options={{ headerShown: false }} />
-          <Stack.Screen name="call/[id]" options={{ headerShown: false, presentation: "fullScreenModal" }} />
-          <Stack.Screen name="stream/[id]" options={{ headerShown: false, presentation: "fullScreenModal" }} />
-          <Stack.Screen name="party/[id]" options={{ title: t("navigation.partyRoom") }} />
-          <Stack.Screen name="group-audio/[id]" options={{ title: t("navigation.audioRoom") }} />
-          <Stack.Screen name="profile/[id]" options={{ title: t("navigation.profile") }} />
-          <Stack.Screen name="chat/[id]" options={{ title: t("navigation.chat") }} />
-          <Stack.Screen name="wallet" options={{ title: t("navigation.wallet") }} />
-          <Stack.Screen name="gifts" options={{ title: t("navigation.gifts") }} />
-          <Stack.Screen name="notifications" options={{ title: t("navigation.notifications") }} />
-          <Stack.Screen name="creator-dashboard" options={{ title: t("navigation.creatorDashboard") }} />
-          <Stack.Screen name="events" options={{ title: t("navigation.events") }} />
-          <Stack.Screen name="games" options={{ title: t("navigation.games") }} />
-          <Stack.Screen name="vip" options={{ title: t("navigation.vip") }} />
-          <Stack.Screen name="settings" options={{ title: t("navigation.settings") }} />
-          <Stack.Screen name="referrals" options={{ title: t("navigation.referrals") }} />
-          <Stack.Screen name="leaderboards" options={{ title: t("navigation.leaderboards") }} />
-        </Stack>
+        <GuardedStack />
       </QueryClientProvider>
     </trpc.Provider>
   );

@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import { View, Text, TouchableOpacity, Alert } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { Screen, Avatar, Badge, Card, Button, CoinDisplay, SectionHeader } from "@/components/ui";
@@ -12,6 +12,7 @@ export default function ProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { emit } = useSocket();
   const requestCall = trpc.call.requestModelCall.useMutation();
+  const pricingPreview = trpc.call.getCallPricingPreview.useQuery({ modelUserId }, { retry: false, enabled: !!modelUserId });
 
   const profile = trpc.discovery.modelCard.useQuery({ modelId: id! }, { retry: false, enabled: !!id });
   const model = profile.data as any;
@@ -39,6 +40,7 @@ export default function ProfileScreen() {
       ? reviewItems.reduce((sum, review) => sum + Number(review.rating ?? 0), 0) / reviewItems.length
       : 0;
   const isCallable = availabilitySummary?.availabilityStatus === "AVAILABLE_NOW";
+  const preview = pricingPreview.data as any;
 
   const startCall = (type: "audio" | "video") => {
     requestCall.mutate({ modelUserId, callType: type.toUpperCase() as "AUDIO" | "VIDEO" }, {
@@ -46,6 +48,9 @@ export default function ProfileScreen() {
         useCallStore.getState().startCall(session.id, type, modelUserId);
         emit(SOCKET_EVENTS.CALL.REQUEST, { targetUserId: modelUserId, callType: type, callSessionId: session.id });
         router.push(`/call/${session.id}`);
+      },
+      onError: (error: any) => {
+        Alert.alert("Unable to start call", error?.message ?? "Try again in a moment.");
       },
     });
   };
@@ -93,14 +98,14 @@ export default function ProfileScreen() {
           onPress={() => startCall("audio")}
           style={{ flex: 1 }}
           variant="primary"
-          disabled={!isCallable || requestCall.isPending}
+          disabled={!isCallable || requestCall.isPending || preview?.canStartAudio === false}
         />
         <Button
           title="Video Call"
           onPress={() => startCall("video")}
           style={{ flex: 1 }}
           variant="outline"
-          disabled={!isCallable || requestCall.isPending}
+          disabled={!isCallable || requestCall.isPending || preview?.canStartVideo === false}
         />
       </View>
 
@@ -118,15 +123,21 @@ export default function ProfileScreen() {
         <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
           <View>
             <Text style={{ color: COLORS.textSecondary, fontSize: 13 }}>Audio</Text>
-            <CoinDisplay amount={model?.audioPrice ?? 30} size="sm" />
+            <CoinDisplay amount={preview?.audioCoinsPerMinute ?? model?.audioPrice ?? 30} size="sm" />
             <Text style={{ color: COLORS.textSecondary, fontSize: 11 }}>/min</Text>
           </View>
           <View>
             <Text style={{ color: COLORS.textSecondary, fontSize: 13 }}>Video</Text>
-            <CoinDisplay amount={model?.videoPrice ?? 50} size="sm" />
+            <CoinDisplay amount={preview?.videoCoinsPerMinute ?? model?.videoPrice ?? 50} size="sm" />
             <Text style={{ color: COLORS.textSecondary, fontSize: 11 }}>/min</Text>
           </View>
         </View>
+        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: SPACING.sm }}>
+          Minimum balance required: {preview?.minimumBalanceCoins ?? 100} coins
+        </Text>
+        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 4 }}>
+          Current balance: {preview?.currentBalanceCoins ?? 0} coins
+        </Text>
       </Card>
 
       <TouchableOpacity
@@ -146,6 +157,12 @@ export default function ProfileScreen() {
       <View style={{ flexDirection: "row", gap: SPACING.sm, marginTop: SPACING.md }}>
         <Button title="Follow" variant="secondary" onPress={() => {}} style={{ flex: 1 }} />
         <Button title="Message" variant="ghost" onPress={() => router.push(`/chat/${modelUserId}?recipientId=${modelUserId}`)} style={{ flex: 1 }} />
+      </View>
+
+      <View style={{ flexDirection: "row", gap: SPACING.sm, marginTop: SPACING.sm, marginBottom: SPACING.sm }}>
+        <Button title="Followers" size="sm" variant="outline" onPress={() => router.push("/profile/followers")} style={{ flex: 1 }} />
+        <Button title="Following" size="sm" variant="outline" onPress={() => router.push("/profile/following")} style={{ flex: 1 }} />
+        <Button title="Edit" size="sm" variant="outline" onPress={() => router.push("/profile/edit")} style={{ flex: 1 }} />
       </View>
 
       <SectionHeader title="Demo Videos" />

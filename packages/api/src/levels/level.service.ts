@@ -3,6 +3,7 @@ import { db } from "@missu/db";
 import {
   levels,
   userLevels,
+  userXpEvents,
   levelRewards,
   loginStreaks,
   badges,
@@ -13,72 +14,277 @@ import {
   giftTransactions,
   callSessions,
 } from "@missu/db/schema";
-import { eq, and, desc, asc, sql } from "drizzle-orm";
+import { eq, and, desc, asc, sql, inArray } from "drizzle-orm";
 import { DEFAULTS } from "@missu/config";
+import { ConfigService } from "../config/config.service";
 
 @Injectable()
 export class LevelService {
-  async getUserLevel(userId: string) {
+  constructor(private readonly configService: ConfigService) {}
+
+  private async getOrderedLevels(track: "USER" | "MODEL") {
+    return db
+      .select()
+      .from(levels)
+      .where(and(eq(levels.levelTrack, track as any), eq(levels.status, "ACTIVE" as any)))
+      .orderBy(asc(levels.levelNumber));
+  }
+
+  private async getFirstActiveUserLevel() {
+    const [firstLevel] = await this.getOrderedLevels("USER");
+    if (!firstLevel) {
+      throw new Error("User level track is not configured");
+    }
+    return firstLevel;
+  }
+
+  private async getUserXpPolicy() {
+    const configured = await this.configService.getSetting("levels", "xp_rules");
+    const value = (configured?.valueJson as Record<string, unknown> | null) ?? {};
+
+    return {
+      watchSecondsPerInterval: Math.max(1, Number(value.watchSecondsPerInterval ?? DEFAULTS.LEVEL_XP.WATCH_SECONDS_PER_INTERVAL)),
+      watchXpPerInterval: Math.max(1, Number(value.watchXpPerInterval ?? DEFAULTS.LEVEL_XP.WATCH_XP_PER_INTERVAL)),
+      watchMinSeconds: Math.max(1, Number(value.watchMinSeconds ?? DEFAULTS.LEVEL_XP.WATCH_MIN_SECONDS)),
+      streamSecondsPerInterval: Math.max(1, Number(value.streamSecondsPerInterval ?? DEFAULTS.LEVEL_XP.STREAM_SECONDS_PER_INTERVAL)),
+      streamXpPerInterval: Math.max(1, Number(value.streamXpPerInterval ?? DEFAULTS.LEVEL_XP.STREAM_XP_PER_INTERVAL)),
+      streamMinSeconds: Math.max(1, Number(value.streamMinSeconds ?? DEFAULTS.LEVEL_XP.STREAM_MIN_SECONDS)),
+      giftCoinsPerInterval: Math.max(1, Number(value.giftCoinsPerInterval ?? DEFAULTS.LEVEL_XP.GIFT_COINS_PER_INTERVAL)),
+      giftXpPerInterval: Math.max(1, Number(value.giftXpPerInterval ?? DEFAULTS.LEVEL_XP.GIFT_XP_PER_INTERVAL)),
+    };
+  }
+
+  private async autoGrantLevelRewards(userId: string, levelId: string) {
+    const rewards = await db
+      .select()
+      .from(levelRewards)
+      .where(and(eq(levelRewards.levelId, levelId), eq(levelRewards.autoGrant, true), eq(levelRewards.status, "ACTIVE" as any)));
+
+    const grantedRewards: any[] = [];
+    for (const reward of rewards) {
+      if (reward.rewardType === "BADGE") {
+        const [badge] = await db.select().from(badges).where(eq(badges.badgeKey, reward.rewardValue)).limit(1);
+        if (badge) {
+          await db.insert(userBadges).values({
+            userId,
+            badgeId: badge.id,
+            source: "LEVEL_UP",
+          } as any).onConflictDoNothing({ target: [userBadges.userId, userBadges.badgeId] });
+        }
+      }
+
+      grantedRewards.push(reward);
+    }
+
+    return grantedRewards;
+  }
+
+  private async ensureUserLevelRecord(userId: string) {
     const [userLevel] = await db
       .select()
       .from(userLevels)
-      .where(eq(userLevels.userId, userId))
+      .where(and(eq(userLevels.userId, userId), eq(userLevels.levelTrack, "USER" as any)))
       .limit(1);
 
-    if (!userLevel) {
-      const firstLevel = await db.select().from(levels).orderBy(asc(levels.levelNumber)).limit(1);
-      const [created] = await db
-        .insert(userLevels)
-        .values({ userId, levelTrack: "USER" as any, currentLevelId: firstLevel[0]?.id ?? null, currentProgressValue: 0 } as any)
-        .returning();
-      return created;
+    if (userLevel) {
+      return userLevel;
     }
 
-    return userLevel;
-  }
-
-  async addXp(userId: string, xpAmount: number, source: string) {
-    let [userLevel] = await db.select().from(userLevels).where(eq(userLevels.userId, userId)).limit(1);
-
-    if (!userLevel) {
-      const firstLevel = await db.select().from(levels).orderBy(asc(levels.levelNumber)).limit(1);
-      [userLevel] = await db.insert(userLevels).values({ userId, levelTrack: "USER" as any, currentLevelId: firstLevel[0]?.id ?? null, currentProgressValue: 0 } as any).returning();
-    }
-
-    if (!userLevel) throw new Error("Failed to create user level");
-    const ul = userLevel;
-
-    const newProgress = (ul.currentProgressValue ?? 0) + xpAmount;
-
-    // Check for level up
-    const allLevels = await db.select().from(levels).where(eq(levels.levelTrack, ul.levelTrack as any)).orderBy(asc(levels.levelNumber));
-    const currentLevelIdx = allLevels.findIndex((l) => l.id === ul.currentLevelId);
-    let newLevelId = ul.currentLevelId;
-    let remainingProgress = newProgress;
-    let leveledUp = false;
-
-    for (let i = currentLevelIdx + 1; i < allLevels.length; i++) {
-      if (remainingProgress >= (allLevels[i]!.thresholdValue ?? 0)) {
-        newLevelId = allLevels[i]!.id;
-        remainingProgress -= allLevels[i]!.thresholdValue ?? 0;
-        leveledUp = true;
-      } else {
-        break;
-      }
-    }
-
-    const [updated] = await db
-      .update(userLevels)
-      .set({ currentLevelId: newLevelId, currentProgressValue: remainingProgress, levelUpAt: leveledUp ? new Date() : ul.levelUpAt, updatedAt: new Date() })
-      .where(eq(userLevels.id, ul.id))
+    const firstLevel = await this.getFirstActiveUserLevel();
+    const [created] = await db
+      .insert(userLevels)
+      .values({
+        userId,
+        levelTrack: "USER",
+        currentLevelId: firstLevel.id,
+        currentProgressValue: 0,
+      } as any)
       .returning();
 
-    let rewards: any[] = [];
-    if (leveledUp && newLevelId) {
-      rewards = await db.select().from(levelRewards).where(eq(levelRewards.levelId, newLevelId));
+    if (!created) {
+      throw new Error("Failed to create user level");
     }
 
-    return { userLevel: updated, leveledUp, rewards };
+    await this.autoGrantLevelRewards(userId, firstLevel.id);
+    return created;
+  }
+
+  private async awardXp(userId: string, xpAmount: number, sourceType: string, idempotencyKey: string, metadataJson?: Record<string, unknown>) {
+    const ensuredLevel = await this.ensureUserLevelRecord(userId);
+    if (xpAmount <= 0) {
+      return {
+        awardedXp: 0,
+        duplicated: false,
+        leveledUp: false,
+        rewards: [],
+        summary: await this.getMyLevelSummary(userId),
+      };
+    }
+
+    const inserted = await db.insert(userXpEvents).values({
+      userId,
+      sourceType,
+      sourceReferenceId: String(metadataJson?.sourceReferenceId ?? metadataJson?.streamId ?? metadataJson?.viewerSessionId ?? metadataJson?.giftTransactionId ?? ""),
+      idempotencyKey,
+      xpAmount,
+      metadataJson,
+    } as any).onConflictDoNothing({ target: userXpEvents.idempotencyKey }).returning({ id: userXpEvents.id });
+
+    if (inserted.length === 0) {
+      return {
+        awardedXp: 0,
+        duplicated: true,
+        leveledUp: false,
+        rewards: [],
+        summary: await this.getMyLevelSummary(userId),
+      };
+    }
+
+    const allLevels = await this.getOrderedLevels("USER");
+    const currentLevelIndex = Math.max(0, allLevels.findIndex((level) => level.id === ensuredLevel.currentLevelId));
+    const currentLevel = allLevels[currentLevelIndex] ?? allLevels[0];
+    if (!currentLevel) {
+      throw new Error("User level track is not configured");
+    }
+
+    let nextProgress = (ensuredLevel.currentProgressValue ?? 0) + xpAmount;
+    let nextLevelId = currentLevel.id;
+    const unlockedLevelIds: string[] = [];
+
+    for (let index = currentLevelIndex + 1; index < allLevels.length; index += 1) {
+      const nextLevel = allLevels[index];
+      if (!nextLevel) break;
+      const threshold = Math.max(0, Number(nextLevel.thresholdValue ?? 0));
+      if (nextProgress < threshold) {
+        break;
+      }
+      nextProgress -= threshold;
+      nextLevelId = nextLevel.id;
+      unlockedLevelIds.push(nextLevel.id);
+    }
+
+    await db
+      .update(userLevels)
+      .set({
+        currentLevelId: nextLevelId,
+        currentProgressValue: nextProgress,
+        levelUpAt: unlockedLevelIds.length > 0 ? new Date() : ensuredLevel.levelUpAt,
+        updatedAt: new Date(),
+      })
+      .where(eq(userLevels.id, ensuredLevel.id));
+
+    const grantedRewards: any[] = [];
+    for (const levelId of unlockedLevelIds) {
+      grantedRewards.push(...await this.autoGrantLevelRewards(userId, levelId));
+    }
+
+    return {
+      awardedXp: xpAmount,
+      duplicated: false,
+      leveledUp: unlockedLevelIds.length > 0,
+      rewards: grantedRewards,
+      summary: await this.getMyLevelSummary(userId),
+    };
+  }
+
+  async getMyLevelSummary(userId: string) {
+    const userLevel = await this.ensureUserLevelRecord(userId);
+    const [currentLevel] = await db.select().from(levels).where(eq(levels.id, userLevel.currentLevelId)).limit(1);
+    if (!currentLevel) {
+      throw new Error("Current level not found");
+    }
+
+    const userTrackLevels = await this.getOrderedLevels("USER");
+    const unlockedLevels = userTrackLevels.filter((level) => level.levelNumber <= currentLevel.levelNumber);
+    const unlockedLevelIds = unlockedLevels.map((level) => level.id);
+    const unlockedRewards = unlockedLevelIds.length > 0
+      ? await db
+        .select()
+        .from(levelRewards)
+        .where(and(inArray(levelRewards.levelId, unlockedLevelIds), eq(levelRewards.status, "ACTIVE" as any)))
+        .orderBy(asc(levelRewards.createdAt))
+      : [];
+
+    const badgeRows = await this.getUserBadges(userId);
+    const nextLevel = userTrackLevels.find((level) => level.levelNumber > currentLevel.levelNumber) ?? null;
+    const formattedRewards = unlockedRewards.map((reward) => ({
+      id: reward.id,
+      levelId: reward.levelId,
+      rewardType: reward.rewardType,
+      rewardValue: reward.rewardValue,
+      rewardName: reward.rewardName,
+      description: reward.description,
+      autoGrant: reward.autoGrant,
+    }));
+    const activeBadgeReward = [...formattedRewards].reverse().find((reward) => reward.rewardType === "BADGE") ?? null;
+    const activeBadge = activeBadgeReward
+      ? badgeRows.find((badge) => badge.badgeKey === activeBadgeReward.rewardValue) ?? null
+      : badgeRows[0] ?? null;
+
+    return {
+      levelId: currentLevel.id,
+      level: currentLevel.levelNumber,
+      levelName: currentLevel.levelName,
+      track: currentLevel.levelTrack,
+      xp: Number(userLevel.currentProgressValue ?? 0),
+      currentXp: Number(userLevel.currentProgressValue ?? 0),
+      nextLevel: nextLevel
+        ? {
+          levelId: nextLevel.id,
+          level: nextLevel.levelNumber,
+          levelName: nextLevel.levelName,
+          requiredXp: Number(nextLevel.thresholdValue ?? 0),
+          remainingXp: Math.max(Number(nextLevel.thresholdValue ?? 0) - Number(userLevel.currentProgressValue ?? 0), 0),
+          progressPercent: Number(nextLevel.thresholdValue ?? 0) > 0
+            ? Math.min(100, Math.round((Number(userLevel.currentProgressValue ?? 0) / Number(nextLevel.thresholdValue ?? 0)) * 100))
+            : 100,
+        }
+        : null,
+      activeBadge,
+      badges: badgeRows,
+      visualEffects: formattedRewards.filter((reward) => reward.rewardType === "VISUAL_EFFECT"),
+      rankingBenefits: formattedRewards.filter((reward) => reward.rewardType === "RANKING_BENEFIT"),
+      unlockedRewards: formattedRewards,
+      levelUpAt: userLevel.levelUpAt?.toISOString?.() ?? userLevel.levelUpAt ?? null,
+    };
+  }
+
+  async getUserLevel(userId: string) {
+    return this.getMyLevelSummary(userId);
+  }
+
+  async awardGiftXp(userId: string, coinAmount: number, giftTransactionId: string, metadataJson: Record<string, unknown> = {}) {
+    const policy = await this.getUserXpPolicy();
+    const xpAmount = Math.floor(Math.max(0, coinAmount) / policy.giftCoinsPerInterval) * policy.giftXpPerInterval;
+    return this.awardXp(userId, xpAmount, "GIFT_SENT", `levelxp:gift:${giftTransactionId}`, {
+      ...metadataJson,
+      giftTransactionId,
+      coinAmount,
+      sourceReferenceId: giftTransactionId,
+    });
+  }
+
+  async awardWatchXp(userId: string, watchDurationSeconds: number, viewerSessionId: string, streamId: string) {
+    const policy = await this.getUserXpPolicy();
+    const eligibleSeconds = watchDurationSeconds >= policy.watchMinSeconds ? watchDurationSeconds : 0;
+    const xpAmount = Math.floor(eligibleSeconds / policy.watchSecondsPerInterval) * policy.watchXpPerInterval;
+    return this.awardXp(userId, xpAmount, "LIVE_WATCH", `levelxp:watch:${viewerSessionId}`, {
+      viewerSessionId,
+      streamId,
+      watchDurationSeconds,
+      sourceReferenceId: viewerSessionId,
+    });
+  }
+
+  async awardStreamingXp(userId: string, streamDurationSeconds: number, streamId: string) {
+    const policy = await this.getUserXpPolicy();
+    const eligibleSeconds = streamDurationSeconds >= policy.streamMinSeconds ? streamDurationSeconds : 0;
+    const xpAmount = Math.floor(eligibleSeconds / policy.streamSecondsPerInterval) * policy.streamXpPerInterval;
+    return this.awardXp(userId, xpAmount, "LIVE_STREAMED", `levelxp:stream:${streamId}`, {
+      streamId,
+      streamDurationSeconds,
+      sourceReferenceId: streamId,
+    });
   }
 
   async getLoginStreak(userId: string) {
@@ -97,6 +303,9 @@ export class LevelService {
 
     if (!streak) {
       [streak] = await db.insert(loginStreaks).values({ userId, currentStreakDays: 1, lastLoginDate: new Date().toISOString().split("T")[0]!, regionCode: "GLOBAL" } as any).returning();
+      await this.awardXp(userId, DEFAULTS.REWARDS.DAILY_LOGIN_XP, "DAILY_LOGIN", `levelxp:daily-login:${userId}:${new Date().toISOString().split("T")[0]}`, {
+        sourceReferenceId: new Date().toISOString().split("T")[0],
+      });
       return { streak, xpAwarded: DEFAULTS.REWARDS.DAILY_LOGIN_XP };
     }
 
@@ -121,7 +330,10 @@ export class LevelService {
       .returning();
 
     const xpAwarded = DEFAULTS.REWARDS.DAILY_LOGIN_XP + (newStreak >= 7 ? DEFAULTS.REWARDS.STREAK_BONUS_XP : 0);
-    await this.addXp(userId, xpAwarded, "daily_login");
+    await this.awardXp(userId, xpAwarded, "DAILY_LOGIN", `levelxp:daily-login:${userId}:${now.toISOString().split("T")[0]}`, {
+      currentStreakDays: newStreak,
+      sourceReferenceId: now.toISOString().split("T")[0],
+    });
 
     return { streak: updated, xpAwarded };
   }
@@ -131,6 +343,7 @@ export class LevelService {
     return db
       .select({
         badgeId: userBadges.badgeId,
+        badgeKey: badges.badgeKey,
         awardedAt: userBadges.awardedAt,
         name: badges.name,
         description: badges.description,
@@ -156,8 +369,29 @@ export class LevelService {
   }
 
   async listAllLevels() {
-    const allLevels = await db.select().from(levels).orderBy(asc(levels.levelNumber));
-    return allLevels;
+    const allLevels = await db
+      .select()
+      .from(levels)
+      .where(eq(levels.levelTrack, "USER" as any))
+      .orderBy(asc(levels.levelNumber));
+
+    const rewards = allLevels.length > 0
+      ? await db.select().from(levelRewards).where(inArray(levelRewards.levelId, allLevels.map((level) => level.id)))
+      : [];
+
+    return allLevels.map((level) => ({
+      ...level,
+      rewards: rewards
+        .filter((reward) => reward.levelId === level.id)
+        .map((reward) => ({
+          id: reward.id,
+          rewardType: reward.rewardType,
+          rewardValue: reward.rewardValue,
+          rewardName: reward.rewardName,
+          description: reward.description,
+          autoGrant: reward.autoGrant,
+        })),
+    }));
   }
 
   async recalculateModelLevel(modelUserId: string, changeReason: "AUTO_RECALC" | "EVENT_TRIGGERED" | "ADMIN_OVERRIDE" = "AUTO_RECALC") {

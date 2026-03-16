@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
+import { getWebRuntimeScope } from "@/lib/runtime-config";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import { LiveStreamCard, type DiscoveryStreamCardData } from "@/features/discover/components/live-stream-card";
 import { useLiveRoomSocket } from "../hooks/use-live-room-socket";
@@ -101,8 +102,9 @@ export function LiveRoomScreen({ streamId }: { streamId: string }) {
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [chatDraft, setChatDraft] = useState("");
   const [giftStatus, setGiftStatus] = useState<string | null>(null);
+  const runtimeScope = getWebRuntimeScope();
 
-  const roomQuery = trpc.live.getViewerRoom.useQuery({ streamId }, { retry: false });
+  const roomQuery = trpc.live.getViewerRoom.useQuery({ streamId, ...runtimeScope }, { retry: false });
   const roomData = roomQuery.data as ViewerRoomData | undefined;
 
   const walletQuery = trpc.wallet.getBalance.useQuery(undefined, {
@@ -149,6 +151,7 @@ export function LiveRoomScreen({ streamId }: { streamId: string }) {
 
   const walletData = walletQuery.data as { coinBalance?: number; diamondBalance?: number } | undefined;
   const featureHints = roomData?.liveConfig.uiLayoutHints;
+  const liveStreamingEnabled = roomData?.liveConfig.featureFlags.find((flag) => flag.key === "live_streaming")?.enabled ?? true;
   const visibleGifts = roomData?.monetization.gifts.slice(0, 8) ?? [];
   const pricingSummary = useMemo(() => {
     return (roomData?.liveConfig.pricingHighlights ?? []).slice(0, 3).map((rule) => {
@@ -179,6 +182,27 @@ export function LiveRoomScreen({ streamId }: { streamId: string }) {
               <h1 className="text-2xl font-semibold text-white">This live room is no longer available</h1>
               <p className="max-w-2xl text-sm leading-7 text-white/62">
                 The host may have ended the session, or the room may have been removed from the live feed.
+              </p>
+              <Link href="/discover">
+                <Button variant="secondary">Back to discovery</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (!liveStreamingEnabled) {
+    return (
+      <div className="min-h-screen bg-[#050816] px-4 py-6 text-white sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-4xl">
+          <Card className="border-dashed border-white/12 bg-white/4">
+            <CardContent className="space-y-4 p-8">
+              <Badge variant="neutral" className="w-fit">Disabled</Badge>
+              <h1 className="text-2xl font-semibold text-white">Live streaming is disabled for this web runtime</h1>
+              <p className="max-w-2xl text-sm leading-7 text-white/62">
+                The room data loaded successfully, but the active `live_streaming` flag for this web app version is off, so room playback is gated.
               </p>
               <Link href="/discover">
                 <Button variant="secondary">Back to discovery</Button>
@@ -223,16 +247,6 @@ export function LiveRoomScreen({ streamId }: { streamId: string }) {
       contextType: "LIVE_STREAM",
       contextId: stream.streamId,
       quantity: 1,
-    }, {
-      onSuccess: () => {
-        socket.emitGiftEvent({
-          giftId,
-          giftName,
-          senderName: auth.userId ? `fan-${auth.userId.slice(0, 6)}` : "Fan",
-          quantity: 1,
-          effect: giftCode,
-        });
-      },
     });
   }
 

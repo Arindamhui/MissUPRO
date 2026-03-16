@@ -7,6 +7,7 @@ import {
   USER_LEVEL_THRESHOLDS, VIP_TIERS, AGENCY_COMMISSION_TIERS,
   REWARDS, REFERRAL_TIERS, MODERATION, RECOMMENDATION_WEIGHTS,
   RATE_LIMITS, GROUP_AUDIO, PARTY,
+  LEVELS, LEVEL_XP,
 } from "./defaults";
 
 /** Convenience: lazy env singleton */
@@ -33,4 +34,6 @@ export const DEFAULTS = {
   RATE_LIMITS,
   GROUP_AUDIO,
   PARTY,
+  LEVELS,
+  LEVEL_XP,
 } as const;

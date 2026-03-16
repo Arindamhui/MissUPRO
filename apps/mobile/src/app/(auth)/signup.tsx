@@ -17,7 +17,7 @@ export default function SignupScreen() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
-  const { signUp } = useSignUp();
+  const { signUp, setActive } = useSignUp();
   const { startSSOFlow } = useSSO();
 
   const validate = () => {
@@ -42,7 +42,7 @@ export default function SignupScreen() {
     setError("");
     setLoading(true);
     try {
-      await signUp.password({
+      await signUp.create({
         emailAddress: email.trim(),
         password,
         unsafeMetadata: {
@@ -51,7 +51,7 @@ export default function SignupScreen() {
         },
       });
 
-      await signUp.verifications.sendEmailCode();
+      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
       setStep("verify");
     } catch (error) {
       setError(getClerkErrorMessage(error, "Signup failed"));
@@ -69,20 +69,17 @@ export default function SignupScreen() {
     setLoading(true);
     setError("");
     try {
-      await signUp.verifications.verifyEmailCode({
+      const verification = await signUp.attemptEmailAddressVerification({
         code: verificationCode.trim(),
       });
 
-      if (signUp.status !== "complete") {
+      if (verification.status !== "complete" || !verification.createdSessionId) {
         setError("Verification is not complete yet.");
         return;
       }
 
-      await signUp.finalize({
-        navigate: () => {
-          router.replace("/(tabs)");
-        },
-      });
+      await setActive?.({ session: verification.createdSessionId });
+      router.replace("/(tabs)");
     } catch (error) {
       setError(getClerkErrorMessage(error, "Verification failed"));
     } finally {
@@ -155,7 +152,7 @@ export default function SignupScreen() {
         <Button title="I've Verified My Email" onPress={handleVerify} loading={loading} />
 
         <TouchableOpacity
-          onPress={() => void signUp?.verifications.sendEmailCode()}
+          onPress={() => void signUp?.prepareEmailAddressVerification({ strategy: "email_code" })}
           style={{ alignItems: "center", marginTop: SPACING.md }}
         >
           <Text style={{ color: COLORS.primary, fontSize: FONT.sizes.sm }}>

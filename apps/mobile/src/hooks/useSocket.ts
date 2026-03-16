@@ -1,11 +1,12 @@
 import { useEffect, useRef, useCallback } from "react";
 import { router } from "expo-router";
-import { disconnectSocket, getSocket } from "@/lib/socket";
+import { getSocket, releaseSocket, retainSocket } from "@/lib/socket";
 import { useAuthStore
 
  } from "@/store";
 import { SOCKET_EVENTS } from "@missu/types";
 import { useCallStore } from "@/store";
+import { trpc } from "@/lib/trpc";
 
 export function useSocket() {
   const token = useAuthStore((s) => s.token);
@@ -13,7 +14,7 @@ export function useSocket() {
 
   useEffect(() => {
     if (!token) return;
-    socketRef.current = getSocket(token);
+    socketRef.current = retainSocket(token);
     const socket = socketRef.current;
     const heartbeat = () => {
       socket.emit(SOCKET_EVENTS.PRESENCE.HEARTBEAT, { status: "online" });
@@ -23,7 +24,7 @@ export function useSocket() {
 
     return () => {
       socket.off("connect", heartbeat);
-      disconnectSocket();
+      releaseSocket();
       socketRef.current = null;
     };
   }, [token]);
@@ -62,8 +63,13 @@ export function useSocket() {
 export function useCallSocket() {
   const { on } = useSocket();
   const { acceptCall, endCall, setLowBalance } = useCallStore();
+  const utils = trpc.useContext();
 
   useEffect(() => {
+    const invalidateNotifications = () => {
+      void utils.notification.getNotificationCenter.invalidate();
+    };
+
     const unsub1 = on(SOCKET_EVENTS.CALL.INCOMING, (data: any) => {
       if (data?.deliveryId) {
         useSocketAck(data.deliveryId);
@@ -93,6 +99,15 @@ export function useCallSocket() {
     const unsub7 = on(SOCKET_EVENTS.CALL.SESSION_ENDED, () => {
       endCall();
     });
+    const unsub8 = on(SOCKET_EVENTS.NOTIFICATION.NEW, (payload: any) => {
+      if (payload?.deliveryId) {
+        useSocketAck(payload.deliveryId);
+      }
+      invalidateNotifications();
+    });
+    const unsub9 = on(SOCKET_EVENTS.NOTIFICATION.READ, invalidateNotifications);
+    const unsub10 = on(SOCKET_EVENTS.NOTIFICATION.ALL_READ, invalidateNotifications);
+    const unsub11 = on(SOCKET_EVENTS.NOTIFICATION.DELETED, invalidateNotifications);
     return () => {
       unsub1?.();
       unsub2?.();
@@ -101,8 +116,12 @@ export function useCallSocket() {
       unsub5?.();
       unsub6?.();
       unsub7?.();
+      unsub8?.();
+      unsub9?.();
+      unsub10?.();
+      unsub11?.();
     };
-  }, [on, acceptCall, endCall, setLowBalance]);
+  }, [on, acceptCall, endCall, setLowBalance, utils]);
 }
 
 export function usePresence() {

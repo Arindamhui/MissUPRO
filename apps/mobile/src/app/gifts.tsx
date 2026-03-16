@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, FlatList, Alert } from "react-native";
-import { Screen, Card, CoinDisplay, EmptyState, Button } from "@/components/ui";
+import { View, Text, TouchableOpacity, FlatList, Alert, ActivityIndicator, Platform } from "react-native";
+import { Screen, Card, CoinDisplay, EmptyState, Button, SectionHeader, Badge } from "@/components/ui";
 import { trpc } from "@/lib/trpc";
 import { COLORS, SPACING, RADIUS } from "@/theme";
 import { useUIStore, useWalletStore } from "@/store";
+import { getMobileRuntimeScope } from "@/lib/runtime-config";
 
 type Gift = {
   id?: string;
@@ -32,8 +33,25 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
+function getGiftContextLabel(context?: string | null) {
+  switch (context) {
+    case "PK_BATTLE":
+      return "PK battle";
+    case "LIVE_STREAM":
+      return "live stream";
+    case "VIDEO_CALL":
+      return "video call";
+    case "VOICE_CALL":
+      return "voice call";
+    default:
+      return context ? String(context).toLowerCase().replaceAll("_", " ") : "selected experience";
+  }
+}
+
 export default function GiftsScreen() {
   const catalog = trpc.gift.getActiveCatalog.useQuery(undefined, { retry: false });
+  const creatorEconomy = trpc.config.getCreatorEconomy.useQuery(getMobileRuntimeScope(), { retry: false });
+  const giftFlag = trpc.config.evaluateFeatureFlag.useQuery({ key: "gift_sending", ...getMobileRuntimeScope() }, { retry: false });
   const sendGift = trpc.gift.sendGift.useMutation();
   const giftTarget = useUIStore((s) => s.selectedGiftTarget);
   const closeDrawer = useUIStore((s) => s.closeGiftDrawer);
@@ -48,6 +66,20 @@ export default function GiftsScreen() {
     acc[tier].push(gift);
     return acc;
   }, {} as Record<string, Gift[]>);
+
+  const estimateDiamondCredit = (gift: Gift) => {
+    const policy = creatorEconomy.data;
+    if (!policy) return gift.diamondCredit ?? 0;
+    if ((gift.diamondCredit ?? 0) > 0) return gift.diamondCredit ?? 0;
+    return Math.max(
+      0,
+      Math.round(
+        (gift.coinPrice ?? 0)
+        * (policy.diamondConversion.diamonds / Math.max(1, policy.diamondConversion.coins))
+        * (1 - policy.commission.platformCommissionPercent / 100),
+      ),
+    );
+  };
 
   const handleSendGift = (gift: Gift) => {
     if (!giftTarget) {
@@ -85,7 +117,7 @@ export default function GiftsScreen() {
     const tier = item.effectTier ?? "STANDARD";
     return (
       <TouchableOpacity
-        onPress={() => handleSendGift(item)}
+        onPress={() => setSelectedGift(item)}
         style={{
           width: "30%",
           backgroundColor: COLORS.card,
@@ -106,15 +138,45 @@ export default function GiftsScreen() {
     );
   };
 
+  const selectedGiftDiamondCredit = selectedGift ? estimateDiamondCredit(selectedGift) : 0;
+
   return (
     <Screen scroll>
+      {giftFlag.data?.enabled === false && (
+        <Card>
+          <Text style={{ color: COLORS.text, fontWeight: "700", fontSize: 16 }}>Gift sending is disabled</Text>
+          <Text style={{ color: COLORS.textSecondary, marginTop: 8 }}>This feature is currently turned off for the active mobile app version.</Text>
+        </Card>
+      )}
+
       {giftTarget && (
         <View style={{ backgroundColor: COLORS.primaryLight, padding: SPACING.sm, marginHorizontal: SPACING.md, borderRadius: RADIUS.lg, marginBottom: SPACING.sm }}>
           <Text style={{ fontSize: 13, color: COLORS.primaryDark, textAlign: "center" }}>
-            Sending to user in {giftTarget.context}
+            Sending to user in {getGiftContextLabel(giftTarget.context)}
           </Text>
         </View>
       )}
+
+      <SectionHeader title="Gift Economy" />
+      <Card>
+        {creatorEconomy.isLoading ? (
+          <ActivityIndicator color={COLORS.primary} />
+        ) : creatorEconomy.data ? (
+          <>
+            <Text style={{ color: COLORS.textSecondary, marginBottom: 6 }}>
+              Platform commission: {creatorEconomy.data.commission.platformCommissionPercent}%
+            </Text>
+            <Text style={{ color: COLORS.textSecondary, marginBottom: 6 }}>
+              Creator share: {creatorEconomy.data.commission.creatorSharePercent}% of gift value
+            </Text>
+            <Text style={{ color: COLORS.textSecondary }}>
+              Baseline conversion: {creatorEconomy.data.diamondConversion.coins} coins to {creatorEconomy.data.diamondConversion.diamonds} diamonds
+            </Text>
+          </>
+        ) : (
+          <Text style={{ color: COLORS.textSecondary }}>Gift conversion policy is unavailable right now.</Text>
+        )}
+      </Card>
 
       {Object.entries(grouped).map(([tier, gifts]) => (
         <View key={tier} style={{ marginBottom: SPACING.md }}>
@@ -135,6 +197,27 @@ export default function GiftsScreen() {
           />
         </View>
       ))}
+
+      {selectedGift && giftFlag.data?.enabled !== false && (
+        <Card>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: SPACING.sm }}>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.text }}>{selectedGift.displayName}</Text>
+            <Badge text={selectedGift.effectTier ?? "STANDARD"} color={TIER_COLORS[selectedGift.effectTier ?? "STANDARD"] ?? COLORS.primary} />
+          </View>
+          <Text style={{ color: COLORS.textSecondary, marginBottom: 6 }}>
+            Cost: {selectedGift.coinPrice ?? 0} coins
+          </Text>
+          <Text style={{ color: COLORS.textSecondary, marginBottom: SPACING.md }}>
+            Estimated creator credit: {selectedGiftDiamondCredit} diamonds
+          </Text>
+          <Button
+            title={giftTarget ? "Send Selected Gift" : "Select a target to send"}
+            onPress={() => handleSendGift(selectedGift)}
+            disabled={!giftTarget || (selectedGift.coinPrice ?? 0) > coins || sendGift.isPending}
+            loading={sendGift.isPending}
+          />
+        </Card>
+      )}
 
       {items.length === 0 && (
         <EmptyState icon="🎁" title="No Gifts Available" subtitle="Gift catalog is loaded from backend configuration." />

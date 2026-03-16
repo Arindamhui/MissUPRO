@@ -1,10 +1,12 @@
 import { Injectable } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { db } from "@missu/db";
-import { pkSessions, pkScores } from "@missu/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { liveStreams, pkScores, pkSessions, users } from "@missu/db/schema";
+import { PK } from "@missu/config";
+import { eq, and, desc, inArray, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { ConfigService } from "../config/config.service";
+import { WalletService } from "../wallet/wallet.service";
 
 export interface PKConfig {
   enabled: boolean;
@@ -13,32 +15,140 @@ export interface PKConfig {
   minHostLevel: number;
   maxConcurrentPerHost: number;
   selfGiftBlocked: boolean;
-  winnerBonusCoins?: number;
+  scoreMultiplierPercent: number;
+  rewards: {
+    enabled: boolean;
+    winnerRewardCoins: number;
+    loserRewardCoins: number;
+    drawRewardCoins: number;
+  };
 }
 
 @Injectable()
 export class PkService {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly walletService: WalletService,
+  ) {}
 
   async getConfig(): Promise<PKConfig> {
     const env = process.env["NODE_ENV"] === "production" ? "production" : "development";
     const scope = { environment: env };
-    const get = async (key: string, fallback: string | number | boolean) => {
-      const row = await this.configService.getSetting("pk", key, scope);
-      if (row?.valueJson == null) return fallback;
-      if (typeof fallback === "number") return Number(row.valueJson) ?? fallback;
-      if (typeof fallback === "boolean") return row.valueJson === true || row.valueJson === "true";
-      return String(row.valueJson ?? fallback);
-    };
+
+    const [battleRulesSetting, rewardSystemSetting] = await Promise.all([
+      this.configService.getSetting("pk", "battle_rules", scope),
+      this.configService.getSetting("pk", "reward_system", scope),
+    ]);
+
+    const battleRules = (battleRulesSetting?.valueJson as {
+      enabled?: boolean;
+      battleDurationSeconds?: number;
+      votingDurationSeconds?: number;
+      minHostLevel?: number;
+      maxConcurrentPerHost?: number;
+      selfGiftBlocked?: boolean;
+      scoreMultiplierPercent?: number;
+    } | null) ?? {};
+    const rewards = (rewardSystemSetting?.valueJson as {
+      enabled?: boolean;
+      winnerRewardCoins?: number;
+      loserRewardCoins?: number;
+      drawRewardCoins?: number;
+    } | null) ?? {};
+
     return {
-      enabled: (await get("enabled", true)) as boolean,
-      battleDurationSeconds: (await get("battle_duration_seconds", 300)) as number,
-      votingDurationSeconds: (await get("voting_duration_seconds", 30)) as number,
-      minHostLevel: (await get("min_host_level", 1)) as number,
-      maxConcurrentPerHost: (await get("max_concurrent_per_host", 1)) as number,
-      selfGiftBlocked: (await get("self_gift_blocked", true)) as boolean,
-      winnerBonusCoins: (await get("winner_coins", 0)) as number | undefined,
+      enabled: Boolean(battleRules.enabled ?? true),
+      battleDurationSeconds: Math.max(60, Number(battleRules.battleDurationSeconds ?? PK.BATTLE_DURATION_SECONDS)),
+      votingDurationSeconds: Math.max(0, Number(battleRules.votingDurationSeconds ?? PK.VOTING_DURATION_SECONDS)),
+      minHostLevel: Math.max(1, Number(battleRules.minHostLevel ?? 1)),
+      maxConcurrentPerHost: Math.max(1, Number(battleRules.maxConcurrentPerHost ?? PK.MAX_CONCURRENT_PER_HOST)),
+      selfGiftBlocked: Boolean(battleRules.selfGiftBlocked ?? PK.SELF_GIFT_BLOCKED),
+      scoreMultiplierPercent: Math.max(1, Number(battleRules.scoreMultiplierPercent ?? PK.SCORE_MULTIPLIER_PERCENT)),
+      rewards: {
+        enabled: Boolean(rewards.enabled ?? true),
+        winnerRewardCoins: Math.max(0, Number(rewards.winnerRewardCoins ?? PK.WINNER_REWARD_COINS)),
+        loserRewardCoins: Math.max(0, Number(rewards.loserRewardCoins ?? PK.LOSER_REWARD_COINS)),
+        drawRewardCoins: Math.max(0, Number(rewards.drawRewardCoins ?? PK.DRAW_REWARD_COINS)),
+      },
     };
+  }
+
+  private async ensureHostHasActiveStream(userId: string) {
+    const [activeStream] = await db.select({ id: liveStreams.id })
+      .from(liveStreams)
+      .where(and(eq(liveStreams.hostUserId, userId), eq(liveStreams.status, "LIVE" as any)))
+      .limit(1);
+
+    if (!activeStream) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Both hosts need an active live stream for a PK battle" });
+    }
+
+    return activeStream;
+  }
+
+  private async settleRewards(session: typeof pkSessions.$inferSelect) {
+    if (session.rewardsGrantedAt) {
+      return;
+    }
+
+    const creditOperations: Array<Promise<unknown>> = [];
+
+    if (session.resultType === "DRAW") {
+      if (session.drawRewardCoins > 0) {
+        creditOperations.push(
+          this.walletService.creditCoins(
+            session.hostAUserId,
+            session.drawRewardCoins,
+            "PK_BATTLE_REWARD",
+            session.id,
+            "PK battle draw reward",
+            `pk-reward:${session.id}:${session.hostAUserId}:draw`,
+          ),
+          this.walletService.creditCoins(
+            session.hostBUserId,
+            session.drawRewardCoins,
+            "PK_BATTLE_REWARD",
+            session.id,
+            "PK battle draw reward",
+            `pk-reward:${session.id}:${session.hostBUserId}:draw`,
+          ),
+        );
+      }
+    } else if (session.winnerUserId) {
+      const loserUserId = session.winnerUserId === session.hostAUserId ? session.hostBUserId : session.hostAUserId;
+      if (session.winnerRewardCoins > 0) {
+        creditOperations.push(
+          this.walletService.creditCoins(
+            session.winnerUserId,
+            session.winnerRewardCoins,
+            "PK_BATTLE_REWARD",
+            session.id,
+            "PK battle winner reward",
+            `pk-reward:${session.id}:${session.winnerUserId}:winner`,
+          ),
+        );
+      }
+      if (session.loserRewardCoins > 0) {
+        creditOperations.push(
+          this.walletService.creditCoins(
+            loserUserId,
+            session.loserRewardCoins,
+            "PK_BATTLE_REWARD",
+            session.id,
+            "PK battle participation reward",
+            `pk-reward:${session.id}:${loserUserId}:loser`,
+          ),
+        );
+      }
+    }
+
+    if (creditOperations.length > 0) {
+      await Promise.all(creditOperations);
+    }
+
+    await db.update(pkSessions)
+      .set({ rewardsGrantedAt: new Date() })
+      .where(eq(pkSessions.id, session.id));
   }
 
   async requestPKBattle(hostAId: string, hostBId: string) {
@@ -50,15 +160,26 @@ export class PkService {
       throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot request PK against yourself" });
     }
 
+    await Promise.all([
+      this.ensureHostHasActiveStream(hostAId),
+      this.ensureHostHasActiveStream(hostBId),
+    ]);
+
     const activeForHostA = await db
       .select()
       .from(pkSessions)
-      .where(and(eq(pkSessions.hostAUserId, hostAId), eq(pkSessions.status, "ACTIVE" as any)))
+      .where(and(
+        or(eq(pkSessions.hostAUserId, hostAId), eq(pkSessions.hostBUserId, hostAId)),
+        inArray(pkSessions.status, ["CREATED", "MATCHING", "ACTIVE", "VOTING"] as any),
+      ))
       .limit(1);
     const activeForHostB = await db
       .select()
       .from(pkSessions)
-      .where(and(eq(pkSessions.hostBUserId, hostBId), eq(pkSessions.status, "ACTIVE" as any)))
+      .where(and(
+        or(eq(pkSessions.hostAUserId, hostBId), eq(pkSessions.hostBUserId, hostBId)),
+        inArray(pkSessions.status, ["CREATED", "MATCHING", "ACTIVE", "VOTING"] as any),
+      ))
       .limit(1);
     if (activeForHostA.length > 0 || activeForHostB.length > 0) {
       throw new TRPCError({ code: "CONFLICT", message: "One or both hosts already have an active PK battle" });
@@ -71,6 +192,10 @@ export class PkService {
         hostBUserId: hostBId,
         status: "CREATED" as any,
         battleDurationSeconds: config.battleDurationSeconds,
+        scoreMultiplierPercent: config.scoreMultiplierPercent,
+        winnerRewardCoins: config.rewards.enabled ? config.rewards.winnerRewardCoins : 0,
+        loserRewardCoins: config.rewards.enabled ? config.rewards.loserRewardCoins : 0,
+        drawRewardCoins: config.rewards.enabled ? config.rewards.drawRewardCoins : 0,
       })
       .returning();
     return pk!;
@@ -87,6 +212,8 @@ export class PkService {
     if (session.status !== "CREATED" && session.status !== "MATCHING") {
       throw new TRPCError({ code: "BAD_REQUEST", message: "Session is no longer open for acceptance" });
     }
+
+    await this.ensureHostHasActiveStream(hostBId);
 
     await db
       .update(pkSessions)
@@ -152,17 +279,22 @@ export class PkService {
     const endAt = startedAt + (session.battleDurationSeconds ?? 300) * 1000;
     if (Date.now() > endAt) return { added: false };
 
+    const scoreMultiplierPercent = Math.max(1, session.scoreMultiplierPercent ?? config.scoreMultiplierPercent);
+    const scoreValue = Math.max(1, Math.round((coinValue * scoreMultiplierPercent) / 100));
+
     await db.insert(pkScores).values({
       pkSessionId,
       hostUserId,
       gifterUserId,
       giftId,
       coinValue,
+      scoreValue,
+      scoreMultiplierPercent,
     });
 
     const isHostA = session.hostAUserId === hostUserId;
-    const newHostAScore = isHostA ? (session.hostAScore ?? 0) + coinValue : (session.hostAScore ?? 0);
-    const newHostBScore = !isHostA ? (session.hostBScore ?? 0) + coinValue : (session.hostBScore ?? 0);
+    const newHostAScore = isHostA ? (session.hostAScore ?? 0) + scoreValue : (session.hostAScore ?? 0);
+    const newHostBScore = !isHostA ? (session.hostBScore ?? 0) + scoreValue : (session.hostBScore ?? 0);
 
     await db
       .update(pkSessions)
@@ -203,6 +335,11 @@ export class PkService {
       })
       .where(eq(pkSessions.id, pkSessionId));
 
+    const [endedSession] = await db.select().from(pkSessions).where(eq(pkSessions.id, pkSessionId)).limit(1);
+    if (endedSession) {
+      await this.settleRewards(endedSession);
+    }
+
     return { session: await this.getPKBattleState(pkSessionId) };
   }
 
@@ -234,9 +371,27 @@ export class PkService {
         gifterUserId: score.gifterUserId,
         giftId: score.giftId,
         coinValue: score.coinValue,
+        scoreValue: score.scoreValue,
+        scoreMultiplierPercent: score.scoreMultiplierPercent,
         scoredAt: score.scoredAt?.toISOString?.() ?? score.scoredAt,
       })),
     };
+  }
+
+  async listMyBattles(userId: string, statuses?: Array<"CREATED" | "MATCHING" | "ACTIVE" | "VOTING" | "ENDED" | "CANCELLED">, limit = 10) {
+    const conditions = [or(eq(pkSessions.hostAUserId, userId), eq(pkSessions.hostBUserId, userId))];
+    if (statuses && statuses.length > 0) {
+      conditions.push(inArray(pkSessions.status, statuses as any));
+    }
+
+    const results = await db
+      .select()
+      .from(pkSessions)
+      .where(and(...conditions))
+      .orderBy(desc(pkSessions.createdAt))
+      .limit(limit);
+
+    return { items: results };
   }
 
   async listSessions(cursor?: string, limit = 20, status?: string) {
@@ -263,6 +418,7 @@ export class PkService {
     battleDurationSeconds: number,
     adminId: string,
   ) {
+    const config = await this.getConfig();
     const [pk] = await db
       .insert(pkSessions)
       .values({
@@ -270,6 +426,10 @@ export class PkService {
         hostBUserId,
         status: "CREATED" as any,
         battleDurationSeconds,
+        scoreMultiplierPercent: config.scoreMultiplierPercent,
+        winnerRewardCoins: config.rewards.enabled ? config.rewards.winnerRewardCoins : 0,
+        loserRewardCoins: config.rewards.enabled ? config.rewards.loserRewardCoins : 0,
+        drawRewardCoins: config.rewards.enabled ? config.rewards.drawRewardCoins : 0,
         createdByAdminId: adminId,
       })
       .returning();

@@ -1,13 +1,20 @@
 import { Injectable } from "@nestjs/common";
 import { db } from "@missu/db";
-import { gifts, giftTransactions, liveGiftEvents, wallets, coinTransactions, diamondTransactions } from "@missu/db/schema";
+import { gifts, giftTransactions, liveGiftEvents, wallets, coinTransactions, diamondTransactions, liveStreams, liveViewers, users } from "@missu/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { acquireLock, generateIdempotencyKey, releaseLock } from "@missu/utils";
+import { calculateTrendingScore } from "@missu/utils";
 import { WalletService } from "../wallet/wallet.service";
 import { IdempotencyService } from "../common/idempotency.service";
 import { PkService } from "../pk/pk.service";
+import { ConfigService } from "../config/config.service";
 import { randomUUID } from "node:crypto";
+import { RealtimeStateService } from "../realtime/realtime-state.service";
+import { SocketEmitterService } from "../common/socket-emitter.service";
+import { SOCKET_EVENTS } from "@missu/types";
+import { LevelService } from "../levels/level.service";
+import { NotificationService } from "../notifications/notification.service";
 
 @Injectable()
 export class GiftService {
@@ -15,6 +22,11 @@ export class GiftService {
     private readonly walletService: WalletService,
     private readonly idempotencyService: IdempotencyService,
     private readonly pkService: PkService,
+    private readonly configService: ConfigService,
+    private readonly realtimeStateService: RealtimeStateService,
+    private readonly socketEmitterService: SocketEmitterService,
+    private readonly levelService: LevelService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async getActiveCatalog() {
@@ -32,10 +44,18 @@ export class GiftService {
   async previewSendGift(giftId: string, quantity: number) {
     const [gift] = await db.select().from(gifts).where(eq(gifts.id, giftId)).limit(1);
     if (!gift || !gift.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Gift not available" });
+    const policy = await this.configService.getCreatorEconomyPolicy();
+    const platformCommissionPercent = policy.commission.platformCommissionPercent;
+    const derivedDiamondCredit = Math.round(
+      gift.coinPrice * (policy.diamondConversion.diamonds / policy.diamondConversion.coins) * (1 - platformCommissionPercent / 100),
+    );
+    const effectiveDiamondCredit = gift.diamondCredit > 0 ? gift.diamondCredit : Math.max(0, derivedDiamondCredit);
+
     return {
       gift,
       totalCost: gift.coinPrice * quantity,
-      diamondsToReceiver: gift.diamondCredit * quantity,
+      diamondsToReceiver: effectiveDiamondCredit * quantity,
+      commissionPercent: platformCommissionPercent,
     };
   }
 
@@ -61,8 +81,14 @@ export class GiftService {
       throw new TRPCError({ code: "BAD_REQUEST", message: "Gift is not supported in this context" });
     }
 
+    const policy = await this.configService.getCreatorEconomyPolicy();
+    const platformCommissionPercent = policy.commission.platformCommissionPercent;
     const coinCost = gift.coinPrice * comboCount;
-    const diamondCredit = gift.diamondCredit * comboCount;
+    const derivedDiamondCredit = Math.round(
+      gift.coinPrice * (policy.diamondConversion.diamonds / policy.diamondConversion.coins) * (1 - platformCommissionPercent / 100),
+    );
+    const diamondCreditPerUnit = gift.diamondCredit > 0 ? gift.diamondCredit : Math.max(0, derivedDiamondCredit);
+    const diamondCredit = diamondCreditPerUnit * comboCount;
     const idemKey = idempotencyKey ?? generateIdempotencyKey(senderId, receiverId, giftId, contextType, contextId, String(comboCount));
 
     await this.walletService.getOrCreateWallet(senderId);
@@ -162,8 +188,8 @@ export class GiftService {
               contextId,
               comboCount,
               economyProfileKeySnapshot: gift.economyProfileKey ?? "default",
-              platformCommissionBpsSnapshot: 7500,
-              diamondValueUsdPer100Snapshot: "0.2500",
+              platformCommissionBpsSnapshot: Math.round(platformCommissionPercent * 100),
+              diamondValueUsdPer100Snapshot: policy.diamondValueUsdPer100.toFixed(4),
               senderDisplayNameSnapshot: senderId,
               idempotencyKey: idemKey,
             });
@@ -181,6 +207,48 @@ export class GiftService {
                 comboCountSnapshot: comboCount,
                 broadcastEventId: randomUUID(),
               });
+
+              if (contextType === "LIVE_STREAM") {
+                const [currentStream] = await tx
+                  .select({
+                    giftRevenueCoins: liveStreams.giftRevenueCoins,
+                    viewerCountPeak: liveStreams.viewerCountPeak,
+                    viewerCountCurrent: liveStreams.viewerCountCurrent,
+                  })
+                  .from(liveStreams)
+                  .where(eq(liveStreams.id, contextId))
+                  .limit(1);
+
+                if (currentStream) {
+                  const nextGiftRevenue = Number(currentStream.giftRevenueCoins ?? 0) + coinCost;
+                  const nextTrendingScore = calculateTrendingScore(
+                    nextGiftRevenue,
+                    Number(currentStream.viewerCountPeak ?? 0),
+                    Number(currentStream.viewerCountCurrent ?? 0),
+                  );
+
+                  await tx
+                    .update(liveStreams)
+                    .set({
+                      giftRevenueCoins: sql`${liveStreams.giftRevenueCoins} + ${coinCost}`,
+                      trendingScore: String(nextTrendingScore),
+                    })
+                    .where(eq(liveStreams.id, contextId));
+                }
+
+                await tx
+                  .update(liveViewers)
+                  .set({
+                    giftCoinsSent: sql`${liveViewers.giftCoinsSent} + ${coinCost}`,
+                  })
+                  .where(
+                    and(
+                      eq(liveViewers.streamId, contextId),
+                      eq(liveViewers.userId, senderId),
+                      sql`${liveViewers.leftAt} is null`,
+                    ),
+                  );
+              }
             }
           });
 
@@ -194,8 +262,95 @@ export class GiftService {
             throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Gift transaction not created" });
           }
 
+          await this.levelService.awardGiftXp(senderId, coinCost, transaction.id, {
+            receiverUserId: receiverId,
+            contextType,
+            contextId,
+          });
+
+          const [senderProfile] = await db
+            .select({
+              displayName: users.displayName,
+              username: users.username,
+            })
+            .from(users)
+            .where(eq(users.id, senderId))
+            .limit(1);
+
+          const senderName = senderProfile?.displayName ?? senderProfile?.username ?? senderId;
+
+          await this.notificationService.createNotification(
+            receiverId,
+            "GIFT_RECEIVED",
+            `${senderName} sent you a gift`,
+            `${senderName} sent ${comboCount}x ${gift.name}.`,
+            {
+              senderUserId: senderId,
+              receiverUserId: receiverId,
+              giftId,
+              giftName: gift.name,
+              quantity: comboCount,
+              contextType,
+              contextId,
+              transactionId: transaction.id,
+              channels: ["PUSH"],
+            },
+          );
+
           if (contextType === "PK_BATTLE") {
-            await this.pkService.addGiftScore(contextId, senderId, receiverId, giftId, coinCost);
+            const scoreResult = await this.pkService.addGiftScore(contextId, senderId, receiverId, giftId, coinCost);
+            if (scoreResult.added) {
+              const state = await this.pkService.getPKBattleRealtimeState(contextId, 20);
+              const deliveryId = randomUUID();
+              const payload = {
+                sessionId: contextId,
+                state,
+                deliveryId,
+                emittedAt: new Date().toISOString(),
+              };
+
+              await this.realtimeStateService.appendRecentEvent({
+                deliveryId,
+                event: SOCKET_EVENTS.PK.SCORE_UPDATE,
+                roomId: contextId,
+                roomScope: "pk",
+                payload,
+                critical: false,
+                createdAt: new Date().toISOString(),
+              });
+
+              this.socketEmitterService.emitToRoom("pk", contextId, SOCKET_EVENTS.PK.SCORE_UPDATE, payload);
+            }
+          }
+
+          if (contextType === "LIVE_STREAM") {
+            const deliveryId = randomUUID();
+            const emittedAt = new Date().toISOString();
+            const payload = {
+              roomId: contextId,
+              transactionId: transaction.id,
+              giftId,
+              giftName: gift.name,
+              senderId,
+              senderName,
+              receiverId,
+              quantity: comboCount,
+              effect: gift.giftCode,
+              deliveryId,
+              emittedAt,
+            };
+
+            await this.realtimeStateService.appendRecentEvent({
+              deliveryId,
+              event: SOCKET_EVENTS.GIFT.RECEIVED_LIVE,
+              roomId: contextId,
+              roomScope: "stream",
+              payload,
+              critical: true,
+              createdAt: emittedAt,
+            });
+
+            this.socketEmitterService.emitToRoom("stream", contextId, SOCKET_EVENTS.GIFT.RECEIVED_LIVE, payload);
           }
 
           return transaction;

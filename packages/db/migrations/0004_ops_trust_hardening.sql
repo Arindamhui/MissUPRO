@@ -26,6 +26,23 @@ EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
 
+CREATE TABLE IF NOT EXISTS admins (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id),
+  admin_name text NOT NULL,
+  mfa_enabled boolean NOT NULL DEFAULT true,
+  mfa_secret_encrypted text,
+  last_login_at timestamp,
+  last_login_ip text,
+  login_attempts_failed integer NOT NULL DEFAULT 0,
+  locked_until timestamp,
+  ip_allowlist_json jsonb,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS admins_user_id_idx ON admins (user_id);
+
 CREATE TABLE IF NOT EXISTS payment_disputes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   payment_id uuid NOT NULL REFERENCES payments(id),

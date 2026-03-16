@@ -8,9 +8,46 @@ import {
 import { eq, and, desc, sql, isNull, count, lte, inArray } from "drizzle-orm";
 import { decodeCursor, encodeCursor } from "@missu/utils";
 import { getRedis } from "@missu/utils";
+import { randomUUID } from "node:crypto";
+import { SocketEmitterService } from "../common/socket-emitter.service";
+import { RealtimeStateService } from "../realtime/realtime-state.service";
+import { SOCKET_EVENTS } from "@missu/types";
 
 @Injectable()
 export class NotificationService {
+  constructor(
+    private readonly socketEmitterService: SocketEmitterService,
+    private readonly realtimeStateService: RealtimeStateService,
+  ) {}
+
+  private async emitTrackedUserEvent(userId: string, event: string, payload: Record<string, unknown>, critical = false) {
+    const deliveryId = randomUUID();
+    const enrichedPayload = { ...payload, deliveryId, emittedAt: new Date().toISOString() };
+
+    await this.realtimeStateService.appendRecentEvent({
+      deliveryId,
+      event,
+      roomId: userId,
+      roomScope: "user",
+      payload: enrichedPayload,
+      critical,
+      createdAt: new Date().toISOString(),
+    });
+
+    this.socketEmitterService.emitToUser(userId, event, enrichedPayload);
+
+    return enrichedPayload;
+  }
+
+  private async getUnreadCount(userId: string) {
+    const [result] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(notifications)
+      .where(and(eq(notifications.userId, userId), isNull(notifications.readAt)));
+
+    return Number(result?.count ?? 0);
+  }
+
   async getNotificationCenter(userId: string, cursor?: string, limit = 20) {
     const offset = cursor ? decodeCursor(cursor) : 0;
 
@@ -43,14 +80,31 @@ export class NotificationService {
       .set({ readAt: new Date() })
       .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)))
       .returning();
+
+    if (updated) {
+      const unreadCount = await this.getUnreadCount(userId);
+      await this.emitTrackedUserEvent(userId, SOCKET_EVENTS.NOTIFICATION.READ, {
+        notificationId: updated.id,
+        readAt: updated.readAt?.toISOString() ?? new Date().toISOString(),
+        unreadCount,
+      });
+    }
+
     return updated;
   }
 
   async markAllAsRead(userId: string) {
+    const readAt = new Date();
     await db
       .update(notifications)
-      .set({ readAt: new Date() })
+      .set({ readAt })
       .where(and(eq(notifications.userId, userId), isNull(notifications.readAt)));
+
+    await this.emitTrackedUserEvent(userId, SOCKET_EVENTS.NOTIFICATION.ALL_READ, {
+      readAt: readAt.toISOString(),
+      unreadCount: 0,
+    });
+
     return { success: true };
   }
 
@@ -93,6 +147,12 @@ export class NotificationService {
     }
 
     await Promise.all(jobs);
+
+    const unreadCount = await this.getUnreadCount(userId);
+    await this.emitTrackedUserEvent(userId, SOCKET_EVENTS.NOTIFICATION.NEW, {
+      notification,
+      unreadCount,
+    }, true);
 
     return notification;
   }
@@ -142,6 +202,13 @@ export class NotificationService {
     await db
       .delete(notifications)
       .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)));
+
+    const unreadCount = await this.getUnreadCount(userId);
+    await this.emitTrackedUserEvent(userId, SOCKET_EVENTS.NOTIFICATION.DELETED, {
+      notificationId,
+      unreadCount,
+    });
+
     return { success: true };
   }
 

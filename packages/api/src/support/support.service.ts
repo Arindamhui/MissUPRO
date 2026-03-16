@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { db } from "@missu/db";
 import { supportTickets } from "@missu/db/schema";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 @Injectable()
 export class SupportService {
@@ -67,5 +67,55 @@ export class SupportService {
       .returning();
 
     return updated;
+  }
+
+  async getTicketDetail(ticketId: string) {
+    const [ticket] = await db
+      .select()
+      .from(supportTickets)
+      .where(eq(supportTickets.id, ticketId))
+      .limit(1);
+
+    return ticket ?? null;
+  }
+
+  async getOperationsReport(startDate: Date, endDate: Date) {
+    const statusCounts = await db
+      .select({ status: supportTickets.status, count: sql<number>`count(*)` })
+      .from(supportTickets)
+      .where(sql`${supportTickets.createdAt} BETWEEN ${startDate} AND ${endDate}`)
+      .groupBy(supportTickets.status);
+
+    const categoryCounts = await db
+      .select({ category: supportTickets.category, count: sql<number>`count(*)` })
+      .from(supportTickets)
+      .where(sql`${supportTickets.createdAt} BETWEEN ${startDate} AND ${endDate}`)
+      .groupBy(supportTickets.category);
+
+    const priorityCounts = await db
+      .select({ priority: supportTickets.priority, count: sql<number>`count(*)` })
+      .from(supportTickets)
+      .where(sql`${supportTickets.createdAt} BETWEEN ${startDate} AND ${endDate}`)
+      .groupBy(supportTickets.priority);
+
+    const [summary] = await db
+      .select({
+        openCount: sql<number>`count(*) filter (where ${supportTickets.status} = 'OPEN')`,
+        resolvedCount: sql<number>`count(*) filter (where ${supportTickets.status} = 'RESOLVED')`,
+        assignedCount: sql<number>`count(*) filter (where ${supportTickets.assignedAdminId} is not null)`,
+      })
+      .from(supportTickets)
+      .where(sql`${supportTickets.createdAt} BETWEEN ${startDate} AND ${endDate}`);
+
+    return {
+      summary: {
+        openCount: Number(summary?.openCount ?? 0),
+        resolvedCount: Number(summary?.resolvedCount ?? 0),
+        assignedCount: Number(summary?.assignedCount ?? 0),
+      },
+      statusCounts,
+      categoryCounts,
+      priorityCounts,
+    };
   }
 }

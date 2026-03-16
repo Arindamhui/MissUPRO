@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { db } from "@missu/db";
-import { mediaScanResults, mediaAssets, fraudFlags, securityEvents, securityIncidents } from "@missu/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { mediaScanResults, mediaAssets, fraudFlags, securityEvents, securityIncidents, reports, bans } from "@missu/db/schema";
+import { eq, and, desc, sql, count } from "drizzle-orm";
 import { DEFAULTS } from "@missu/config";
 import { getRedis } from "@missu/utils";
 
@@ -83,7 +83,137 @@ export class ModerationService {
       .where(sql`${mediaScanResults.createdAt} BETWEEN ${startDate} AND ${endDate}`)
       .groupBy(mediaScanResults.scanStatus);
 
-    return { flagCounts, scanCounts };
+    const reportCounts = await db
+      .select({
+        status: reports.status,
+        count: sql<number>`count(*)`,
+      })
+      .from(reports)
+      .where(sql`${reports.createdAt} BETWEEN ${startDate} AND ${endDate}`)
+      .groupBy(reports.status);
+
+    const banCounts = await db
+      .select({
+        status: bans.status,
+        count: sql<number>`count(*)`,
+      })
+      .from(bans)
+      .where(sql`${bans.createdAt} BETWEEN ${startDate} AND ${endDate}`)
+      .groupBy(bans.status);
+
+    return { flagCounts, scanCounts, reportCounts, banCounts };
+  }
+
+  async submitReport(
+    reporterUserId: string,
+    data: {
+      entityType: "USER" | "LIVE_STREAM" | "DM_MESSAGE" | "CALL_SESSION" | "GIFT_TRANSACTION" | "PAYMENT" | "MEDIA_ASSET" | "COMMENT";
+      entityId: string;
+      reasonCode: string;
+      description?: string;
+      evidenceJson?: Record<string, unknown>;
+    },
+  ) {
+    const existingPriority = data.evidenceJson?.severity === "high" ? 80 : 25;
+    const [report] = await db
+      .insert(reports)
+      .values({
+        reporterUserId,
+        entityType: data.entityType as any,
+        entityId: data.entityId,
+        reasonCode: data.reasonCode,
+        description: data.description ?? null,
+        evidenceJson: data.evidenceJson ?? null,
+        priorityScore: existingPriority,
+      })
+      .returning();
+
+    return report!;
+  }
+
+  async listReports(filters: { status?: string; entityType?: string; limit?: number }) {
+    const conditions = [] as any[];
+    if (filters.status) conditions.push(eq(reports.status, filters.status as any));
+    if (filters.entityType) conditions.push(eq(reports.entityType, filters.entityType as any));
+
+    return db
+      .select()
+      .from(reports)
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(desc(reports.priorityScore), desc(reports.createdAt))
+      .limit(filters.limit ?? 100);
+  }
+
+  async reviewReport(reportId: string, adminId: string, status: "UNDER_REVIEW" | "ACTIONED" | "DISMISSED" | "RESOLVED", resolutionNotes?: string) {
+    const [updated] = await db
+      .update(reports)
+      .set({
+        status: status as any,
+        reviewedByAdminId: adminId as any,
+        reviewedAt: new Date(),
+        resolutionNotes: resolutionNotes ?? null,
+        updatedAt: new Date(),
+      })
+      .where(eq(reports.id, reportId))
+      .returning();
+
+    return updated;
+  }
+
+  async listBans(filters: { status?: string; scope?: string; limit?: number }) {
+    const conditions = [] as any[];
+    if (filters.status) conditions.push(eq(bans.status, filters.status as any));
+    if (filters.scope) conditions.push(eq(bans.scope, filters.scope as any));
+
+    return db
+      .select()
+      .from(bans)
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(desc(bans.createdAt))
+      .limit(filters.limit ?? 100);
+  }
+
+  async imposeBan(
+    adminId: string,
+    data: {
+      userId: string;
+      scope: "ACCOUNT" | "LIVE" | "DM" | "CALL" | "WITHDRAWAL";
+      reason: "HARASSMENT" | "SPAM" | "FRAUD" | "CHARGEBACK_ABUSE" | "SELF_GIFTING" | "UNDERAGE_RISK" | "POLICY_VIOLATION" | "OTHER";
+      sourceReportId?: string;
+      notes?: string;
+      endsAt?: Date | null;
+    },
+  ) {
+    const [ban] = await db
+      .insert(bans)
+      .values({
+        userId: data.userId,
+        scope: data.scope as any,
+        reason: data.reason as any,
+        sourceReportId: data.sourceReportId ?? null,
+        imposedByAdminId: adminId as any,
+        notes: data.notes ?? null,
+        endsAt: data.endsAt ?? null,
+      })
+      .returning();
+
+    return ban!;
+  }
+
+  async revokeBan(banId: string, adminId: string, notes?: string) {
+    const [updated] = await db
+      .update(bans)
+      .set({
+        status: "REVOKED" as any,
+        revokedAt: new Date(),
+        revokedByAdminId: adminId as any,
+        notes: notes ?? null,
+        updatedAt: new Date(),
+      })
+      .where(eq(bans.id, banId))
+      .returning();
+
+    return updated;
   }
 
   async reportSevereViolation(userId: string, category: "CSAM" | "TERROR" | "EXTREME_VIOLENCE", evidence: { assetId?: string; note?: string }) {

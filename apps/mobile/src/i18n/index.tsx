@@ -3,7 +3,11 @@ import React, { createContext, useContext, useMemo, useState } from "react";
 
 type LocaleCode = "en" | "ar" | "hi";
 
-type DictionaryValue = string | Record<string, DictionaryValue>;
+type DictionaryNode = {
+  [key: string]: string | DictionaryNode;
+};
+
+type DictionaryValue = string | DictionaryNode;
 
 type I18nContextValue = {
   locale: LocaleCode;
@@ -19,7 +23,7 @@ const SUPPORTED_LOCALES: Array<{ code: LocaleCode; label: string }> = [
   { code: "hi", label: "हिन्दी" },
 ];
 
-const messages: Record<LocaleCode, DictionaryValue> = {
+const messages: Record<LocaleCode, DictionaryNode> = {
   en: {
     common: {
       language: "Language",

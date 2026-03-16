@@ -29,7 +29,7 @@ export const serviceStatusEnum = pgEnum("service_identity_status", ["ACTIVE", "R
 // === Wallet & Finance ===
 export const coinTransactionTypeEnum = pgEnum("coin_transaction_type", [
   "PURCHASE", "GIFT_SENT", "DAILY_REWARD", "STREAK_REWARD", "CALL_BILLING",
-  "ADMIN_ADJUSTMENT", "REFUND", "PROMO_BONUS", "LEVEL_REWARD", "REFERRAL_REWARD",
+  "ADMIN_ADJUSTMENT", "REFUND", "PROMO_BONUS", "LEVEL_REWARD", "REFERRAL_REWARD", "PK_BATTLE_REWARD",
 ]);
 export const diamondTransactionTypeEnum = pgEnum("diamond_transaction_type", [
   "GIFT_CREDIT", "WITHDRAWAL_DEBIT", "ADMIN_ADJUSTMENT", "EVENT_REWARD",
@@ -121,6 +121,7 @@ export const adminTargetTypeEnum = pgEnum("admin_target_type", [
 // === System ===
 export const settingStatusEnum = pgEnum("setting_status", ["DRAFT", "PUBLISHED", "ROLLED_BACK"]);
 export const featureFlagTypeEnum = pgEnum("feature_flag_type", ["BOOLEAN", "PERCENTAGE", "USER_LIST", "REGION"]);
+export const featureFlagPlatformEnum = pgEnum("feature_flag_platform", ["ALL", "MOBILE", "WEB", "ANDROID", "IOS"]);
 export const layoutPlatformEnum = pgEnum("layout_platform", ["MOBILE", "WEB", "ALL"]);
 export const homepageSectionTypeEnum = pgEnum("homepage_section_type", [
   "LIVE_CAROUSEL", "FEATURED_MODELS", "TRENDING_CREATORS",
@@ -168,6 +169,27 @@ export const fraudFlagEntityTypeEnum = pgEnum("fraud_flag_entity_type", [
 ]);
 export const fraudRiskLevelEnum = pgEnum("fraud_risk_level", ["LOW", "MEDIUM", "HIGH", "CRITICAL"]);
 export const fraudFlagStatusEnum = pgEnum("fraud_flag_status", ["OPEN", "UNDER_REVIEW", "RESOLVED", "FALSE_POSITIVE"]);
+
+// === Trust & Safety ===
+export const reportEntityTypeEnum = pgEnum("report_entity_type", [
+  "USER", "LIVE_STREAM", "DM_MESSAGE", "CALL_SESSION", "GIFT_TRANSACTION", "PAYMENT", "MEDIA_ASSET", "COMMENT",
+]);
+export const reportStatusEnum = pgEnum("report_status", ["OPEN", "UNDER_REVIEW", "ACTIONED", "DISMISSED", "RESOLVED"]);
+export const banScopeEnum = pgEnum("ban_scope", ["ACCOUNT", "LIVE", "DM", "CALL", "WITHDRAWAL"]);
+export const banStatusEnum = pgEnum("ban_status", ["ACTIVE", "EXPIRED", "REVOKED"]);
+export const banReasonEnum = pgEnum("ban_reason", [
+  "HARASSMENT", "SPAM", "FRAUD", "CHARGEBACK_ABUSE", "SELF_GIFTING", "UNDERAGE_RISK", "POLICY_VIOLATION", "OTHER",
+]);
+
+// === UI Config ===
+export const uiComponentTypeEnum = pgEnum("ui_component_type", [
+  "BANNER", "CAROUSEL", "GRID", "CTA", "TABS", "CARD_LIST", "ANNOUNCEMENT", "FLOATING_ACTION",
+]);
+export const uiComponentStatusEnum = pgEnum("ui_component_status", ["DRAFT", "PUBLISHED", "ARCHIVED"]);
+export const economySettingTypeEnum = pgEnum("economy_setting_type", [
+  "COIN", "DIAMOND", "GIFT", "CALL", "WITHDRAWAL", "REFERRAL", "LEVEL", "VIP",
+]);
+export const commissionRuleStatusEnum = pgEnum("commission_rule_status", ["DRAFT", "ACTIVE", "ARCHIVED"]);
 
 // === Campaigns ===
 export const campaignRewardTypeEnum = pgEnum("campaign_reward_type", [

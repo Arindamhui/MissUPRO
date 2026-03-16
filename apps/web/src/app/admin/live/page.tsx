@@ -13,7 +13,7 @@ export default function LivePage() {
   const endStreamMut = trpc.live.endStream.useMutation({ onSuccess: () => streams.refetch() });
 
   const rows = (streams.data?.streams ?? []) as Record<string, unknown>[];
-  const pkRows = (pkSessions.data?.sessions ?? []) as Record<string, unknown>[];
+  const pkRows = (pkSessions.data?.items ?? pkSessions.data?.sessions ?? []) as Record<string, unknown>[];
   const totalViewers = rows.reduce((sum, r) => sum + Number(r.viewerCount ?? 0), 0);
 
   return (
@@ -62,10 +62,12 @@ export default function LivePage() {
         <DataTable
           columns={[
             { key: "id", label: "PK ID", render: (r) => String(r.id).slice(0, 8) },
-            { key: "challengerId", label: "Challenger" },
-            { key: "challengedId", label: "Challenged" },
+            { key: "hostAUserId", label: "Host A", render: (r) => String(r.hostAUserId ?? "-").slice(0, 8) },
+            { key: "hostBUserId", label: "Host B", render: (r) => String(r.hostBUserId ?? "-").slice(0, 8) },
+            { key: "hostAScore", label: "Score A", render: (r) => formatNumber(Number(r.hostAScore ?? 0)) },
+            { key: "hostBScore", label: "Score B", render: (r) => formatNumber(Number(r.hostBScore ?? 0)) },
             { key: "status", label: "Status", render: (r) => <StatusBadge status={String(r.status ?? "active")} /> },
-            { key: "createdAt", label: "Started", render: (r) => r.createdAt ? formatDate(String(r.createdAt)) : "-" },
+            { key: "createdAt", label: "Created", render: (r) => r.createdAt ? formatDate(String(r.createdAt)) : "-" },
           ]}
           data={pkRows}
         />

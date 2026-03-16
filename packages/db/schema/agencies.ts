@@ -2,7 +2,9 @@ import {
   pgTable, uuid, text, timestamp, index, uniqueIndex, decimal, jsonb,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { agencyHostStatusEnum, agencyApplicationStatusEnum, agencyCommissionStatusEnum } from "./enums";
+import {
+  agencyHostStatusEnum, agencyApplicationStatusEnum, agencyCommissionStatusEnum, commissionRuleStatusEnum,
+} from "./enums";
 import { users } from "./users";
 import { admins } from "./admin";
 
@@ -74,11 +76,36 @@ export const agencyCommissionRecords = pgTable("agency_commission_records", {
   index("agency_commissions_host_period_idx").on(t.hostUserId, t.periodStart),
 ]);
 
+// ─── commission_rules ───
+export const commissionRules = pgTable("commission_rules", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  agencyId: uuid("agency_id").references(() => agencies.id),
+  ruleKey: text("rule_key").notNull(),
+  ruleScope: text("rule_scope").notNull(),
+  hostTier: text("host_tier"),
+  revenueSource: text("revenue_source").notNull(),
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 4 }).notNull(),
+  minimumPayoutUsd: decimal("minimum_payout_usd", { precision: 12, scale: 2 }),
+  priority: text("priority").default("NORMAL").notNull(),
+  constraintsJson: jsonb("constraints_json"),
+  status: commissionRuleStatusEnum("status").default("DRAFT").notNull(),
+  effectiveFrom: timestamp("effective_from").notNull(),
+  effectiveTo: timestamp("effective_to"),
+  createdByAdminId: uuid("created_by_admin_id").references(() => admins.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("commission_rules_scope_status_effective_idx").on(t.ruleScope, t.status, t.effectiveFrom),
+  index("commission_rules_agency_source_idx").on(t.agencyId, t.revenueSource, t.effectiveFrom),
+  uniqueIndex("commission_rules_key_effective_idx").on(t.ruleKey, t.agencyId, t.effectiveFrom),
+]);
+
 // ─── Relations ───
 export const agenciesRelations = relations(agencies, ({ many }) => ({
   hosts: many(agencyHosts),
   applications: many(agencyApplications),
   commissions: many(agencyCommissionRecords),
+  commissionRules: many(commissionRules),
 }));
 
 export const agencyHostsRelations = relations(agencyHosts, ({ one }) => ({
@@ -94,4 +121,9 @@ export const agencyApplicationsRelations = relations(agencyApplications, ({ one 
 export const agencyCommissionRecordsRelations = relations(agencyCommissionRecords, ({ one }) => ({
   agency: one(agencies, { fields: [agencyCommissionRecords.agencyId], references: [agencies.id] }),
   host: one(users, { fields: [agencyCommissionRecords.hostUserId], references: [users.id], relationName: "agencyCommissionHost" }),
+}));
+
+export const commissionRulesRelations = relations(commissionRules, ({ one }) => ({
+  agency: one(agencies, { fields: [commissionRules.agencyId], references: [agencies.id] }),
+  createdBy: one(admins, { fields: [commissionRules.createdByAdminId], references: [admins.id] }),
 }));

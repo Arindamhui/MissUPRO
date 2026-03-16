@@ -373,8 +373,11 @@ export default function LoginScreen() {
               </View>
 
               <View style={{ alignItems: "center", gap: 10 }}>
-                <TouchableOpacity onPress={() => router.push("/(auth)/signup")}>
-                  <Text style={{ color: COLORS.white, fontSize: FONT.sizes.sm, fontWeight: "700" }}>Need a full account? Sign up</Text>
+                <TouchableOpacity onPress={() => router.push("/(auth)/register")}>
+                  <Text style={{ color: COLORS.white, fontSize: FONT.sizes.sm, fontWeight: "700" }}>Need a full account? Register</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push("/(auth)/otp-verify")}>
+                  <Text style={{ color: "rgba(255,255,255,0.72)", fontSize: FONT.sizes.xs, fontWeight: "600" }}>Preview the OTP verify screen</Text>
                 </TouchableOpacity>
                 <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
                   <Text style={{ color: "rgba(255,255,255,0.58)", fontSize: FONT.sizes.xs }}>By continuing, you agree to our </Text>

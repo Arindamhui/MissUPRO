@@ -4,7 +4,7 @@ import { View, Text } from "react-native";
 
 export function BackgroundCollage() {
   return (
-    <View pointerEvents="none" style={{ ...Object.assign({}, { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }) }}>
+    <View pointerEvents="none" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}>
       <LinearGradient
         colors={["#0D1325", "#131B33", "#070B14"]}
         end={{ x: 1, y: 1 }}

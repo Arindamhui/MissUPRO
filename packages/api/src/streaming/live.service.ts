@@ -9,6 +9,8 @@ import { GiftService } from "../gifts/gift.service";
 import { RtcTokenService } from "./rtc-token.service";
 import { PkService } from "../pk/pk.service";
 import { WalletService } from "../wallet/wallet.service";
+import { LevelService } from "../levels/level.service";
+import { NotificationService } from "../notifications/notification.service";
 
 @Injectable()
 export class LiveService {
@@ -18,7 +20,24 @@ export class LiveService {
     private readonly rtcTokenService: RtcTokenService,
     private readonly pkService: PkService,
     private readonly walletService: WalletService,
+    private readonly levelService: LevelService,
+    private readonly notificationService: NotificationService,
   ) {}
+
+  private async finalizeViewerSession(viewer: { id: string; userId: string; joinedAt: Date; watchDurationSeconds: number | null }, streamId: string, endedAt: Date) {
+    const sessionDurationSeconds = viewer.joinedAt
+      ? Math.max(0, Math.floor((endedAt.getTime() - new Date(viewer.joinedAt).getTime()) / 1000))
+      : 0;
+    const totalWatchDurationSeconds = Math.max(0, Number(viewer.watchDurationSeconds ?? 0) + sessionDurationSeconds);
+
+    await db.update(liveViewers).set({
+      leftAt: endedAt,
+      watchDurationSeconds: totalWatchDurationSeconds,
+    }).where(eq(liveViewers.id, viewer.id));
+
+    await this.levelService.awardWatchXp(viewer.userId, totalWatchDurationSeconds, viewer.id, streamId);
+    return totalWatchDurationSeconds;
+  }
 
   private resolveFeatureFlagState(
     featureFlags: Array<{ flagKey: string; enabled: boolean }>,
@@ -33,6 +52,41 @@ export class LiveService {
     }
 
     return matches.some((flag) => Boolean(flag.enabled));
+  }
+
+  private getRuntimeScope(scope?: { platform?: "ALL" | "MOBILE" | "WEB" | "ANDROID" | "IOS"; appVersion?: string }) {
+    return {
+      platform: scope?.platform,
+      appVersion: scope?.appVersion,
+    };
+  }
+
+  private mapStreamCard(row: {
+    streamId: string;
+    roomId: string;
+    hostUserId: string;
+    title: string;
+    roomName: string;
+    category: string;
+    hostDisplayName: string | null;
+    hostUsername: string | null;
+    avatarUrl: string | null;
+    viewerCount: number | string | null;
+    peakViewers: number | string | null;
+    giftRevenueCoins: number | string | null;
+    startedAt: Date | null;
+    trendingScore: number | string | null;
+  }) {
+    return {
+      ...row,
+      viewerCount: Number(row.viewerCount ?? 0),
+      peakViewers: Number(row.peakViewers ?? 0),
+      giftRevenueCoins: Number(row.giftRevenueCoins ?? 0),
+      trendingScore: Number(row.trendingScore ?? 0),
+      hostName: row.hostDisplayName ?? row.hostUsername ?? "Host",
+      hostAvatar: row.avatarUrl,
+      startedAt: row.startedAt?.toISOString() ?? null,
+    };
   }
 
   async getDiscoveryFeed(input: {
@@ -95,14 +149,7 @@ export class LiveService {
         .limit(input.limit),
     ]);
 
-    const liveNow = streamRows.map((row) => ({
-      ...row,
-      viewerCount: Number(row.viewerCount ?? 0),
-      peakViewers: Number(row.peakViewers ?? 0),
-      giftRevenueCoins: Number(row.giftRevenueCoins ?? 0),
-      trendingScore: Number(row.trendingScore ?? 0),
-      startedAt: row.startedAt?.toISOString() ?? null,
-    }));
+    const liveNow = streamRows.map((row) => this.mapStreamCard(row));
 
     return {
       summary: {
@@ -206,10 +253,10 @@ export class LiveService {
     };
   }
 
-  async getViewerRoom(streamId: string) {
-    const [preview, bootstrap, activeGifts, coinPackages, topSupportersRows] = await Promise.all([
+  async getViewerRoom(streamId: string, scope?: { platform?: "ALL" | "MOBILE" | "WEB" | "ANDROID" | "IOS"; appVersion?: string }) {
+    const [preview, bootstrap, activeGifts, coinPackages, topSupportersRows, activeViewerRows] = await Promise.all([
       this.getStreamPreview(streamId),
-      this.configService.getConfigBootstrap(),
+      this.configService.getConfigBootstrap(this.getRuntimeScope(scope)),
       this.giftService.getActiveCatalog(),
       this.walletService.getCoinPackages(),
       db
@@ -236,6 +283,21 @@ export class LiveService {
         )
         .orderBy(desc(sql`SUM(${giftTransactions.coinCost})`))
         .limit(5),
+      db
+        .select({
+          userId: liveViewers.userId,
+          displayName: users.displayName,
+          username: users.username,
+          avatarUrl: users.avatarUrl,
+          joinedAt: liveViewers.joinedAt,
+          giftCoinsSent: liveViewers.giftCoinsSent,
+          watchDurationSeconds: liveViewers.watchDurationSeconds,
+        })
+        .from(liveViewers)
+        .innerJoin(users, eq(users.id, liveViewers.userId))
+        .where(and(eq(liveViewers.streamId, streamId), isNull(liveViewers.leftAt)))
+        .orderBy(desc(liveViewers.giftCoinsSent), asc(liveViewers.joinedAt))
+        .limit(24),
     ]);
 
     const rawFeatureFlags = bootstrap.featureFlags.map((flag) => ({
@@ -271,6 +333,15 @@ export class LiveService {
         avatarUrl: supporter.avatarUrl,
         totalCoins: Number(supporter.totalCoins ?? 0),
       })),
+      activeViewers: activeViewerRows.map((viewer) => ({
+        userId: viewer.userId,
+        displayName: viewer.displayName,
+        username: viewer.username,
+        avatarUrl: viewer.avatarUrl,
+        joinedAt: viewer.joinedAt?.toISOString() ?? null,
+        giftCoinsSent: Number(viewer.giftCoinsSent ?? 0),
+        watchDurationSeconds: Number(viewer.watchDurationSeconds ?? 0),
+      })),
       monetization: {
         gifts: activeGifts.map((gift) => ({
           id: gift.id,
@@ -293,6 +364,12 @@ export class LiveService {
         generatedAt: bootstrap.generatedAt,
         featureFlags,
         pricingHighlights,
+        layout: {
+          videoContainer: true,
+          giftAnimationLayer: true,
+          chatOverlay: true,
+          viewerList: true,
+        },
         uiLayoutHints: {
           chatEnabled: this.resolveFeatureFlagState(rawFeatureFlags, ["live_chat", "chat_enabled", "stream_chat"]),
           giftingEnabled: this.resolveFeatureFlagState(rawFeatureFlags, ["live_gifting", "gift_sending", "gifts_enabled"]),
@@ -310,9 +387,64 @@ export class LiveService {
       roomName,
       category,
       roomType: roomType as any,
-      status: "LIVE",
+      status: "IDLE",
     }).returning();
     return room!;
+  }
+
+  async getMyActiveStream(hostUserId: string) {
+    const [stream] = await db
+      .select({
+        streamId: liveStreams.id,
+        roomId: liveRooms.id,
+        hostUserId: liveStreams.hostUserId,
+        title: sql<string>`coalesce(${liveStreams.streamTitle}, ${liveRooms.roomName})`,
+        roomName: liveRooms.roomName,
+        category: liveRooms.category,
+        hostDisplayName: users.displayName,
+        hostUsername: users.username,
+        avatarUrl: users.avatarUrl,
+        viewerCount: liveStreams.viewerCountCurrent,
+        peakViewers: liveStreams.viewerCountPeak,
+        giftRevenueCoins: liveStreams.giftRevenueCoins,
+        startedAt: liveStreams.startedAt,
+        trendingScore: liveStreams.trendingScore,
+      })
+      .from(liveStreams)
+      .innerJoin(liveRooms, eq(liveRooms.id, liveStreams.roomId))
+      .innerJoin(users, eq(users.id, liveStreams.hostUserId))
+      .where(and(eq(liveStreams.hostUserId, hostUserId), eq(liveStreams.status, "LIVE")))
+      .orderBy(desc(liveStreams.startedAt), desc(liveStreams.createdAt))
+      .limit(1);
+
+    return stream ? this.mapStreamCard(stream) : null;
+  }
+
+  async startLiveSession(hostUserId: string, input: { roomName: string; category: string; title: string; roomType?: string; streamType?: string }) {
+    const existing = await this.getMyActiveStream(hostUserId);
+    if (existing) {
+      return existing;
+    }
+
+    const [existingRoom] = await db
+      .select()
+      .from(liveRooms)
+      .where(eq(liveRooms.hostUserId, hostUserId))
+      .orderBy(desc(liveRooms.updatedAt), desc(liveRooms.createdAt))
+      .limit(1);
+
+    const room = existingRoom ?? await this.createRoom(hostUserId, input.roomName, input.category, input.roomType ?? "PUBLIC");
+
+    await db.update(liveRooms).set({
+      roomName: input.roomName,
+      category: input.category,
+      roomType: (input.roomType ?? room.roomType ?? "PUBLIC") as any,
+      status: "LIVE",
+      updatedAt: new Date(),
+    }).where(eq(liveRooms.id, room.id));
+
+    const started = await this.startStream(room.id, hostUserId, input.title, input.streamType ?? "SOLO");
+    return this.getViewerRoom(started.id);
   }
 
   async startStream(roomId: string, hostUserId: string, title: string, streamType: string) {
@@ -327,6 +459,44 @@ export class LiveService {
       startedAt: new Date(),
     }).returning();
 
+    await db.update(liveRooms).set({
+      status: "LIVE",
+      totalSessions: sql`${liveRooms.totalSessions} + 1`,
+      updatedAt: new Date(),
+    }).where(eq(liveRooms.id, roomId));
+
+    const [host, followerRows] = await Promise.all([
+      db
+        .select({
+          displayName: users.displayName,
+          username: users.username,
+        })
+        .from(users)
+        .where(eq(users.id, hostUserId))
+        .limit(1),
+      db
+        .select({ followerUserId: followers.followerUserId })
+        .from(followers)
+        .where(eq(followers.followedUserId, hostUserId)),
+    ]);
+
+    const hostName = host[0]?.displayName ?? host[0]?.username ?? "Someone";
+    await Promise.allSettled(
+      followerRows.map((follower) => this.notificationService.createNotification(
+        follower.followerUserId,
+        "LIVE_STARTED",
+        `${hostName} is live`,
+        title?.trim() ? title : `${hostName} just started a live stream.`,
+        {
+          hostUserId,
+          roomId,
+          streamId: stream!.id,
+          deepLink: `/stream/${stream!.id}`,
+          channels: ["PUSH"],
+        },
+      )),
+    );
+
     const tokenPayload = this.rtcTokenService.issueToken(rtcChannelId, 0, "publisher", 3600);
 
     return {
@@ -338,12 +508,31 @@ export class LiveService {
   }
 
   async getActiveStreams(limit = 50) {
-    const streams = await db.select().from(liveStreams)
+    const streams = await db
+      .select({
+        streamId: liveStreams.id,
+        roomId: liveRooms.id,
+        hostUserId: liveStreams.hostUserId,
+        title: sql<string>`coalesce(${liveStreams.streamTitle}, ${liveRooms.roomName})`,
+        roomName: liveRooms.roomName,
+        category: liveRooms.category,
+        hostDisplayName: users.displayName,
+        hostUsername: users.username,
+        avatarUrl: users.avatarUrl,
+        viewerCount: liveStreams.viewerCountCurrent,
+        peakViewers: liveStreams.viewerCountPeak,
+        giftRevenueCoins: liveStreams.giftRevenueCoins,
+        startedAt: liveStreams.startedAt,
+        trendingScore: liveStreams.trendingScore,
+      })
+      .from(liveStreams)
+      .innerJoin(liveRooms, eq(liveRooms.id, liveStreams.roomId))
+      .innerJoin(users, eq(users.id, liveStreams.hostUserId))
       .where(eq(liveStreams.status, "LIVE"))
-      .orderBy(desc(liveStreams.startedAt))
+      .orderBy(desc(liveStreams.trendingScore), desc(liveStreams.startedAt))
       .limit(limit);
 
-    return { streams };
+    return { streams: streams.map((stream) => this.mapStreamCard(stream)) };
   }
 
   async issueViewerToken(streamId: string, userId: string) {
@@ -356,6 +545,30 @@ export class LiveService {
     }
 
     const tokenPayload = this.rtcTokenService.issueToken(stream.rtcChannelId, 0, "subscriber", 1800);
+
+    return {
+      streamId,
+      channel: stream.rtcChannelId,
+      agoraToken: tokenPayload.token,
+      agoraAppId: tokenPayload.appId,
+      expiresAt: tokenPayload.expiresAt,
+    };
+  }
+
+  async issueHostToken(streamId: string, hostUserId: string) {
+    const [stream] = await db.select().from(liveStreams)
+      .where(eq(liveStreams.id, streamId))
+      .limit(1);
+
+    if (!stream || stream.status !== "LIVE") {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Stream not live" });
+    }
+
+    if (stream.hostUserId !== hostUserId) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Only the host can publish to this stream" });
+    }
+
+    const tokenPayload = this.rtcTokenService.issueToken(stream.rtcChannelId, 0, "publisher", 1800);
 
     return {
       streamId,
@@ -380,7 +593,31 @@ export class LiveService {
       endReason: (reason ?? "NORMAL") as any,
       endedAt,
       durationSeconds,
+      viewerCountCurrent: 0,
     }).where(eq(liveStreams.id, streamId));
+
+    await db.update(liveRooms).set({
+      status: "IDLE",
+      updatedAt: endedAt,
+    }).where(eq(liveRooms.id, stream.roomId));
+
+    const activeViewers = await db.select().from(liveViewers)
+      .where(and(eq(liveViewers.streamId, streamId), isNull(liveViewers.leftAt)));
+
+    let totalWatchMinutesAwarded = 0;
+    for (const viewer of activeViewers) {
+      const totalSeconds = await this.finalizeViewerSession(viewer, streamId, endedAt);
+      totalWatchMinutesAwarded += Math.floor(totalSeconds / 60);
+    }
+
+    if (totalWatchMinutesAwarded > 0) {
+      await db.update(liveRooms).set({
+        totalWatchMinutes: sql`${liveRooms.totalWatchMinutes} + ${totalWatchMinutesAwarded}`,
+        updatedAt: endedAt,
+      }).where(eq(liveRooms.id, stream.roomId));
+    }
+
+    await this.levelService.awardStreamingXp(stream.hostUserId, durationSeconds, streamId);
 
     return { streamId, durationSeconds };
   }
@@ -404,6 +641,16 @@ export class LiveService {
       viewerCountPeak: sql`GREATEST(${liveStreams.viewerCountPeak}, ${liveStreams.viewerCountCurrent} + 1)`,
     }).where(eq(liveStreams.id, streamId));
 
+    const [updatedStream] = await db.select().from(liveStreams).where(eq(liveStreams.id, streamId)).limit(1);
+    if (updatedStream) {
+      const nextTrendingScore = calculateTrendingScore(
+        Number(updatedStream.giftRevenueCoins ?? 0),
+        Number(updatedStream.viewerCountPeak ?? 0),
+        Number(updatedStream.viewerCountCurrent ?? 0),
+      );
+      await db.update(liveStreams).set({ trendingScore: String(nextTrendingScore) }).where(eq(liveStreams.id, streamId));
+    }
+
     return viewer!;
   }
 
@@ -416,15 +663,30 @@ export class LiveService {
       return;
     }
 
-    await db.update(liveViewers).set({
-      leftAt: new Date(),
-    }).where(
-      eq(liveViewers.id, activeViewer.id),
-    );
+    const endedAt = new Date();
+    const totalSeconds = await this.finalizeViewerSession(activeViewer, streamId, endedAt);
+
+    const [stream] = await db.select({ roomId: liveStreams.roomId }).from(liveStreams).where(eq(liveStreams.id, streamId)).limit(1);
+    if (stream) {
+      await db.update(liveRooms).set({
+        totalWatchMinutes: sql`${liveRooms.totalWatchMinutes} + ${Math.floor(totalSeconds / 60)}`,
+        updatedAt: endedAt,
+      }).where(eq(liveRooms.id, stream.roomId));
+    }
 
     await db.update(liveStreams).set({
       viewerCountCurrent: sql`GREATEST(${liveStreams.viewerCountCurrent} - 1, 0)`,
     }).where(eq(liveStreams.id, streamId));
+
+    const [updatedStream] = await db.select().from(liveStreams).where(eq(liveStreams.id, streamId)).limit(1);
+    if (updatedStream) {
+      const nextTrendingScore = calculateTrendingScore(
+        Number(updatedStream.giftRevenueCoins ?? 0),
+        Number(updatedStream.viewerCountPeak ?? 0),
+        Number(updatedStream.viewerCountCurrent ?? 0),
+      );
+      await db.update(liveStreams).set({ trendingScore: String(nextTrendingScore) }).where(eq(liveStreams.id, streamId));
+    }
   }
 
   async sendChatMessage(streamId: string, userId: string, message: string) {

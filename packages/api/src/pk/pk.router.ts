@@ -37,6 +37,15 @@ export class PkRouter {
           return this.pkService.getPKBattleRealtimeState(input.pkSessionId, input.limit ?? 20);
         }),
 
+      myBattles: this.trpc.protectedProcedure
+        .input(z.object({
+          statuses: z.array(z.enum(["CREATED", "MATCHING", "ACTIVE", "VOTING", "ENDED", "CANCELLED"])).optional(),
+          limit: z.number().int().min(1).max(50).default(10),
+        }).optional())
+        .query(async ({ ctx, input }) => {
+          return this.pkService.listMyBattles(ctx.userId, input?.statuses, input?.limit ?? 10);
+        }),
+
       getConfig: this.trpc.procedure.query(async () => this.pkService.getConfig()),
     });
   }

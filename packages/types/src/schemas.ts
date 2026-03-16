@@ -444,9 +444,11 @@ export const upsertSystemSettingSchema = z.object({
 // ─── Feature Flag ───
 export const createFeatureFlagSchema = z.object({
   key: z.string().min(1).max(100),
-  name: z.string().min(1).max(200).optional(),
+  featureName: z.string().min(1).max(200).optional(),
   description: z.string().max(1000).default(""),
   type: z.enum(["BOOLEAN", "PERCENTAGE", "USER_LIST", "REGION"]),
+  platform: z.enum(["ALL", "MOBILE", "WEB", "ANDROID", "IOS"]).default("ALL"),
+  appVersion: z.string().max(50).optional(),
   value: z.unknown().optional(),
   percentageValue: z.number().int().min(0).max(100).optional(),
   userIds: z.array(z.string().uuid()).max(500).optional(),
@@ -456,9 +458,11 @@ export const createFeatureFlagSchema = z.object({
 
 export const updateFeatureFlagSchema = z.object({
   id: z.string().uuid(),
-  name: z.string().optional(),
+  featureName: z.string().optional(),
   description: z.string().optional(),
   type: z.enum(["BOOLEAN", "PERCENTAGE", "USER_LIST", "REGION"]).optional(),
+  platform: z.enum(["ALL", "MOBILE", "WEB", "ANDROID", "IOS"]).optional(),
+  appVersion: z.string().max(50).optional(),
   value: z.unknown().optional(),
   isEnabled: z.boolean().optional(),
 });

@@ -90,6 +90,10 @@ export const SocketEvents = {
   DISCOVERY_TRENDING_UPDATED: "discovery.trending.updated",
   CAMPAIGN_USER_QUALIFIED: "campaign.user.qualified",
   NOTIFICATION_DISPATCH_REQUESTED: "notification.dispatch.requested",
+  NOTIFICATION_NEW: "notification.new",
+  NOTIFICATION_READ: "notification.read",
+  NOTIFICATION_ALL_READ: "notification.all_read",
+  NOTIFICATION_DELETED: "notification.deleted",
   FRAUD_FLAG_CREATED: "fraud.flag.created",
   UI_LAYOUT_UPDATED: "ui.layout.updated",
 } as const;
@@ -205,5 +209,11 @@ export const SOCKET_EVENTS = {
   DISCOVERY: {
     SUBSCRIBE: "discovery.subscribe",
     UPDATE: "discovery.trending.updated",
+  },
+  NOTIFICATION: {
+    NEW: "notification.new",
+    READ: "notification.read",
+    ALL_READ: "notification.all_read",
+    DELETED: "notification.deleted",
   },
 } as const;

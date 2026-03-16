@@ -20,6 +20,7 @@ import { GameService } from "../games/game.service";
 import { CallService } from "../calls/call.service";
 import { SocialService } from "../social/social.service";
 import { ModerationService } from "../moderation/moderation.service";
+import { SocketEmitterService } from "../common/socket-emitter.service";
 
 @WebSocketGateway({
   cors: { origin: "*", credentials: true },
@@ -46,6 +47,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     private readonly callService: CallService,
     private readonly socialService: SocialService,
     private readonly moderationService: ModerationService,
+    private readonly socketEmitterService: SocketEmitterService,
   ) {}
 
   private getUserId(client: Socket) {
@@ -71,7 +73,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
       critical,
       createdAt: new Date().toISOString(),
     });
-    this.server.to(`${roomName}:${roomId}`).emit(event, enrichedPayload);
+    this.socketEmitterService.emitToRoom(roomName, roomId, event, enrichedPayload);
     return enrichedPayload;
   }
 
@@ -87,11 +89,26 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
       critical,
       createdAt: new Date().toISOString(),
     });
-    this.server.to(`user:${userId}`).emit(event, enrichedPayload);
+    this.socketEmitterService.emitToUser(userId, event, enrichedPayload);
     return enrichedPayload;
   }
 
+  private async emitStreamViewerState(roomId: string, userId: string, event: string) {
+    const occupancy = await this.realtimeStateService.getRoomOccupancy("stream", roomId);
+    const payload = {
+      userId,
+      viewerCount: occupancy.viewerCount,
+    };
+
+    await this.emitTrackedRoomEvent("stream", roomId, "stream", event, payload);
+    await this.emitTrackedRoomEvent("stream", roomId, "stream", SOCKET_EVENTS.STREAM.VIEWER_COUNT, payload);
+
+    return occupancy;
+  }
+
   async afterInit() {
+    this.socketEmitterService.registerServer(this.server);
+
     const redis = getRedis();
     await redis.connect();
 
@@ -287,11 +304,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     await this.liveService.joinStream(data.roomId, this.getUserId(client));
     client.join(`stream:${data.roomId}`);
     await this.realtimeStateService.joinRoom("stream", data.roomId, this.getUserId(client), client.id);
-    const occupancy = await this.realtimeStateService.getRoomOccupancy("stream", data.roomId);
-    await this.emitTrackedRoomEvent("stream", data.roomId, "stream", SOCKET_EVENTS.STREAM.VIEWER_JOINED, {
-      userId: this.getUserId(client),
-      viewerCount: occupancy.viewerCount,
-    });
+    await this.emitStreamViewerState(data.roomId, this.getUserId(client), SOCKET_EVENTS.STREAM.VIEWER_JOINED);
   }
 
   @SubscribeMessage(SOCKET_EVENTS.STREAM.LEAVE)
@@ -299,11 +312,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     await this.liveService.leaveStream(data.roomId, this.getUserId(client));
     client.leave(`stream:${data.roomId}`);
     await this.realtimeStateService.leaveRoom("stream", data.roomId, this.getUserId(client), client.id);
-    const occupancy = await this.realtimeStateService.getRoomOccupancy("stream", data.roomId);
-    await this.emitTrackedRoomEvent("stream", data.roomId, "stream", SOCKET_EVENTS.STREAM.VIEWER_LEFT, {
-      userId: this.getUserId(client),
-      viewerCount: occupancy.viewerCount,
-    });
+    await this.emitStreamViewerState(data.roomId, this.getUserId(client), SOCKET_EVENTS.STREAM.VIEWER_LEFT);
   }
 
   @SubscribeMessage(SOCKET_EVENTS.STREAM.CHAT)

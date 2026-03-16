@@ -25,6 +25,12 @@ export class UserRouter {
           return this.userService.getUserById(ctx.userId);
         }),
 
+      getUserSummary: this.trpc.protectedProcedure
+        .input(z.object({ userId: z.string().uuid() }))
+        .query(async ({ input }) => {
+          return this.userService.getPublicUserSummary(input.userId);
+        }),
+
       blockUser: this.trpc.protectedProcedure
         .input(blockUserSchema)
         .mutation(async ({ ctx, input }) => {

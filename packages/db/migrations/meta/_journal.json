@@ -36,6 +36,41 @@
       "when": 1773496800000,
       "tag": "0004_ops_trust_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1773644930989,
+      "tag": "0005_fair_morgan_stark",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1773663600000,
+      "tag": "0006_creator_economy_drift_normalization",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1773665400000,
+      "tag": "0007_coin_package_legacy_compat",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1773925200000,
+      "tag": "0008_pk_battle_rewards",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1773946800000,
+      "tag": "0009_user_level_xp_events",
+      "breakpoints": true
     }
   ]
 }

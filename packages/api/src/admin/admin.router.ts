@@ -284,6 +284,47 @@ export class AdminRouter {
         .input(z.object({ status: z.string().optional(), cursor: z.string().optional(), limit: z.number().int().min(1).max(100).default(20) }))
         .query(async ({ input }) => this.adminService.listMediaScanResults(input.status, input.cursor, input.limit)),
 
+      listReports: this.trpc.adminProcedure
+        .input(z.object({
+          status: z.enum(["OPEN", "UNDER_REVIEW", "ACTIONED", "DISMISSED", "RESOLVED"]).optional(),
+          entityType: z.enum(["USER", "LIVE_STREAM", "DM_MESSAGE", "CALL_SESSION", "GIFT_TRANSACTION", "PAYMENT", "MEDIA_ASSET", "COMMENT"]).optional(),
+          cursor: z.string().optional(),
+          limit: z.number().int().min(1).max(100).default(20),
+        }).optional())
+        .query(async ({ input }) => this.adminService.listReports(input?.status, input?.entityType, input?.cursor, input?.limit ?? 20)),
+
+      reviewReport: this.trpc.adminProcedure
+        .input(z.object({
+          reportId: z.string().uuid(),
+          status: z.enum(["UNDER_REVIEW", "ACTIONED", "DISMISSED", "RESOLVED"]),
+          resolutionNotes: z.string().max(1000).optional(),
+        }))
+        .mutation(async ({ ctx, input }) => this.adminService.reviewReport(input.reportId, input.status, input.resolutionNotes, ctx.userId)),
+
+      listBans: this.trpc.adminProcedure
+        .input(z.object({
+          status: z.enum(["ACTIVE", "EXPIRED", "REVOKED"]).optional(),
+          scope: z.enum(["ACCOUNT", "LIVE", "DM", "CALL", "WITHDRAWAL"]).optional(),
+          cursor: z.string().optional(),
+          limit: z.number().int().min(1).max(100).default(20),
+        }).optional())
+        .query(async ({ input }) => this.adminService.listBans(input?.status, input?.scope, input?.cursor, input?.limit ?? 20)),
+
+      imposeBan: this.trpc.adminProcedure
+        .input(z.object({
+          userId: z.string().uuid(),
+          scope: z.enum(["ACCOUNT", "LIVE", "DM", "CALL", "WITHDRAWAL"]),
+          reason: z.enum(["HARASSMENT", "SPAM", "FRAUD", "CHARGEBACK_ABUSE", "SELF_GIFTING", "UNDERAGE_RISK", "POLICY_VIOLATION", "OTHER"]),
+          notes: z.string().max(1000).optional(),
+          sourceReportId: z.string().uuid().optional(),
+          endsAt: z.coerce.date().nullable().optional(),
+        }))
+        .mutation(async ({ ctx, input }) => this.adminService.imposeBan(input, ctx.userId)),
+
+      revokeBan: this.trpc.adminProcedure
+        .input(z.object({ banId: z.string().uuid(), notes: z.string().max(1000).optional() }))
+        .mutation(async ({ ctx, input }) => this.adminService.revokeBan(input.banId, input.notes, ctx.userId)),
+
       // System Settings
       getSystemSettings: this.trpc.adminProcedure
         .query(async () => this.adminService.getSystemSettings()),
@@ -314,6 +355,62 @@ export class AdminRouter {
       upsertUiLayoutConfig: this.trpc.adminProcedure
         .input(z.object({ layoutName: z.string(), sectionsJson: z.any(), platform: z.enum(["MOBILE", "WEB", "ALL"]).default("MOBILE") }))
         .mutation(async ({ ctx, input }) => this.adminService.upsertUiLayoutConfig(input.layoutName, input.sectionsJson, ctx.userId, input.platform)),
+
+      listUiLayouts: this.trpc.adminProcedure
+        .query(async () => this.adminService.listUiLayouts()),
+
+      upsertUiLayout: this.trpc.adminProcedure
+        .input(z.object({
+          id: z.string().uuid().optional(),
+          layoutKey: z.string().min(1),
+          layoutName: z.string().min(1),
+          screenKey: z.string().min(1),
+          platform: z.enum(["MOBILE", "WEB", "ALL"]).default("MOBILE"),
+          environment: z.string().optional(),
+          regionCode: z.string().nullable().optional(),
+          status: z.enum(["DRAFT", "PUBLISHED", "ROLLED_BACK"]).default("PUBLISHED"),
+          version: z.number().int().min(1).default(1),
+          tabNavigationJson: z.array(z.record(z.string(), z.any())).default([]),
+          metadataJson: z.record(z.string(), z.any()).default({}),
+          effectiveFrom: z.coerce.date().optional(),
+          effectiveTo: z.coerce.date().nullable().optional(),
+        }))
+        .mutation(async ({ ctx, input }) => this.adminService.upsertUiLayout(input, ctx.userId)),
+
+      listUiComponents: this.trpc.adminProcedure
+        .query(async () => this.adminService.listUiComponents()),
+
+      upsertUiComponent: this.trpc.adminProcedure
+        .input(z.object({
+          id: z.string().uuid().optional(),
+          componentKey: z.string().min(1),
+          componentType: z.enum(["BANNER", "CAROUSEL", "GRID", "CTA", "TABS", "CARD_LIST", "ANNOUNCEMENT", "FLOATING_ACTION"]),
+          displayName: z.string().min(1),
+          schemaVersion: z.number().int().min(1).default(1),
+          propsJson: z.record(z.string(), z.any()).default({}),
+          dataSourceKey: z.string().nullable().optional(),
+          status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).default("PUBLISHED"),
+        }))
+        .mutation(async ({ ctx, input }) => this.adminService.upsertUiComponent(input, ctx.userId)),
+
+      listComponentPositions: this.trpc.adminProcedure
+        .input(z.object({ layoutId: z.string().uuid().optional() }).optional())
+        .query(async ({ input }) => this.adminService.listComponentPositions(input?.layoutId)),
+
+      replaceComponentPositions: this.trpc.adminProcedure
+        .input(z.object({
+          layoutId: z.string().uuid(),
+          positions: z.array(z.object({
+            componentId: z.string().uuid(),
+            sectionKey: z.string().min(1),
+            slotKey: z.string().nullable().optional(),
+            breakpoint: z.string().default("default"),
+            positionIndex: z.number().int().min(0),
+            visibilityRulesJson: z.record(z.string(), z.any()).default({}),
+            overridesJson: z.record(z.string(), z.any()).default({}),
+          })),
+        }))
+        .mutation(async ({ ctx, input }) => this.adminService.replaceComponentPositions(input, ctx.userId)),
 
       // Notification Campaigns
       listNotificationCampaigns: this.trpc.adminProcedure

@@ -78,6 +78,7 @@ interface CallState {
   lowBalance: boolean;
   startCall: (callId: string, type: "audio" | "video", otherUserId: string, direction?: "incoming" | "outgoing") => void;
   acceptCall: (callId: string, channel: string, token: string, agoraAppId?: string | null, expiresAt?: string | null) => void;
+  setRtcSession: (channel: string, token: string, agoraAppId?: string | null, expiresAt?: string | null) => void;
   syncCall: (payload: {
     callId: string;
     callType: "audio" | "video";
@@ -121,6 +122,12 @@ export const useCallStore = create<CallState>((set) => ({
     tokenExpiresAt: expiresAt ?? null,
     lowBalance: false,
   })),
+  setRtcSession: (channel, token, agoraAppId, expiresAt) => set({
+    agoraChannel: channel,
+    agoraToken: token,
+    agoraAppId: agoraAppId ?? null,
+    tokenExpiresAt: expiresAt ?? null,
+  }),
   syncCall: ({ callId, callType, otherUserId, status, direction, channel, token, agoraAppId, expiresAt }) => set((state) => ({
     activeCallId: callId,
     callType,

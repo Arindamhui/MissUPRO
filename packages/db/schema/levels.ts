@@ -1,5 +1,5 @@
 import {
-  pgTable, uuid, text, integer, timestamp, date, boolean, index, uniqueIndex,
+  pgTable, uuid, text, integer, timestamp, date, boolean, index, uniqueIndex, jsonb,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { levelTrackEnum, levelStatusEnum } from "./enums";
@@ -35,6 +35,22 @@ export const userLevels = pgTable("user_levels", {
 }, (t) => [
   uniqueIndex("user_levels_user_track_idx").on(t.userId, t.levelTrack),
   index("user_levels_level_idx").on(t.currentLevelId),
+]);
+
+// ─── user_xp_events ───
+export const userXpEvents = pgTable("user_xp_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  sourceType: text("source_type").notNull(),
+  sourceReferenceId: text("source_reference_id"),
+  idempotencyKey: text("idempotency_key").notNull(),
+  xpAmount: integer("xp_amount").notNull(),
+  metadataJson: jsonb("metadata_json"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("user_xp_events_idempotency_idx").on(t.idempotencyKey),
+  index("user_xp_events_user_created_idx").on(t.userId, t.createdAt),
+  index("user_xp_events_source_reference_idx").on(t.sourceType, t.sourceReferenceId),
 ]);
 
 // ─── level_rewards ───
@@ -104,6 +120,10 @@ export const levelsRelations = relations(levels, ({ many }) => ({
 export const userLevelsRelations = relations(userLevels, ({ one }) => ({
   user: one(users, { fields: [userLevels.userId], references: [users.id] }),
   level: one(levels, { fields: [userLevels.currentLevelId], references: [levels.id] }),
+}));
+
+export const userXpEventsRelations = relations(userXpEvents, ({ one }) => ({
+  user: one(users, { fields: [userXpEvents.userId], references: [users.id] }),
 }));
 
 export const levelRewardsRelations = relations(levelRewards, ({ one }) => ({

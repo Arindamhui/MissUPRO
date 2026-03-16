@@ -7,6 +7,13 @@ const scopeSchema = z.object({
   environment: z.string().optional(),
   regionCode: z.string().optional(),
   segmentCode: z.string().optional(),
+  platform: z.enum(["ALL", "MOBILE", "WEB", "ANDROID", "IOS"]).optional(),
+  appVersion: z.string().optional(),
+});
+
+const layoutScopeSchema = scopeSchema.extend({
+  layoutKey: z.string().min(1),
+  platform: z.enum(["MOBILE", "WEB", "ALL"]).default("MOBILE"),
 });
 
 @Injectable()
@@ -19,18 +26,26 @@ export class ConfigRouter {
         .input(scopeSchema.optional())
         .query(async ({ input }) => this.configService.getConfigBootstrap(input ?? {})),
 
+      getCreatorEconomy: this.trpc.procedure
+        .input(scopeSchema.optional())
+        .query(async ({ input }) => this.configService.getCreatorEconomyPolicy(input ?? {})),
+
+      getUILayout: this.trpc.procedure
+        .input(layoutScopeSchema)
+        .query(async ({ input }) => this.configService.getUILayout(input)),
+
       getSetting: this.trpc.procedure
         .input(scopeSchema.extend({ namespace: z.string().min(1), key: z.string().min(1) }))
         .query(async ({ input }) => this.configService.getSetting(input.namespace, input.key, input)),
 
       getFeatureFlag: this.trpc.procedure
-        .input(z.object({ key: z.string().min(1) }))
-        .query(async ({ input }) => this.configService.getFeatureFlag(input.key)),
+        .input(z.object({ key: z.string().min(1), platform: z.enum(["ALL", "MOBILE", "WEB", "ANDROID", "IOS"]).optional(), appVersion: z.string().optional() }))
+        .query(async ({ input }) => this.configService.getFeatureFlag(input.key, input)),
 
       evaluateFeatureFlag: this.trpc.procedure
-        .input(z.object({ key: z.string().min(1), userId: z.string().uuid().optional(), regionCode: z.string().optional() }))
+        .input(z.object({ key: z.string().min(1), userId: z.string().uuid().optional(), regionCode: z.string().optional(), platform: z.enum(["ALL", "MOBILE", "WEB", "ANDROID", "IOS"]).optional(), appVersion: z.string().optional() }))
         .query(async ({ input }) =>
-          this.configService.evaluateFeatureFlag(input.key, { userId: input.userId, regionCode: input.regionCode }),
+          this.configService.evaluateFeatureFlag(input.key, { userId: input.userId, regionCode: input.regionCode, platform: input.platform, appVersion: input.appVersion }),
         ),
 
       listFeatureFlags: this.trpc.procedure

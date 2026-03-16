@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { Screen, Card, SectionHeader, DiamondDisplay, Button, Input, Badge } from "@/components/ui";
 import { COLORS, SPACING, RADIUS } from "@/theme";
+import { getMobileRuntimeScope } from "@/lib/runtime-config";
 
 type ScheduleSlot = {
   day: "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN";
@@ -19,6 +20,7 @@ export default function CreatorDashboardScreen() {
   const stats = trpc.model.getMyStats.useQuery(undefined, { retry: false });
   const availability = trpc.model.getMyAvailability.useQuery(undefined, { retry: false });
   const demoVideos = trpc.model.getMyDemoVideos.useQuery(undefined, { retry: false });
+  const creatorEconomy = trpc.config.getCreatorEconomy.useQuery(getMobileRuntimeScope(), { retry: false });
   const router = useRouter();
 
   const updateAvailability = trpc.model.updateAvailability.useMutation({
@@ -318,6 +320,17 @@ export default function CreatorDashboardScreen() {
 
       <SectionHeader title="Actions" />
       <Card style={{ marginBottom: SPACING.md }}>
+        {creatorEconomy.data ? (
+          <View style={{ marginBottom: SPACING.sm }}>
+            <Text style={{ fontSize: 13, color: COLORS.textSecondary }}>
+              Creator payout: 100 diamonds = ${creatorEconomy.data.diamondValueUsdPer100.toFixed(2)}
+            </Text>
+            <Text style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 4 }}>
+              Withdrawal window: ${creatorEconomy.data.withdrawLimits.minUsd.toFixed(2)} min
+              {creatorEconomy.data.withdrawLimits.maxUsd != null ? ` / $${creatorEconomy.data.withdrawLimits.maxUsd.toFixed(2)} max` : ""}
+            </Text>
+          </View>
+        ) : null}
         <Button
           title="Request Withdrawal"
           variant="primary"

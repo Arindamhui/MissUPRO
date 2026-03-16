@@ -5,9 +5,9 @@ import {
   coinTransactions, diamondTransactions, payments, withdrawRequests,
   gifts, giftTransactions, vipSubscriptions, agencies, agencyHosts,
   adminLogs, admins, systemSettings, featureFlags,
-  uiLayoutConfigs, homepageSections,
+  uiLayoutConfigs, uiLayouts, uiComponents, componentPositions, homepageSections,
   liveRooms, callSessions, chatSessions,
-  mediaScanResults, fraudFlags, levels,
+  mediaScanResults, fraudFlags, reports, bans, levels,
   campaigns, banners, themes, promotions, badges,
   modelLevelRules, callPricingRules, securityIncidents,
   modelCallStats, modelStats,
@@ -26,8 +26,8 @@ import { SecurityService } from "../security/security.service";
 import { EventService } from "../events/event.service";
 import { CampaignService } from "../campaigns/campaign.service";
 import { ModelService } from "../models/model.service";
-import { eq, and, desc, asc, count, sum, between, like, isNull, isNotNull, or } from "drizzle-orm";
-import { decodeCursor, encodeCursor } from "@missu/utils";
+import { eq, and, desc, asc, count, sum, between, like, isNull, isNotNull, or, sql } from "drizzle-orm";
+import { decodeCursor, encodeCursor, generateIdempotencyKey } from "@missu/utils";
 import { cacheDel, getRedis } from "@missu/utils";
 
 function buildGiftCode(name: string) {
@@ -229,10 +229,49 @@ export class AdminService {
   }
 
   async processWithdrawRequest(requestId: string, action: "approve" | "reject", adminId: string, reason?: string) {
+    const [request] = await db.select().from(withdrawRequests).where(eq(withdrawRequests.id, requestId)).limit(1);
+    if (!request) throw new Error("Withdraw request not found");
+
+    const isCreatorOnlyWithdrawal = Number(request.audioMinutesSnapshot ?? 0) === 0
+      && Number(request.videoMinutesSnapshot ?? 0) === 0
+      && Number(request.callEarningsSnapshot ?? 0) === 0
+      && Number(request.diamondBalanceSnapshot ?? 0) > 0;
+
     if (action === "approve") {
-      await db.update(withdrawRequests).set({ status: "APPROVED" as any, approvedByAdminId: adminId, approvedAt: new Date() }).where(eq(withdrawRequests.id, requestId));
+      await db.transaction(async (tx) => {
+        await tx
+          .update(withdrawRequests)
+          .set({
+            status: (isCreatorOnlyWithdrawal ? "COMPLETED" : "APPROVED") as any,
+            approvedByAdminId: adminId,
+            approvedAt: new Date(),
+            completedAt: isCreatorOnlyWithdrawal ? new Date() : null,
+            updatedAt: new Date(),
+          })
+          .where(eq(withdrawRequests.id, requestId));
+
+        if (isCreatorOnlyWithdrawal) {
+          await tx
+            .update(wallets)
+            .set({
+              lifetimeDiamondsWithdrawn: sql`${wallets.lifetimeDiamondsWithdrawn} + ${Number(request.diamondBalanceSnapshot ?? 0)}`,
+              updatedAt: new Date(),
+            } as any)
+            .where(eq(wallets.userId, request.modelUserId));
+        }
+      });
     } else {
-      await db.update(withdrawRequests).set({ status: "REJECTED" as any, rejectionReason: reason ?? "" }).where(eq(withdrawRequests.id, requestId));
+      await db.update(withdrawRequests).set({ status: "REJECTED" as any, rejectionReason: reason ?? "", updatedAt: new Date() }).where(eq(withdrawRequests.id, requestId));
+      if (Number(request.diamondBalanceSnapshot ?? 0) > 0) {
+        await this.walletService.creditDiamonds(
+          request.modelUserId,
+          Number(request.diamondBalanceSnapshot ?? 0),
+          "ADMIN_ADJUSTMENT",
+          request.id,
+          "Withdrawal request rejected refund",
+          generateIdempotencyKey(request.modelUserId, "withdrawal_refund", request.id),
+        );
+      }
     }
     await this.logAction(adminId, `withdraw_${action}`, { requestId, reason });
     return { success: true };
@@ -539,6 +578,233 @@ export class AdminService {
     return { items: hasMore ? results.slice(0, limit) : results, nextCursor: hasMore ? encodeCursor(offset + limit) : null };
   }
 
+  async listReports(status?: string, entityType?: string, cursor?: string, limit = 20) {
+    const offset = cursor ? decodeCursor(cursor) : 0;
+    const conditions: any[] = [];
+    if (status) conditions.push(eq(reports.status, status as any));
+    if (entityType) conditions.push(eq(reports.entityType, entityType as any));
+
+    const results = await db
+      .select()
+      .from(reports)
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(desc(reports.priorityScore), desc(reports.createdAt))
+      .limit(limit + 1)
+      .offset(offset);
+
+    const hasMore = results.length > limit;
+    const items = hasMore ? results.slice(0, limit) : results;
+    const reporterIds = Array.from(new Set(items.map((item) => item.reporterUserId)));
+    const reviewerAdminIds = Array.from(new Set(items.map((item) => item.reviewedByAdminId).filter(Boolean))) as string[];
+
+    const reporterRows = reporterIds.length
+      ? await db
+          .select({ id: users.id, displayName: users.displayName, email: users.email, avatarUrl: users.avatarUrl, status: users.status })
+          .from(users)
+          .where(sql`${users.id} = ANY(${reporterIds})`)
+      : [];
+
+    const reviewerRows = reviewerAdminIds.length
+      ? await db
+          .select({ id: admins.id, userId: admins.userId })
+          .from(admins)
+          .where(sql`${admins.id} = ANY(${reviewerAdminIds})`)
+      : [];
+
+    const reviewerUserIds = Array.from(new Set(reviewerRows.map((item) => item.userId).filter(Boolean))) as string[];
+    const reviewerUsers = reviewerUserIds.length
+      ? await db
+          .select({ id: users.id, displayName: users.displayName, email: users.email })
+          .from(users)
+          .where(sql`${users.id} = ANY(${reviewerUserIds})`)
+      : [];
+
+    const reporterMap = new Map(reporterRows.map((item) => [item.id, item]));
+    const reviewerAdminMap = new Map(reviewerRows.map((item) => [item.id, item]));
+    const reviewerUserMap = new Map(reviewerUsers.map((item) => [item.id, item]));
+
+    return {
+      items: items.map((item) => {
+        const reviewerAdmin = item.reviewedByAdminId ? reviewerAdminMap.get(item.reviewedByAdminId) : null;
+        const reviewerUser = reviewerAdmin?.userId ? reviewerUserMap.get(reviewerAdmin.userId) : null;
+
+        return {
+          ...item,
+          reporter: reporterMap.get(item.reporterUserId) ?? null,
+          reviewedBy: reviewerUser
+            ? {
+                adminId: item.reviewedByAdminId,
+                userId: reviewerAdmin?.userId ?? null,
+                displayName: reviewerUser.displayName,
+                email: reviewerUser.email,
+              }
+            : null,
+        };
+      }),
+      nextCursor: hasMore ? encodeCursor(offset + limit) : null,
+    };
+  }
+
+  async reviewReport(reportId: string, status: string, resolutionNotes: string | undefined, adminId: string) {
+    const actorAdminId = await this.resolveAdminActorId(adminId);
+    const [report] = await db.select().from(reports).where(eq(reports.id, reportId)).limit(1);
+    if (!report) throw new Error("Report not found");
+
+    const [updated] = await db
+      .update(reports)
+      .set({
+        status: status as any,
+        resolutionNotes: resolutionNotes ?? report.resolutionNotes,
+        reviewedAt: new Date(),
+        reviewedByAdminId: actorAdminId,
+        updatedAt: new Date(),
+      })
+      .where(eq(reports.id, reportId))
+      .returning();
+
+    await this.logAction(adminId, "report_review", { reportId, status, entityId: report.entityId, resolutionNotes });
+    return updated;
+  }
+
+  async listBans(status?: string, scope?: string, cursor?: string, limit = 20) {
+    const offset = cursor ? decodeCursor(cursor) : 0;
+    const conditions: any[] = [];
+    if (status) conditions.push(eq(bans.status, status as any));
+    if (scope) conditions.push(eq(bans.scope, scope as any));
+
+    const results = await db
+      .select()
+      .from(bans)
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(desc(bans.createdAt))
+      .limit(limit + 1)
+      .offset(offset);
+
+    const hasMore = results.length > limit;
+    const items = hasMore ? results.slice(0, limit) : results;
+    const userIds = Array.from(new Set(items.map((item) => item.userId)));
+    const adminIds = Array.from(new Set(items.flatMap((item) => [item.imposedByAdminId, item.revokedByAdminId]).filter(Boolean))) as string[];
+    const sourceReportIds = Array.from(new Set(items.map((item) => item.sourceReportId).filter(Boolean))) as string[];
+
+    const userRows = userIds.length
+      ? await db
+          .select({ id: users.id, displayName: users.displayName, email: users.email, avatarUrl: users.avatarUrl, status: users.status })
+          .from(users)
+          .where(sql`${users.id} = ANY(${userIds})`)
+      : [];
+
+    const adminRows = adminIds.length
+      ? await db
+          .select({ id: admins.id, userId: admins.userId })
+          .from(admins)
+          .where(sql`${admins.id} = ANY(${adminIds})`)
+      : [];
+
+    const adminUserIds = Array.from(new Set(adminRows.map((item) => item.userId).filter(Boolean))) as string[];
+    const adminUsers = adminUserIds.length
+      ? await db
+          .select({ id: users.id, displayName: users.displayName, email: users.email })
+          .from(users)
+          .where(sql`${users.id} = ANY(${adminUserIds})`)
+      : [];
+
+    const reportRows = sourceReportIds.length
+      ? await db
+          .select({ id: reports.id, reasonCode: reports.reasonCode, status: reports.status, entityType: reports.entityType, entityId: reports.entityId })
+          .from(reports)
+          .where(sql`${reports.id} = ANY(${sourceReportIds})`)
+      : [];
+
+    const userMap = new Map(userRows.map((item) => [item.id, item]));
+    const adminMap = new Map(adminRows.map((item) => [item.id, item]));
+    const adminUserMap = new Map(adminUsers.map((item) => [item.id, item]));
+    const reportMap = new Map(reportRows.map((item) => [item.id, item]));
+
+    return {
+      items: items.map((item) => {
+        const imposedAdmin = item.imposedByAdminId ? adminMap.get(item.imposedByAdminId) : null;
+        const revokedAdmin = item.revokedByAdminId ? adminMap.get(item.revokedByAdminId) : null;
+
+        return {
+          ...item,
+          user: userMap.get(item.userId) ?? null,
+          sourceReport: item.sourceReportId ? reportMap.get(item.sourceReportId) ?? null : null,
+          imposedBy: imposedAdmin?.userId ? adminUserMap.get(imposedAdmin.userId) ?? null : null,
+          revokedBy: revokedAdmin?.userId ? adminUserMap.get(revokedAdmin.userId) ?? null : null,
+        };
+      }),
+      nextCursor: hasMore ? encodeCursor(offset + limit) : null,
+    };
+  }
+
+  async imposeBan(input: {
+    userId: string;
+    scope: string;
+    reason: string;
+    notes?: string;
+    sourceReportId?: string;
+    endsAt?: Date | null;
+  }, adminId: string) {
+    const actorAdminId = await this.resolveAdminActorId(adminId);
+    const [existingBan] = await db
+      .select({ id: bans.id })
+      .from(bans)
+      .where(and(eq(bans.userId, input.userId), eq(bans.scope, input.scope as any), eq(bans.status, "ACTIVE" as any)))
+      .limit(1);
+
+    if (existingBan) throw new Error("An active ban already exists for this user and scope");
+
+    const [created] = await db
+      .insert(bans)
+      .values({
+        userId: input.userId,
+        scope: input.scope as any,
+        reason: input.reason as any,
+        notes: input.notes,
+        sourceReportId: input.sourceReportId,
+        imposedByAdminId: actorAdminId,
+        endsAt: input.endsAt ?? null,
+      })
+      .returning();
+
+    if (input.sourceReportId) {
+      await db
+        .update(reports)
+        .set({
+          status: "ACTIONED" as any,
+          reviewedAt: new Date(),
+          reviewedByAdminId: actorAdminId,
+          resolutionNotes: input.notes ?? "Ban imposed",
+          updatedAt: new Date(),
+        })
+        .where(eq(reports.id, input.sourceReportId));
+    }
+
+    await this.logAction(adminId, "ban_impose", { banId: created.id, userId: input.userId, scope: input.scope, reason: input.reason, sourceReportId: input.sourceReportId });
+    return created;
+  }
+
+  async revokeBan(banId: string, notes: string | undefined, adminId: string) {
+    const actorAdminId = await this.resolveAdminActorId(adminId);
+    const [existing] = await db.select().from(bans).where(eq(bans.id, banId)).limit(1);
+    if (!existing) throw new Error("Ban not found");
+
+    const [updated] = await db
+      .update(bans)
+      .set({
+        status: "REVOKED" as any,
+        notes: notes ?? existing.notes,
+        revokedAt: new Date(),
+        revokedByAdminId: actorAdminId,
+        updatedAt: new Date(),
+      })
+      .where(eq(bans.id, banId))
+      .returning();
+
+    await this.logAction(adminId, "ban_revoke", { banId, userId: existing.userId, notes });
+    return updated;
+  }
+
   // ─── System Settings ───
   async getSystemSettings() {
     return db
@@ -611,14 +877,17 @@ export class AdminService {
 
   // ─── Feature Flags ───
   async listFeatureFlags() {
-    return db.select().from(featureFlags).orderBy(asc(featureFlags.flagKey));
+    return db.select().from(featureFlags).orderBy(asc(featureFlags.featureName), asc(featureFlags.platform), asc(featureFlags.appVersion));
   }
 
   async upsertFeatureFlag(
     input: {
       key: string;
+      featureName?: string;
       type: "BOOLEAN" | "PERCENTAGE" | "USER_LIST" | "REGION";
       isEnabled: boolean;
+      platform?: "ALL" | "MOBILE" | "WEB" | "ANDROID" | "IOS";
+      appVersion?: string;
       description?: string;
       value?: unknown;
       percentageValue?: number;
@@ -627,7 +896,13 @@ export class AdminService {
     },
     adminId?: string,
   ) {
-    const [existing] = await db.select().from(featureFlags).where(eq(featureFlags.flagKey, input.key)).limit(1);
+    const platform = input.platform ?? "ALL";
+    const appVersion = input.appVersion ?? null;
+    const [existing] = await db
+      .select()
+      .from(featureFlags)
+      .where(and(eq(featureFlags.flagKey, input.key), eq(featureFlags.platform, platform as any), appVersion ? eq(featureFlags.appVersion, appVersion) : isNull(featureFlags.appVersion)))
+      .limit(1);
 
     const percentageValue = input.type === "PERCENTAGE"
       ? (input.percentageValue ?? (typeof input.value === "number" ? Number(input.value) : null))
@@ -644,8 +919,11 @@ export class AdminService {
       [result] = await db
         .update(featureFlags)
         .set({
+          featureName: input.featureName ?? existing.featureName,
           flagType: input.type as any,
           enabled: input.isEnabled,
+          platform: platform as any,
+          appVersion,
           description: input.description ?? existing.description,
           percentageValue: percentageValue == null ? null : Math.max(0, Math.min(100, Math.round(percentageValue))),
           userIdsJson: userIdsJson as any,
@@ -659,8 +937,11 @@ export class AdminService {
         .insert(featureFlags)
         .values({
           flagKey: input.key,
+          featureName: input.featureName ?? input.key,
           flagType: input.type as any,
           enabled: input.isEnabled,
+          platform: platform as any,
+          appVersion,
           description: input.description ?? "",
           percentageValue: percentageValue == null ? null : Math.max(0, Math.min(100, Math.round(percentageValue))),
           userIdsJson: userIdsJson as any,
@@ -669,8 +950,8 @@ export class AdminService {
         } as any)
         .returning();
     }
-    await cacheDel(`feature_flag:${input.key}`);
-    if (adminId) await this.logAction(adminId, "feature_flag_update", { key: input.key, enabled: input.isEnabled, type: input.type });
+      await cacheDel(`feature_flag:${input.key}:${platform}:${appVersion ?? "*"}`);
+      if (adminId) await this.logAction(adminId, "feature_flag_update", { key: input.key, enabled: input.isEnabled, type: input.type, platform, appVersion });
     return result;
   }
 
@@ -721,6 +1002,147 @@ export class AdminService {
     }
     await this.logAction(adminId, "ui_layout_update", { layoutName });
     return result;
+  }
+
+  async listUiLayouts() {
+    return db.select().from(uiLayouts).orderBy(asc(uiLayouts.screenKey), asc(uiLayouts.layoutKey), desc(uiLayouts.version));
+  }
+
+  async upsertUiLayout(
+    input: {
+      id?: string;
+      layoutKey: string;
+      layoutName: string;
+      screenKey: string;
+      platform?: "MOBILE" | "WEB" | "ALL";
+      environment?: string;
+      regionCode?: string | null;
+      status?: "DRAFT" | "PUBLISHED" | "ROLLED_BACK";
+      version?: number;
+      tabNavigationJson?: any[];
+      metadataJson?: Record<string, any>;
+      effectiveFrom?: Date;
+      effectiveTo?: Date | null;
+    },
+    adminId: string,
+  ) {
+    const environment = input.environment ?? process.env.NODE_ENV ?? "development";
+    const payload = {
+      layoutKey: input.layoutKey,
+      layoutName: input.layoutName,
+      screenKey: input.screenKey,
+      platform: (input.platform ?? "MOBILE") as any,
+      environment,
+      regionCode: input.regionCode ?? null,
+      version: input.version ?? 1,
+      status: (input.status ?? "PUBLISHED") as any,
+      tabNavigationJson: input.tabNavigationJson ?? [],
+      metadataJson: input.metadataJson ?? {},
+      effectiveFrom: input.effectiveFrom ?? new Date(),
+      effectiveTo: input.effectiveTo ?? null,
+      publishedByAdminId: adminId,
+      updatedAt: new Date(),
+    };
+
+    if (input.id) {
+      const [updated] = await db.update(uiLayouts).set(payload).where(eq(uiLayouts.id, input.id)).returning();
+      await this.logAction(adminId, "ui_layout_update", { layoutId: input.id, layoutKey: input.layoutKey });
+      return updated;
+    }
+
+    const [created] = await db.insert(uiLayouts).values(payload as any).returning();
+    if (!created) {
+      throw new Error("Failed to create ui layout");
+    }
+    await this.logAction(adminId, "ui_layout_update", { layoutId: created.id, layoutKey: input.layoutKey });
+    return created;
+  }
+
+  async listUiComponents() {
+    return db.select().from(uiComponents).orderBy(asc(uiComponents.componentType), asc(uiComponents.componentKey));
+  }
+
+  async upsertUiComponent(
+    input: {
+      id?: string;
+      componentKey: string;
+      componentType: string;
+      displayName: string;
+      schemaVersion?: number;
+      propsJson?: Record<string, any>;
+      dataSourceKey?: string | null;
+      status?: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+    },
+    adminId: string,
+  ) {
+    const payload = {
+      componentKey: input.componentKey,
+      componentType: input.componentType as any,
+      displayName: input.displayName,
+      schemaVersion: input.schemaVersion ?? 1,
+      propsJson: input.propsJson ?? {},
+      dataSourceKey: input.dataSourceKey ?? null,
+      status: (input.status ?? "PUBLISHED") as any,
+      createdByAdminId: adminId,
+      publishedByAdminId: (input.status ?? "PUBLISHED") === "PUBLISHED" ? adminId : null,
+      publishedAt: (input.status ?? "PUBLISHED") === "PUBLISHED" ? new Date() : null,
+      updatedAt: new Date(),
+    };
+
+    if (input.id) {
+      const [updated] = await db.update(uiComponents).set(payload).where(eq(uiComponents.id, input.id)).returning();
+      await this.logAction(adminId, "ui_component_update", { componentId: input.id, componentKey: input.componentKey });
+      return updated;
+    }
+
+    const [created] = await db.insert(uiComponents).values(payload as any).returning();
+    if (!created) {
+      throw new Error("Failed to create ui component");
+    }
+    await this.logAction(adminId, "ui_component_update", { componentId: created.id, componentKey: input.componentKey });
+    return created;
+  }
+
+  async listComponentPositions(layoutId?: string) {
+    return db
+      .select()
+      .from(componentPositions)
+      .where(layoutId ? eq(componentPositions.layoutId, layoutId) : undefined)
+      .orderBy(asc(componentPositions.sectionKey), asc(componentPositions.positionIndex));
+  }
+
+  async replaceComponentPositions(
+    input: {
+      layoutId: string;
+      positions: Array<{
+        componentId: string;
+        sectionKey: string;
+        slotKey?: string | null;
+        breakpoint?: string;
+        positionIndex: number;
+        visibilityRulesJson?: Record<string, any>;
+        overridesJson?: Record<string, any>;
+      }>;
+    },
+    adminId: string,
+  ) {
+    await db.delete(componentPositions).where(eq(componentPositions.layoutId, input.layoutId));
+    if (input.positions.length > 0) {
+      await db.insert(componentPositions).values(
+        input.positions.map((position) => ({
+          layoutId: input.layoutId,
+          componentId: position.componentId,
+          sectionKey: position.sectionKey,
+          slotKey: position.slotKey ?? null,
+          breakpoint: position.breakpoint ?? "default",
+          positionIndex: position.positionIndex,
+          visibilityRulesJson: position.visibilityRulesJson ?? {},
+          overridesJson: position.overridesJson ?? {},
+        })) as any,
+      );
+    }
+    await this.logAction(adminId, "ui_layout_positions_update", { layoutId: input.layoutId, count: input.positions.length });
+    return this.listComponentPositions(input.layoutId);
   }
 
   // ─── Notification Campaigns ───
@@ -907,6 +1329,9 @@ export class AdminService {
     const actionMap: Record<string, string> = {
       USER_STATUS_UPDATE: "USER_SUSPEND",
       USER_ROLE_UPDATE: "MANUAL_ADJUSTMENT",
+      REPORT_REVIEW: "MANUAL_ADJUSTMENT",
+      BAN_IMPOSE: "USER_SUSPEND",
+      BAN_REVOKE: "MANUAL_ADJUSTMENT",
       MODEL_APPLICATION_APPROVE: "MODEL_APPROVE",
       MODEL_APPLICATION_REJECT: "MODEL_REJECT",
       WITHDRAW_APPROVE: "WITHDRAWAL_APPROVE",
@@ -949,6 +1374,8 @@ export class AdminService {
     if (details.userId) return "USER" as any;
     if (details.modelUserId) return "MODEL" as any;
     if (details.giftId) return "GIFT" as any;
+    if (details.reportId) return "CONFIG" as any;
+    if (details.banId) return "USER" as any;
     if (details.requestId) return "WITHDRAWAL" as any;
     if (details.paymentId) return "PAYOUT" as any;
     if (details.campaignId || details.eventId) return "PROMOTION" as any;
@@ -958,7 +1385,7 @@ export class AdminService {
 
   private async logAction(adminId: string, action: string, details: Record<string, any>) {
     const actorAdminId = await this.resolveAdminActorId(adminId);
-    const targetId = details.userId ?? details.modelUserId ?? details.demoVideoId ?? details.giftId ?? details.ruleId ?? details.campaignId ?? details.eventId ?? details.flagId ?? details.requestId ?? details.agencyId ?? details.applicationId ?? details.paymentId ?? null;
+    const targetId = details.userId ?? details.modelUserId ?? details.demoVideoId ?? details.giftId ?? details.banId ?? details.reportId ?? details.ruleId ?? details.campaignId ?? details.eventId ?? details.flagId ?? details.requestId ?? details.agencyId ?? details.applicationId ?? details.paymentId ?? null;
     await db.insert(adminLogs).values({
       adminId: actorAdminId,
       action: this.mapAdminAction(action),

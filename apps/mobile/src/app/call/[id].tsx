@@ -1,28 +1,90 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, TouchableOpacity, Dimensions } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
+import { RenderModeType, RtcSurfaceView, VideoSourceType } from "react-native-agora";
 import { trpc } from "@/lib/trpc";
 import { useAuthStore, useCallStore, useWalletStore } from "@/store";
 import { useSocket } from "@/hooks/useSocket";
+import { useCallRtc } from "@/hooks/useCallRtc";
 import { Avatar, Button } from "@/components/ui";
 import { COLORS, SPACING, RADIUS } from "@/theme";
 import { SOCKET_EVENTS } from "@missu/types";
 
 const { width, height } = Dimensions.get("window");
 
+type AcceptCallAck = {
+  ok: boolean;
+  accepted?: {
+    agoraChannel: string;
+    agoraToken: string;
+    agoraAppId?: string;
+    expiresAt?: string;
+  };
+};
+
 export default function CallScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const userId = useAuthStore((s) => s.userId);
   const coinBalance = useWalletStore((s) => s.coinBalance);
-  const { isInCall, isCalling, callType, callStatus, callDirection, otherUserId, agoraChannel, lowBalance, syncCall, setLowBalance } = useCallStore();
+  const {
+    isInCall,
+    callType,
+    callStatus,
+    callDirection,
+    otherUserId,
+    agoraChannel,
+    agoraToken,
+    agoraAppId,
+    tokenExpiresAt,
+    lowBalance,
+    syncCall,
+    setLowBalance,
+    setRtcSession,
+  } = useCallStore();
   const { emit, emitWithAck, on } = useSocket();
   const [duration, setDuration] = useState(0);
-  const [isMuted, setIsMuted] = useState(false);
+
+  const refreshRtcToken = trpc.call.refreshRtcToken.useMutation();
+  const peerSummary = trpc.user.getUserSummary.useQuery(
+    { userId: otherUserId! },
+    { retry: false, enabled: !!otherUserId },
+  );
 
   const billingState = trpc.call.getBillingState.useQuery(
     { callSessionId: id! },
-    { retry: false, enabled: !!id },
+    { retry: false, enabled: !!id, refetchInterval: isInCall ? 15000 : false },
   );
+
+  const rtcCredentials = useMemo(() => (
+    agoraChannel && agoraToken && agoraAppId
+      ? { channel: agoraChannel, agoraToken, agoraAppId }
+      : null
+  ), [agoraAppId, agoraChannel, agoraToken]);
+
+  const rtc = useCallRtc({
+    enabled: Boolean(isInCall && rtcCredentials),
+    callType,
+    credentials: rtcCredentials,
+  });
+
+  const peer = peerSummary.data as {
+    displayName?: string | null;
+    username?: string | null;
+    avatarUrl?: string | null;
+    bio?: string | null;
+    presenceStatus?: string | null;
+  } | null;
+
+  const primaryRemoteUid = rtc.remoteUids[0];
+  const localCanvas = useMemo(() => ({
+    uid: 0,
+    renderMode: RenderModeType.RenderModeHidden,
+    sourceType: VideoSourceType.VideoSourceCameraPrimary,
+  }), []);
+  const remoteCanvas = useMemo(() => ({
+    uid: primaryRemoteUid,
+    renderMode: RenderModeType.RenderModeHidden,
+  }), [primaryRemoteUid]);
 
   useEffect(() => {
     const totalSeconds = billingState.data?.session?.totalDurationSeconds ?? 0;
@@ -80,6 +142,39 @@ export default function CallScreen() {
   }, [isInCall]);
 
   useEffect(() => {
+    if (!id || !isInCall || !tokenExpiresAt || !agoraChannel || !agoraAppId) {
+      return;
+    }
+
+    const expiresAtMs = new Date(tokenExpiresAt).getTime();
+    if (!Number.isFinite(expiresAtMs)) {
+      return;
+    }
+
+    const refreshLeadMs = 90_000;
+    const delayMs = Math.max(expiresAtMs - Date.now() - refreshLeadMs, 5_000);
+
+    const timeout = setTimeout(() => {
+      refreshRtcToken.mutate(
+        { callSessionId: id, role: "publisher" },
+        {
+          onSuccess: (nextCredentials: any) => {
+            setRtcSession(
+              nextCredentials.agoraChannel,
+              nextCredentials.agoraToken,
+              nextCredentials.agoraAppId,
+              nextCredentials.expiresAt,
+            );
+            rtc.renewToken(nextCredentials.agoraToken);
+          },
+        },
+      );
+    }, delayMs);
+
+    return () => clearTimeout(timeout);
+  }, [agoraAppId, agoraChannel, id, isInCall, refreshRtcToken, rtc, setRtcSession, tokenExpiresAt]);
+
+  useEffect(() => {
     if (!id || !isInCall || callDirection !== "outgoing") return;
 
     const coinsPerMinute = billingState.data?.session?.coinsPerMinuteSnapshot ?? 0;
@@ -114,12 +209,12 @@ export default function CallScreen() {
 
   const handleAccept = async () => {
     if (!otherUserId) return;
-    const response = await emitWithAck<{ ok: boolean; accepted?: { agoraChannel: string; agoraToken: string; agoraAppId?: string; expiresAt?: string } }>(
+    const response = await emitWithAck<AcceptCallAck>(
       SOCKET_EVENTS.CALL.ACCEPT,
       { callSessionId: id, callerId: otherUserId },
     ).catch(() => ({ ok: false }));
 
-    if (!response?.ok || !response.accepted) return;
+    if (!response?.ok || !("accepted" in response) || !response.accepted) return;
 
     useCallStore.getState().acceptCall(id!, response.accepted.agoraChannel, response.accepted.agoraToken, response.accepted.agoraAppId, response.accepted.expiresAt);
   };
@@ -133,18 +228,59 @@ export default function CallScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#1A1A2E", alignItems: "center", justifyContent: "center" }}>
-      {/* Background gradient placeholder */}
-      <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "#1A1A2E" }} />
+      <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "#09101E" }} />
 
-      {/* Call Info */}
-      <View style={{ alignItems: "center", marginBottom: SPACING.xxl }}>
-        <Avatar size={120} />
+      {callType === "video" ? (
+        <View style={{ position: "absolute", inset: 0 as any, backgroundColor: "#02050C" }}>
+          {primaryRemoteUid ? (
+            <RtcSurfaceView
+              key={`call-remote-${primaryRemoteUid}`}
+              style={{ position: "absolute", inset: 0 as any }}
+              canvas={remoteCanvas}
+            />
+          ) : null}
+          {isInCall && agoraAppId ? (
+            <RtcSurfaceView
+              style={{ position: "absolute", right: 16, top: 56, width: width * 0.3, height: height * 0.22, borderRadius: 18, overflow: "hidden" }}
+              canvas={localCanvas}
+              zOrderMediaOverlay
+            />
+          ) : null}
+          <View style={{ position: "absolute", inset: 0 as any, backgroundColor: primaryRemoteUid ? "rgba(0,0,0,0.18)" : "rgba(2,5,12,0.72)" }} />
+        </View>
+      ) : (
+        <View style={{ position: "absolute", inset: 0 as any, backgroundColor: "#14203A", alignItems: "center", justifyContent: "center" }}>
+          <View style={{ width: width * 0.72, height: width * 0.72, borderRadius: width * 0.36, backgroundColor: "rgba(255,255,255,0.06)", alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ color: "rgba(255,255,255,0.72)", fontSize: 14, letterSpacing: 2 }}>AUDIO CALL</Text>
+            <Text style={{ color: COLORS.white, fontSize: 36, fontWeight: "800", marginTop: 10 }}>{rtc.joined ? "Connected" : "Connecting"}</Text>
+            <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, marginTop: 10 }}>
+              {rtc.error ?? "Voice channel is active through Agora RTC."}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      <View style={{ alignItems: "center", marginBottom: SPACING.xxl, paddingHorizontal: 20 }}>
+        <Avatar uri={peer?.avatarUrl ?? undefined} size={120} online={peer?.presenceStatus === "ONLINE"} />
         <Text style={{ color: COLORS.white, fontSize: 24, fontWeight: "700", marginTop: SPACING.lg }}>
-          {otherUserId ?? "Model"}
+          {peer?.displayName ?? otherUserId ?? "Model"}
         </Text>
+        {peer?.username ? (
+          <Text style={{ color: "rgba(255,255,255,0.65)", fontSize: 14, marginTop: 4 }}>
+            @{peer.username}
+          </Text>
+        ) : null}
         <Text style={{ color: COLORS.white, opacity: 0.7, fontSize: 16, marginTop: 8 }}>
           {isInCall ? formatDuration(duration) : "Connecting..."}
         </Text>
+        {peer?.bio ? (
+          <Text
+            numberOfLines={2}
+            style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, marginTop: 8, textAlign: "center", maxWidth: width * 0.76 }}
+          >
+            {peer.bio}
+          </Text>
+        ) : null}
         {lowBalance && (
           <Text style={{ color: COLORS.warning, fontSize: 13, marginTop: 8 }}>
             Low balance. Call may end soon.
@@ -158,6 +294,30 @@ export default function CallScreen() {
             {callType === "video" ? "📹 Video Call" : "🎙️ Audio Call"}
           </Text>
         </View>
+        <View style={{ marginTop: 14, alignItems: "center" }}>
+          {peer?.presenceStatus ? (
+            <Text style={{ color: "rgba(255,255,255,0.72)", fontSize: 12, marginBottom: 4 }}>
+              Peer: {String(peer.presenceStatus).toLowerCase()}
+            </Text>
+          ) : null}
+          <Text style={{ color: "rgba(255,255,255,0.72)", fontSize: 12, marginBottom: 4 }}>
+            RTC: {rtc.joined ? "connected" : rtc.statusLabel}
+          </Text>
+          <Text style={{ color: "rgba(255,255,255,0.72)", fontSize: 13 }}>
+            {billingState.data?.session?.coinsPerMinuteSnapshot ?? 0} coins/min
+          </Text>
+          <Text style={{ color: "rgba(255,255,255,0.72)", fontSize: 12, marginTop: 4 }}>
+            Total deducted: {billingState.data?.totalCoinsDeducted ?? 0} coins
+          </Text>
+          <Text style={{ color: "rgba(255,255,255,0.72)", fontSize: 12, marginTop: 4 }}>
+            Balance left: {billingState.data?.currentBalance ?? coinBalance} coins
+          </Text>
+          {rtc.error ? (
+            <Text style={{ color: COLORS.warning, fontSize: 12, marginTop: 8, textAlign: "center" }}>
+              {rtc.error}
+            </Text>
+          ) : null}
+        </View>
       </View>
 
       {/* Controls */}
@@ -169,15 +329,28 @@ export default function CallScreen() {
       ) : (
       <View style={{ flexDirection: "row", gap: SPACING.xl }}>
         <TouchableOpacity
-          onPress={() => setIsMuted(!isMuted)}
+          onPress={rtc.toggleLocalAudio}
           style={{
             width: 60, height: 60, borderRadius: 30,
-            backgroundColor: isMuted ? COLORS.danger : "rgba(255,255,255,0.2)",
+            backgroundColor: rtc.isLocalAudioMuted ? COLORS.danger : "rgba(255,255,255,0.2)",
             alignItems: "center", justifyContent: "center",
           }}
         >
-          <Text style={{ fontSize: 26 }}>{isMuted ? "🔇" : "🎤"}</Text>
+          <Text style={{ fontSize: 26 }}>{rtc.isLocalAudioMuted ? "🔇" : "🎤"}</Text>
         </TouchableOpacity>
+
+        {callType === "video" && (
+          <TouchableOpacity
+            onPress={rtc.toggleLocalVideo}
+            style={{
+              width: 60, height: 60, borderRadius: 30,
+              backgroundColor: rtc.isLocalVideoMuted ? COLORS.danger : "rgba(255,255,255,0.2)",
+              alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <Text style={{ fontSize: 26 }}>{rtc.isLocalVideoMuted ? "📷" : "📹"}</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           onPress={handleEnd}
@@ -190,14 +363,28 @@ export default function CallScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
+          onPress={rtc.toggleSpeaker}
           style={{
             width: 60, height: 60, borderRadius: 30,
             backgroundColor: "rgba(255,255,255,0.2)",
             alignItems: "center", justifyContent: "center",
           }}
         >
-          <Text style={{ fontSize: 26 }}>🔊</Text>
+          <Text style={{ fontSize: 26 }}>{rtc.isSpeakerOn ? "🔊" : "🎧"}</Text>
         </TouchableOpacity>
+
+        {callType === "video" && (
+          <TouchableOpacity
+            onPress={rtc.switchCamera}
+            style={{
+              width: 60, height: 60, borderRadius: 30,
+              backgroundColor: "rgba(255,255,255,0.2)",
+              alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <Text style={{ fontSize: 26 }}>🔁</Text>
+          </TouchableOpacity>
+        )}
       </View>
       )}
 

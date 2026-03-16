@@ -13,13 +13,18 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "bundleIdentifier": "com.missupro.app",
-      "supportsTablet": false
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSCameraUsageDescription": "MissUPRO uses your camera so you can broadcast live video.",
+        "NSMicrophoneUsageDescription": "MissUPRO uses your microphone so your live audience can hear you."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#6C5CE7"
       },
-      "package": "com.missupro.app"
+      "package": "com.missupro.app",
+      "permissions": ["CAMERA", "RECORD_AUDIO"]
     },
     "plugins": [
       "expo-router"

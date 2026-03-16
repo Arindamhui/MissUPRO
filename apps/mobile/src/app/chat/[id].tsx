@@ -66,7 +66,7 @@ export default function ChatScreen() {
       messageType: "TEXT",
     }).catch(() => ({ ok: false }));
 
-    if (!response?.ok || !response.message) {
+    if (!response?.ok || !("message" in response) || !response.message) {
       return;
     }
 
