@@ -44,13 +44,13 @@ export default function CallScreen() {
   const { emit, emitWithAck, on } = useSocket();
   const [duration, setDuration] = useState(0);
 
-  const refreshRtcToken = trpc.call.refreshRtcToken.useMutation();
+  const refreshRtcToken = trpc.calls.refreshRtcToken.useMutation();
   const peerSummary = trpc.user.getUserSummary.useQuery(
     { userId: otherUserId! },
     { retry: false, enabled: !!otherUserId },
   );
 
-  const billingState = trpc.call.getBillingState.useQuery(
+  const billingState = trpc.calls.getBillingState.useQuery(
     { callSessionId: id! },
     { retry: false, enabled: !!id, refetchInterval: isInCall ? 15000 : false },
   );

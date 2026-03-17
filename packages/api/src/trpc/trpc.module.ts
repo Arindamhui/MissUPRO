@@ -30,6 +30,9 @@ import { GroupAudioModule } from "../group-audio/group-audio.module";
 import { PartyModule } from "../party/party.module";
 import { SocialModule } from "../social/social.module";
 import { ConfigModule } from "../config/config.module";
+import { PresenceModule } from "../presence/presence.module";
+import { SupportModule } from "../support/support.module";
+import { ComplianceModule } from "../compliance/compliance.module";
 import { PayoutsModule } from "../payouts/payouts.module";
 import { PkModule } from "../pk/pk.module";
 import { LeaderboardsModule } from "../leaderboards/leaderboards.module";
@@ -74,6 +77,9 @@ export class TrpcCoreModule {}
     PartyModule,
     SocialModule,
     ConfigModule,
+    PresenceModule,
+    SupportModule,
+    ComplianceModule,
     PayoutsModule,
     PkModule,
     LeaderboardsModule,

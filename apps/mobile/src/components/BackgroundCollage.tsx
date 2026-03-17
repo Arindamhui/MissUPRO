@@ -2,9 +2,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import { Text, View } from "react-native";
 
-const lightStrands = Array.from({ length: 18 }, (_, index) => ({
+const lightStrands: Array<{ id: number; left: `${number}%`; length: number; opacity: number }> = Array.from({ length: 18 }, (_, index) => ({
   id: index,
-  left: `${3 + index * 5.4}%`,
+  left: `${3 + index * 5.4}%` as `${number}%`,
   length: 42 + (index % 5) * 20,
   opacity: 0.35 + (index % 4) * 0.14,
 }));

@@ -89,7 +89,7 @@ export function SocialButton({
         borderWidth: 1,
         borderColor: palette.borderColor,
         shadowColor: "#02112F",
-        shadowOpacity: variant === "icon" ? 0 : 0.18,
+        shadowOpacity: 0.18,
         shadowRadius: 12,
         shadowOffset: { width: 0, height: 8 },
       }}

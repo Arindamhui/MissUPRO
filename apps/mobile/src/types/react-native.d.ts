@@ -12,3 +12,8 @@ declare module "react-native" {
     style?: StyleProp<ViewStyle>;
   }
 }
+
+declare module "*.webp" {
+  const src: number;
+  export default src;
+}

@@ -18,7 +18,7 @@ const routeMeta: Record<string, { label: string; icon: React.ComponentProps<type
 };
 
 function TabIcon({ route, label, focused }: { route: string; label: string; focused: boolean }) {
-  const meta = routeMeta[route] ?? routeMeta.index;
+  const meta = routeMeta[route] ?? routeMeta.index!;
 
   return (
     <View style={{ alignItems: "center", justifyContent: "center", paddingTop: 8 }}>
@@ -33,7 +33,7 @@ function TabIcon({ route, label, focused }: { route: string; label: string; focu
   );
 }
 
-function LiveTabButton({ onPress, accessibilityState }: { onPress?: () => void; accessibilityState?: { selected?: boolean } }) {
+function LiveTabButton({ onPress, accessibilityState }: { onPress?: (...args: any[]) => void; accessibilityState?: { selected?: boolean } }) {
   const focused = accessibilityState?.selected;
 
   return (

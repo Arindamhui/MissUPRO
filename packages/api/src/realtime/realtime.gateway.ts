@@ -109,15 +109,34 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
   async afterInit() {
     this.socketEmitterService.registerServer(this.server);
 
+    if (!process.env["REDIS_URL"]) {
+      this.logger.warn("Realtime Redis adapter disabled: REDIS_URL is not configured");
+      return;
+    }
+
     const redis = getRedis();
-    await redis.connect();
+    redis.on("error", (error) => {
+      this.logger.warn(`Redis pub client unavailable for realtime adapter: ${error.message}`);
+    });
 
-    this.redisPubClient = redis;
-    this.redisSubClient = redis.duplicate();
-    await this.redisSubClient.connect();
+    try {
+      await redis.connect();
 
-    this.server.adapter(createAdapter(this.redisPubClient, this.redisSubClient));
-    this.logger.log("Socket.io Redis adapter initialized");
+      this.redisPubClient = redis;
+      this.redisSubClient = redis.duplicate();
+      this.redisSubClient.on("error", (error) => {
+        this.logger.warn(`Redis sub client unavailable for realtime adapter: ${error.message}`);
+      });
+      await this.redisSubClient.connect();
+
+      this.server.adapter(createAdapter(this.redisPubClient, this.redisSubClient));
+      this.logger.log("Socket.io Redis adapter initialized");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.redisPubClient = null;
+      this.redisSubClient = null;
+      this.logger.warn(`Realtime Redis adapter disabled: ${message}`);
+    }
   }
 
   async onModuleDestroy() {

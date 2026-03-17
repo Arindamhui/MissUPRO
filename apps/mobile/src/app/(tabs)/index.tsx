@@ -428,17 +428,17 @@ function CuratedHomeFeed({ isAuthenticated }: { isAuthenticated: boolean }) {
       />
 
       <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 16 }}>
-        <PartyGameTile tile={PARTY_TILES[0]} />
+        <PartyGameTile tile={PARTY_TILES[0]!} />
         <View style={{ width: "41%", justifyContent: "space-between" }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
-            <PartyGameTile tile={PARTY_TILES[1]} compact />
+            <PartyGameTile tile={PARTY_TILES[1]!} compact />
             <View style={{ width: 10 }} />
-            <PartyGameTile tile={PARTY_TILES[2]} compact />
+            <PartyGameTile tile={PARTY_TILES[2]!} compact />
           </View>
           <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            <PartyGameTile tile={PARTY_TILES[3]} compact />
+            <PartyGameTile tile={PARTY_TILES[3]!} compact />
             <View style={{ width: 10 }} />
-            <PartyGameTile tile={PARTY_TILES[4]} compact />
+            <PartyGameTile tile={PARTY_TILES[4]!} compact />
           </View>
         </View>
       </View>

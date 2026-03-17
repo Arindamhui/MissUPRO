@@ -83,7 +83,7 @@ export default function LevelsScreen() {
                 <Text style={{ color: COLORS.text, fontSize: 16, fontWeight: "700" }}>
                   Level {item.levelNumber} · {item.levelName}
                 </Text>
-                <Badge text={unlocked ? "Unlocked" : `${item.thresholdValue} XP`} color={unlocked ? COLORS.success : COLORS.borderDark} />
+                <Badge text={unlocked ? "Unlocked" : `${item.thresholdValue} XP`} color={unlocked ? COLORS.success : COLORS.border} />
               </View>
               {item.rewards?.length ? (
                 <View style={{ marginTop: SPACING.sm, gap: SPACING.xs }}>

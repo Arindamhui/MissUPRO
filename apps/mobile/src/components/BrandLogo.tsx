@@ -1,6 +1,6 @@
+import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
-import { Image, Text, View } from "react-native";
-import appIcon from "../../android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp";
+import { Text, View } from "react-native";
 
 export function BrandLogo({
   size = 108,
@@ -13,18 +13,22 @@ export function BrandLogo({
 }) {
   return (
     <View style={{ alignItems: "center" }}>
-      <Image
-        source={appIcon}
+      <LinearGradient
+        colors={["#7C4DFF", "#16C3FF"]}
         style={{
           width: size,
           height: size,
           borderRadius: Math.max(20, Math.round(size * 0.26)),
+          alignItems: "center",
+          justifyContent: "center",
           shadowColor: "#04091E",
           shadowOpacity: 0.34,
           shadowRadius: 18,
           shadowOffset: { width: 0, height: 10 },
         }}
-      />
+      >
+        <Text style={{ color: "#FFFFFF", fontSize: Math.round(size * 0.34), fontWeight: "900", letterSpacing: 1.2 }}>SK</Text>
+      </LinearGradient>
 
       {showWordmark ? (
         <>

@@ -2,13 +2,21 @@
   "name": "@missu/db",
   "version": "1.0.0",
   "private": true,
-  "main": "./index.ts",
-  "types": "./index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./index.ts",
-    "./schema": "./schema/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema/index.d.ts",
+      "default": "./dist/schema/index.js"
+    }
   },
   "scripts": {
+    "build": "rimraf dist tsconfig.tsbuildinfo && tsc -p tsconfig.json",
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
     "studio": "drizzle-kit studio",
@@ -21,6 +29,7 @@
   },
   "devDependencies": {
     "drizzle-kit": "^0.30.0",
+    "rimraf": "^5.0.7",
     "tsx": "^4.19.0"
   }
 }

@@ -31,6 +31,17 @@ export class AgencyRouter {
         }))
         .mutation(async ({ ctx, input }) => this.agencyService.applyAsAgency(ctx.userId, input)),
 
+      listPublicSquads: this.trpc.procedure
+        .input(z.object({ view: z.enum(["POPULAR", "RANK"]).default("POPULAR"), limit: z.number().int().min(1).max(50).default(20) }).optional())
+        .query(async ({ input }) => this.agencyService.listPublicSquads(input?.view ?? "POPULAR", input?.limit ?? 20)),
+
+      getMySquadOverview: this.trpc.protectedProcedure
+        .query(async ({ ctx }) => this.agencyService.getMySquadOverview(ctx.userId)),
+
+      joinSquad: this.trpc.protectedProcedure
+        .input(z.object({ agencyId: z.string().uuid() }))
+        .mutation(async ({ ctx, input }) => this.agencyService.joinSquad(ctx.userId, input.agencyId)),
+
       getAgencyDashboard: this.trpc.protectedProcedure
         .query(async ({ ctx }) => this.agencyService.getAgencyDashboard(ctx.userId)),
 

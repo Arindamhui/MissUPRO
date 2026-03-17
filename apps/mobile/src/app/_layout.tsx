@@ -175,7 +175,7 @@ function GuardedStack() {
       <Stack.Screen name="vip" options={{ title: t("navigation.vip") }} />
       <Stack.Screen name="settings" options={{ title: t("navigation.settings") }} />
       <Stack.Screen name="referrals" options={{ title: t("navigation.referrals") }} />
-      <Stack.Screen name="leaderboards" options={{ title: t("navigation.leaderboards") }} />
+      <Stack.Screen name="leaderboards" options={{ headerShown: false }} />
       <Stack.Screen name="pk/battle" options={{ title: "PK Battle" }} />
       <Stack.Screen name="pk/results" options={{ title: "PK Results" }} />
       <Stack.Screen name="agency/dashboard" options={{ title: "Agency Dashboard" }} />

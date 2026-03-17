@@ -14,14 +14,14 @@ export default function ProfileScreen() {
   const authMode = useAuthStore((state) => state.authMode);
   const isAuthenticated = authMode === "authenticated";
   const { emit } = useSocket();
-  const requestCall = trpc.call.requestModelCall.useMutation();
+  const requestCall = trpc.calls.requestModelCall.useMutation();
   const followUser = trpc.user.followUser.useMutation();
   const unfollowUser = trpc.user.unfollowUser.useMutation();
   const profile = trpc.discovery.getModelCard.useQuery({ modelId: id! }, { retry: false, enabled: !!id && isAuthenticated });
   const model = profile.data as any;
   const modelUserId = String(model?.userId ?? "");
   const isFollowing = trpc.user.isFollowing.useQuery({ targetUserId: modelUserId }, { retry: false, enabled: !!modelUserId && isAuthenticated });
-  const pricingPreview = trpc.call.getCallPricingPreview.useQuery({ modelUserId }, { retry: false, enabled: !!modelUserId && isAuthenticated });
+  const pricingPreview = trpc.calls.getCallPricingPreview.useQuery({ modelUserId }, { retry: false, enabled: !!modelUserId && isAuthenticated });
 
   const availability = trpc.user.getModelAvailability.useQuery(
     { modelUserId },

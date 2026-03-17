@@ -82,7 +82,7 @@ export class TrpcRouter {
       auth: this.auth.router,
       user: this.user.router,
       model: this.model.router,
-      call: this.call.router,
+      calls: this.call.router,
       chat: this.chat.router,
       gift: this.gift.router,
       wallet: this.wallet.router,

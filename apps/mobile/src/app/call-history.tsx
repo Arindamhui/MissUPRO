@@ -11,7 +11,7 @@ function formatDuration(totalSeconds: number) {
 }
 
 export default function CallHistoryScreen() {
-  const history = trpc.call.myCallHistory.useQuery({ limit: 40 }, { retry: false });
+  const history = trpc.calls.myCallHistory.useQuery({ limit: 40 }, { retry: false });
   const items = (history.data?.items ?? []) as any[];
 
   return (
