@@ -1,20 +1,29 @@
 import { useClerk } from "@clerk/clerk-expo";
+import { LinearGradient } from "expo-linear-gradient";
+import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, Switch, Alert } from "react-native";
+import { Alert, ScrollView, Switch, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AnimatedSnow } from "@/components/AnimatedSnow";
+import { BackgroundCollage } from "@/components/BackgroundCollage";
 import { Screen, Card, Button } from "@/components/ui";
 import { supportedLocales, useI18n } from "@/i18n";
 import { COLORS, SPACING, RADIUS } from "@/theme";
 import { trpc } from "@/lib/trpc";
+import { useAuthStore } from "@/store";
 
 type SettingRow = { label: string; type: "toggle" | "link" | "action"; value?: boolean; onPress?: () => void; onToggle?: (v: boolean) => void; danger?: boolean };
 
 export default function SettingsScreen() {
+  const insets = useSafeAreaInsets();
   const { t, locale, setLocale, isRTL } = useI18n();
   const { signOut } = useClerk();
+  const authMode = useAuthStore((state) => state.authMode);
+  const isAuthenticated = authMode === "authenticated";
   const compliance = trpc.compliance;
-  const deletionRequest = compliance.getMyDeletionRequest.useQuery(undefined, { retry: false });
-  const dataExports = compliance.listMyDataExports.useQuery(undefined, { retry: false });
+  const deletionRequest = compliance.getMyDeletionRequest.useQuery(undefined, { retry: false, enabled: isAuthenticated });
+  const dataExports = compliance.listMyDataExports.useQuery(undefined, { retry: false, enabled: isAuthenticated });
   const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : "Please try again.";
 
   const requestDeletion = compliance.requestAccountDeletion.useMutation({
@@ -111,41 +120,55 @@ export default function SettingsScreen() {
   ];
 
   return (
-    <Screen>
-      <ScrollView contentContainerStyle={{ padding: SPACING.md, paddingBottom: 40 }}>
-        <Text style={{ fontSize: 24, fontWeight: "700", color: COLORS.text, marginBottom: SPACING.lg, textAlign: isRTL ? "right" : "left" }}>
-          {t("settings.title")}
-        </Text>
+    <View style={{ flex: 1, backgroundColor: "#0C1345" }}>
+      <StatusBar style="light" />
+      <BackgroundCollage variant="home" />
+      <LinearGradient colors={["rgba(17,23,70,0.18)", "rgba(10,18,60,0.72)", "rgba(8,14,47,0.97)"]} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />
+      <AnimatedSnow density={10} />
 
-        <View style={{ marginBottom: SPACING.lg }}>
-          <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.textSecondary, marginBottom: SPACING.sm, textTransform: "uppercase", letterSpacing: 0.5 }}>
-            {t("settings.languageSection")}
+      <Screen style={{ backgroundColor: "transparent" }}>
+        <ScrollView contentContainerStyle={{ padding: SPACING.md, paddingBottom: 40, paddingTop: insets.top + 6 }}>
+          <Text style={{ fontSize: 24, fontWeight: "800", color: COLORS.white, marginBottom: SPACING.lg, textAlign: isRTL ? "right" : "left" }}>
+            {t("settings.title")}
           </Text>
-          <Card style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: SPACING.sm }}>
-            {supportedLocales.map((option) => (
-              <Button
-                key={option.code}
-                title={
-                  option.code === "en"
-                    ? t("common.english")
-                    : option.code === "ar"
-                      ? t("common.arabic")
-                      : t("common.hindi")
-                }
-                onPress={() => setLocale(option.code)}
-                variant={locale === option.code ? "primary" : "secondary"}
-                style={{ flex: 1 }}
-              />
-            ))}
-          </Card>
-        </View>
 
-        {sections.map((section) => (
+          {!isAuthenticated ? (
+            <Card style={{ backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
+              <Text style={{ color: COLORS.white, fontSize: 18, fontWeight: "700" }}>Sign in required</Text>
+              <Text style={{ color: "rgba(255,255,255,0.72)", marginTop: 8, lineHeight: 20 }}>Compliance requests and account settings are only available for signed-in users.</Text>
+              <Button title="Go to Login" onPress={() => router.replace("/(auth)/login")} style={{ marginTop: 14 }} />
+            </Card>
+          ) : null}
+
+          <View style={{ marginBottom: SPACING.lg }}>
+            <Text style={{ fontSize: 14, fontWeight: "600", color: "rgba(255,255,255,0.68)", marginBottom: SPACING.sm, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            {t("settings.languageSection")}
+            </Text>
+            <Card style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: SPACING.sm, backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
+              {supportedLocales.map((option) => (
+                <Button
+                  key={option.code}
+                  title={
+                    option.code === "en"
+                      ? t("common.english")
+                      : option.code === "ar"
+                        ? t("common.arabic")
+                        : t("common.hindi")
+                  }
+                  onPress={() => setLocale(option.code)}
+                  variant={locale === option.code ? "primary" : "secondary"}
+                  style={{ flex: 1, backgroundColor: locale === option.code ? undefined : "rgba(255,255,255,0.08)" }}
+                />
+              ))}
+            </Card>
+          </View>
+
+          {isAuthenticated ? sections.map((section) => (
           <View key={section.title} style={{ marginBottom: SPACING.lg }}>
-            <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.textSecondary, marginBottom: SPACING.sm, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            <Text style={{ fontSize: 14, fontWeight: "600", color: "rgba(255,255,255,0.68)", marginBottom: SPACING.sm, textTransform: "uppercase", letterSpacing: 0.5 }}>
               {section.title}
             </Text>
-            <Card>
+            <Card style={{ backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
               {section.rows.map((row, i) => (
                 <TouchableOpacity
                   key={row.label}
@@ -155,10 +178,10 @@ export default function SettingsScreen() {
                     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
                     paddingVertical: 14, paddingHorizontal: 16,
                     borderBottomWidth: i < section.rows.length - 1 ? 1 : 0,
-                    borderBottomColor: COLORS.border,
+                    borderBottomColor: "rgba(255,255,255,0.1)",
                   }}
                 >
-                  <Text style={{ fontSize: 15, color: row.danger ? COLORS.danger : COLORS.text, fontWeight: row.danger ? "600" : "400" }}>
+                  <Text style={{ fontSize: 15, color: row.danger ? COLORS.danger : COLORS.white, fontWeight: row.danger ? "600" : "500" }}>
                     {row.label}
                   </Text>
 
@@ -172,18 +195,19 @@ export default function SettingsScreen() {
                   )}
 
                   {row.type === "link" && row.label === "Version" && (
-                    <Text style={{ fontSize: 14, color: COLORS.textSecondary }}>1.0.0</Text>
+                    <Text style={{ fontSize: 14, color: "rgba(255,255,255,0.62)" }}>1.0.0</Text>
                   )}
 
                   {row.type === "link" && row.label !== "Version" && (
-                    <Text style={{ fontSize: 18, color: COLORS.textSecondary }}>›</Text>
+                    <Text style={{ fontSize: 18, color: "rgba(255,255,255,0.52)" }}>›</Text>
                   )}
                 </TouchableOpacity>
               ))}
             </Card>
           </View>
-        ))}
-      </ScrollView>
-    </Screen>
+          )) : null}
+        </ScrollView>
+      </Screen>
+    </View>
   );
 }

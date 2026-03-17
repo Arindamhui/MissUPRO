@@ -767,6 +767,10 @@ export class AdminService {
       })
       .returning();
 
+    if (!created) {
+      throw new Error("Failed to create ban record");
+    }
+
     if (input.sourceReportId) {
       await db
         .update(reports)

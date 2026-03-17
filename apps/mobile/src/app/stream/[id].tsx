@@ -428,7 +428,10 @@ export default function StreamScreen() {
               editable={featureHints?.chatEnabled !== false}
             />
             <TouchableOpacity
-              onPress={() => useUIStore.getState().openGiftDrawer({ userId: String(stream.hostUserId), context: "LIVE_STREAM", roomId: streamId })}
+              onPress={() => {
+                useUIStore.getState().openGiftDrawer({ userId: String(stream.hostUserId), context: "LIVE_STREAM", roomId: streamId });
+                router.push("/gifts");
+              }}
               style={{
                 width: 44, height: 44, borderRadius: 22,
                 backgroundColor: featureHints?.giftingEnabled === false ? COLORS.textSecondary : COLORS.primary, alignItems: "center", justifyContent: "center",

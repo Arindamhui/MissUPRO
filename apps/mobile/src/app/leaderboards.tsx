@@ -1,7 +1,9 @@
 import React, { useState } from "react";
+import { router } from "expo-router";
 import { View, Text, FlatList, TouchableOpacity } from "react-native";
-import { Screen, Card, Avatar, EmptyState } from "@/components/ui";
+import { Screen, Card, Avatar, EmptyState, Button } from "@/components/ui";
 import { trpc } from "@/lib/trpc";
+import { useAuthStore } from "@/store";
 import { COLORS, SPACING, RADIUS } from "@/theme";
 
 type LeaderboardEntry = {
@@ -22,7 +24,9 @@ type Leaderboard = {
 };
 
 export default function LeaderboardsScreen() {
-  const boards = trpc.events.listLeaderboards.useQuery(undefined, { retry: false });
+  const authMode = useAuthStore((s) => s.authMode);
+  const isAuthenticated = authMode === "authenticated";
+  const boards = trpc.events.listLeaderboards.useQuery(undefined, { retry: false, enabled: isAuthenticated });
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
 
   const boardList = (boards.data ?? []) as Leaderboard[];
@@ -30,9 +34,23 @@ export default function LeaderboardsScreen() {
 
   const entries = trpc.events.getLeaderboard.useQuery(
     { leaderboardId: activeBoard ?? "" },
-    { enabled: !!activeBoard, retry: false }
+    { enabled: !!activeBoard && isAuthenticated, retry: false }
   );
   const entryList = (entries.data?.items ?? []) as LeaderboardEntry[];
+
+  if (!isAuthenticated) {
+    return (
+      <Screen>
+        <Card>
+          <Text style={{ fontSize: 20, fontWeight: "700", color: COLORS.text }}>Leaderboards unlock after sign-in</Text>
+          <Text style={{ fontSize: 14, color: COLORS.textSecondary, marginTop: 8, lineHeight: 20 }}>
+            Rankings are personalized and tied to protected event participation, so guest users can browse the home showcase but not open live board data.
+          </Text>
+          <Button title="Sign In" onPress={() => router.push("/(auth)/login")} style={{ marginTop: SPACING.md }} />
+        </Card>
+      </Screen>
+    );
+  }
 
   const renderEntry = ({ item, index }: { item: LeaderboardEntry; index: number }) => {
     const rank = item.rankPosition ?? item.rank ?? index + 1;

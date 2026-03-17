@@ -4,7 +4,7 @@ import {
   users, profiles, followers, userBlocks, accountDeletionRequests,
   modelReviews, pushTokens, userLevels, levels, userBadges, badges,
 } from "@missu/db/schema";
-import { eq, and, desc, gt, lt } from "drizzle-orm";
+import { eq, and, desc, gt, lt, sql } from "drizzle-orm";
 import { getPresence, getPresenceBulk as redisGetPresenceBulk } from "@missu/utils";
 
 @Injectable()
@@ -17,6 +17,28 @@ export class UserService {
   async getProfile(userId: string) {
     const [profile] = await db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1);
     return profile ?? null;
+  }
+
+  async getMyProfile(userId: string) {
+    const [result] = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        displayName: users.displayName,
+        username: users.username,
+        avatarUrl: users.avatarUrl,
+        city: users.city,
+        preferredLocale: users.preferredLocale,
+        country: users.country,
+        bio: profiles.bio,
+        locationDisplay: profiles.locationDisplay,
+      })
+      .from(users)
+      .leftJoin(profiles, eq(profiles.userId, users.id))
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    return result ?? null;
   }
 
   async getPublicUserSummary(userId: string) {
@@ -134,6 +156,127 @@ export class UserService {
         ),
       );
     return { success: true };
+  }
+
+  async isFollowing(followerId: string, followingId: string) {
+    const [result] = await db
+      .select({ id: followers.id })
+      .from(followers)
+      .where(and(eq(followers.followerUserId, followerId), eq(followers.followedUserId, followingId)))
+      .limit(1);
+
+    return { isFollowing: !!result };
+  }
+
+  async listFollowers(userId: string, cursor?: string, limit = 30) {
+    const query = db
+      .select({
+        id: followers.id,
+        createdAt: followers.createdAt,
+        userId: users.id,
+        displayName: users.displayName,
+        username: users.username,
+        avatarUrl: users.avatarUrl,
+        bio: profiles.bio,
+        locationDisplay: profiles.locationDisplay,
+      })
+      .from(followers)
+      .innerJoin(users, eq(users.id, followers.followerUserId))
+      .leftJoin(profiles, eq(profiles.userId, users.id))
+      .where(
+        and(
+          eq(followers.followedUserId, userId),
+          cursor ? lt(followers.createdAt, new Date(cursor)) : undefined,
+        ),
+      )
+      .orderBy(desc(followers.createdAt))
+      .limit(limit + 1);
+
+    const results = await query;
+    const hasMore = results.length > limit;
+    const items = hasMore ? results.slice(0, -1) : results;
+    return {
+      items,
+      nextCursor: hasMore ? items[items.length - 1]!.createdAt.toISOString() : null,
+    };
+  }
+
+  async listFollowing(userId: string, cursor?: string, limit = 30) {
+    const query = db
+      .select({
+        id: followers.id,
+        createdAt: followers.createdAt,
+        userId: users.id,
+        displayName: users.displayName,
+        username: users.username,
+        avatarUrl: users.avatarUrl,
+        bio: profiles.bio,
+        locationDisplay: profiles.locationDisplay,
+      })
+      .from(followers)
+      .innerJoin(users, eq(users.id, followers.followedUserId))
+      .leftJoin(profiles, eq(profiles.userId, users.id))
+      .where(
+        and(
+          eq(followers.followerUserId, userId),
+          cursor ? lt(followers.createdAt, new Date(cursor)) : undefined,
+        ),
+      )
+      .orderBy(desc(followers.createdAt))
+      .limit(limit + 1);
+
+    const results = await query;
+    const hasMore = results.length > limit;
+    const items = hasMore ? results.slice(0, -1) : results;
+    return {
+      items,
+      nextCursor: hasMore ? items[items.length - 1]!.createdAt.toISOString() : null,
+    };
+  }
+
+  async updateMyProfile(
+    userId: string,
+    input: {
+      displayName?: string;
+      avatarUrl?: string | null;
+      city?: string | null;
+      bio?: string | null;
+      locationDisplay?: string | null;
+    },
+  ) {
+    const userPatch: Record<string, string | Date | null | undefined> = {};
+    if (input.displayName !== undefined) userPatch.displayName = input.displayName;
+    if (input.avatarUrl !== undefined) userPatch.avatarUrl = input.avatarUrl;
+    if (input.city !== undefined) userPatch.city = input.city;
+
+    if (Object.keys(userPatch).length > 0) {
+      userPatch.updatedAt = new Date();
+      await db.update(users).set(userPatch).where(eq(users.id, userId));
+    }
+
+    const profilePatch: Record<string, string | Date | null | number | undefined> = {
+      updatedAt: new Date(),
+    };
+    if (input.bio !== undefined) profilePatch.bio = input.bio;
+    if (input.locationDisplay !== undefined) profilePatch.locationDisplay = input.locationDisplay;
+
+    const completenessScore = [input.bio, input.locationDisplay].filter((value) => Boolean(value && String(value).trim())).length * 25;
+    profilePatch.profileCompletenessScore = completenessScore;
+
+    await db
+      .insert(profiles)
+      .values({
+        userId,
+        bio: input.bio ?? null,
+        locationDisplay: input.locationDisplay ?? null,
+        profileCompletenessScore: completenessScore,
+      })
+      .onConflictDoUpdate({
+        target: [profiles.userId],
+        set: profilePatch,
+      });
+
+    return this.getMyProfile(userId);
   }
 
   async submitModelReview(

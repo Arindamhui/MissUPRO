@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, FlatList, Alert, ActivityIndicator, Platform } from "react-native";
-import { Screen, Card, CoinDisplay, EmptyState, Button, SectionHeader, Badge } from "@/components/ui";
-import { trpc } from "@/lib/trpc";
-import { COLORS, SPACING, RADIUS } from "@/theme";
-import { useUIStore, useWalletStore } from "@/store";
+import { router } from "expo-router";
+import { Alert, FlatList, Text, TouchableOpacity, View } from "react-native";
+import { Badge, Button, Card, CoinDisplay, EmptyState, Screen, SectionHeader } from "@/components/ui";
 import { getMobileRuntimeScope } from "@/lib/runtime-config";
+import { trpc } from "@/lib/trpc";
+import { useAuthStore, useUIStore, useWalletStore } from "@/store";
+import { COLORS, RADIUS, SPACING } from "@/theme";
 
 type Gift = {
   id?: string;
@@ -49,7 +50,9 @@ function getGiftContextLabel(context?: string | null) {
 }
 
 export default function GiftsScreen() {
-  const catalog = trpc.gift.getActiveCatalog.useQuery(undefined, { retry: false });
+  const authMode = useAuthStore((s) => s.authMode);
+  const isAuthenticated = authMode === "authenticated";
+  const catalog = trpc.gift.getActiveCatalog.useQuery(undefined, { retry: false, enabled: isAuthenticated });
   const creatorEconomy = trpc.config.getCreatorEconomy.useQuery(getMobileRuntimeScope(), { retry: false });
   const giftFlag = trpc.config.evaluateFeatureFlag.useQuery({ key: "gift_sending", ...getMobileRuntimeScope() }, { retry: false });
   const sendGift = trpc.gift.sendGift.useMutation();
@@ -140,41 +143,68 @@ export default function GiftsScreen() {
 
   const selectedGiftDiamondCredit = selectedGift ? estimateDiamondCredit(selectedGift) : 0;
 
+  if (!isAuthenticated) {
+    return (
+      <Screen scroll style={{ backgroundColor: "#0C1345" }}>
+        <View style={{ padding: SPACING.md }}>
+          <Card style={{ backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" }}>
+            <Text style={{ color: COLORS.white, fontSize: 22, fontWeight: "800" }}>Sign in to send gifts</Text>
+            <Text style={{ color: "rgba(255,255,255,0.72)", marginTop: 8, lineHeight: 20 }}>
+              Gifting affects wallet balances and creator payouts, so the live catalog is only available for authenticated accounts.
+            </Text>
+            <Button title="Go to Login" onPress={() => router.replace("/(auth)/login")} style={{ marginTop: SPACING.md }} />
+          </Card>
+        </View>
+      </Screen>
+    );
+  }
+
   return (
-    <Screen scroll>
+    <Screen scroll style={{ backgroundColor: "#0C1345" }}>
+      <View style={{ padding: SPACING.md }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: SPACING.sm }}>
+          <View>
+            <Text style={{ color: COLORS.white, fontSize: 28, fontWeight: "900" }}>Gift Shop</Text>
+            <Text style={{ color: "rgba(255,255,255,0.68)", marginTop: 4 }}>Fast gifting for live rooms, PK battles, and premium calls.</Text>
+          </View>
+          {giftTarget ? (
+            <TouchableOpacity onPress={closeDrawer} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.08)" }}>
+              <Text style={{ color: COLORS.white, fontWeight: "700" }}>Clear</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
       {giftFlag.data?.enabled === false && (
-        <Card>
-          <Text style={{ color: COLORS.text, fontWeight: "700", fontSize: 16 }}>Gift sending is disabled</Text>
-          <Text style={{ color: COLORS.textSecondary, marginTop: 8 }}>This feature is currently turned off for the active mobile app version.</Text>
+        <Card style={{ backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" }}>
+          <Text style={{ color: COLORS.white, fontWeight: "700", fontSize: 16 }}>Gift sending is disabled</Text>
+          <Text style={{ color: "rgba(255,255,255,0.72)", marginTop: 8 }}>This feature is currently turned off for the active mobile app version.</Text>
         </Card>
       )}
 
       {giftTarget && (
-        <View style={{ backgroundColor: COLORS.primaryLight, padding: SPACING.sm, marginHorizontal: SPACING.md, borderRadius: RADIUS.lg, marginBottom: SPACING.sm }}>
-          <Text style={{ fontSize: 13, color: COLORS.primaryDark, textAlign: "center" }}>
+        <View style={{ backgroundColor: "rgba(103,231,255,0.12)", padding: SPACING.sm, borderRadius: RADIUS.lg, marginBottom: SPACING.sm, borderWidth: 1, borderColor: "rgba(103,231,255,0.18)" }}>
+          <Text style={{ fontSize: 13, color: "#9CF3FF", textAlign: "center" }}>
             Sending to user in {getGiftContextLabel(giftTarget.context)}
           </Text>
         </View>
       )}
 
       <SectionHeader title="Gift Economy" />
-      <Card>
-        {creatorEconomy.isLoading ? (
-          <ActivityIndicator color={COLORS.primary} />
-        ) : creatorEconomy.data ? (
+      <Card style={{ backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" }}>
+        {creatorEconomy.data ? (
           <>
-            <Text style={{ color: COLORS.textSecondary, marginBottom: 6 }}>
+            <Text style={{ color: "rgba(255,255,255,0.72)", marginBottom: 6 }}>
               Platform commission: {creatorEconomy.data.commission.platformCommissionPercent}%
             </Text>
-            <Text style={{ color: COLORS.textSecondary, marginBottom: 6 }}>
+            <Text style={{ color: "rgba(255,255,255,0.72)", marginBottom: 6 }}>
               Creator share: {creatorEconomy.data.commission.creatorSharePercent}% of gift value
             </Text>
-            <Text style={{ color: COLORS.textSecondary }}>
+            <Text style={{ color: "rgba(255,255,255,0.72)" }}>
               Baseline conversion: {creatorEconomy.data.diamondConversion.coins} coins to {creatorEconomy.data.diamondConversion.diamonds} diamonds
             </Text>
           </>
         ) : (
-          <Text style={{ color: COLORS.textSecondary }}>Gift conversion policy is unavailable right now.</Text>
+          <Text style={{ color: "rgba(255,255,255,0.72)" }}>Gift conversion policy is unavailable right now.</Text>
         )}
       </Card>
 
@@ -184,7 +214,7 @@ export default function GiftsScreen() {
             <Text style={{ fontSize: 16, fontWeight: "700", color: TIER_COLORS[tier] ?? COLORS.text }}>
               {tier}
             </Text>
-            <Text style={{ fontSize: 12, color: COLORS.textSecondary }}>({gifts.length})</Text>
+            <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.58)" }}>({gifts.length})</Text>
           </View>
           <FlatList
             data={gifts}
@@ -199,15 +229,15 @@ export default function GiftsScreen() {
       ))}
 
       {selectedGift && giftFlag.data?.enabled !== false && (
-        <Card>
+        <Card style={{ backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: SPACING.sm }}>
-            <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.text }}>{selectedGift.displayName}</Text>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.white }}>{selectedGift.displayName}</Text>
             <Badge text={selectedGift.effectTier ?? "STANDARD"} color={TIER_COLORS[selectedGift.effectTier ?? "STANDARD"] ?? COLORS.primary} />
           </View>
-          <Text style={{ color: COLORS.textSecondary, marginBottom: 6 }}>
+          <Text style={{ color: "rgba(255,255,255,0.72)", marginBottom: 6 }}>
             Cost: {selectedGift.coinPrice ?? 0} coins
           </Text>
-          <Text style={{ color: COLORS.textSecondary, marginBottom: SPACING.md }}>
+          <Text style={{ color: "rgba(255,255,255,0.72)", marginBottom: SPACING.md }}>
             Estimated creator credit: {selectedGiftDiamondCredit} diamonds
           </Text>
           <Button
@@ -222,6 +252,7 @@ export default function GiftsScreen() {
       {items.length === 0 && (
         <EmptyState icon="🎁" title="No Gifts Available" subtitle="Gift catalog is loaded from backend configuration." />
       )}
+      </View>
     </Screen>
   );
 }

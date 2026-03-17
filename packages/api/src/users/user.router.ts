@@ -10,6 +10,20 @@ import {
   getModelAvailabilitySchema, getModelDemoVideosSchema,
 } from "@missu/types";
 
+const followGraphInputSchema = z.object({
+  userId: z.string().uuid().optional(),
+  cursor: z.string().optional(),
+  limit: z.number().int().min(1).max(100).default(30),
+});
+
+const updateMyProfileSchema = z.object({
+  displayName: z.string().min(1).max(80).optional(),
+  avatarUrl: z.string().url().optional().nullable(),
+  city: z.string().max(120).optional().nullable(),
+  bio: z.string().max(500).optional().nullable(),
+  locationDisplay: z.string().max(160).optional().nullable(),
+});
+
 @Injectable()
 export class UserRouter {
   constructor(
@@ -25,11 +39,38 @@ export class UserRouter {
           return this.userService.getUserById(ctx.userId);
         }),
 
+      getMyProfile: this.trpc.protectedProcedure
+        .query(async ({ ctx }) => this.userService.getMyProfile(ctx.userId)),
+
       getUserSummary: this.trpc.protectedProcedure
         .input(z.object({ userId: z.string().uuid() }))
         .query(async ({ input }) => {
           return this.userService.getPublicUserSummary(input.userId);
         }),
+
+      updateMyProfile: this.trpc.protectedProcedure
+        .input(updateMyProfileSchema)
+        .mutation(async ({ ctx, input }) => this.userService.updateMyProfile(ctx.userId, input)),
+
+      followUser: this.trpc.protectedProcedure
+        .input(z.object({ targetUserId: z.string().uuid() }))
+        .mutation(async ({ ctx, input }) => this.userService.followUser(ctx.userId, input.targetUserId)),
+
+      unfollowUser: this.trpc.protectedProcedure
+        .input(z.object({ targetUserId: z.string().uuid() }))
+        .mutation(async ({ ctx, input }) => this.userService.unfollowUser(ctx.userId, input.targetUserId)),
+
+      isFollowing: this.trpc.protectedProcedure
+        .input(z.object({ targetUserId: z.string().uuid() }))
+        .query(async ({ ctx, input }) => this.userService.isFollowing(ctx.userId, input.targetUserId)),
+
+      listFollowers: this.trpc.protectedProcedure
+        .input(followGraphInputSchema.optional())
+        .query(async ({ ctx, input }) => this.userService.listFollowers(input?.userId ?? ctx.userId, input?.cursor, input?.limit ?? 30)),
+
+      listFollowing: this.trpc.protectedProcedure
+        .input(followGraphInputSchema.optional())
+        .query(async ({ ctx, input }) => this.userService.listFollowing(input?.userId ?? ctx.userId, input?.cursor, input?.limit ?? 30)),
 
       blockUser: this.trpc.protectedProcedure
         .input(blockUserSchema)

@@ -11,15 +11,19 @@ import { useAuthStore } from "@/store";
 export default function PartyScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const userId = useAuthStore((s) => s.userId);
+  const authMode = useAuthStore((s) => s.authMode);
   const { emit, emitWithAck, on } = useSocket();
   const [messages, setMessages] = useState<any[]>([]);
   const [inputText, setInputText] = useState("");
+  const isAuthenticated = authMode === "authenticated";
 
   // Fetch room state
-  const room = trpc.party.roomState.useQuery({ roomId: id! }, { retry: false, enabled: !!id });
+  const room = trpc.party.getRoomState.useQuery({ roomId: id! }, { retry: false, enabled: !!id && isAuthenticated });
   const state = room.data as any;
 
   useEffect(() => {
+    if (!id || !isAuthenticated) return;
+
     emit(SOCKET_EVENTS.PARTY.JOIN, { roomId: id });
     emit(SOCKET_EVENTS.PARTY.SYNC_REQUEST, { roomId: id, limit: 30 });
 
@@ -43,7 +47,7 @@ export default function PartyScreen() {
       emit(SOCKET_EVENTS.PARTY.LEAVE, { roomId: id });
       unsub1?.(); unsub2?.(); unsub3?.(); unsub4?.(); unsub5?.();
     };
-  }, [id]);
+  }, [emit, id, isAuthenticated, on, room]);
 
   const sendChat = async () => {
     if (!inputText.trim()) return;
@@ -56,24 +60,39 @@ export default function PartyScreen() {
     emit(SOCKET_EVENTS.PARTY.REACTION, { roomId: id, reaction });
   };
 
+  if (!isAuthenticated) {
+    return (
+      <Screen>
+        <Card>
+          <Text style={{ fontSize: 20, fontWeight: "700", color: COLORS.text }}>Sign in to enter party rooms</Text>
+          <Text style={{ fontSize: 14, color: COLORS.textSecondary, marginTop: 8 }}>
+            Browsing the party showcase is available from the home screen, but joining a room and claiming seats requires an authenticated account.
+          </Text>
+          <Button title="Sign In" onPress={() => router.push("/(auth)/login")} style={{ marginTop: SPACING.md }} />
+        </Card>
+      </Screen>
+    );
+  }
+
   return (
     <Screen>
       {/* Room Header */}
       <View style={{ paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm }}>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: COLORS.text }}>{state?.name ?? "Party Room"}</Text>
-        <Text style={{ fontSize: 13, color: COLORS.textSecondary }}>{state?.memberCount ?? 0} members</Text>
+        <Text style={{ fontSize: 20, fontWeight: "700", color: COLORS.text }}>{state?.room?.roomName ?? "Party Room"}</Text>
+        <Text style={{ fontSize: 13, color: COLORS.textSecondary }}>{state?.members?.length ?? 0} members</Text>
       </View>
 
       {/* Seat Grid */}
       <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: SPACING.md, paddingVertical: SPACING.md }}>
-        {Array.from({ length: state?.seatCount ?? 8 }, (_, i) => {
+        {Array.from({ length: Number(state?.room?.maxSeats ?? state?.seats?.length ?? 8) }, (_, i) => {
           const seat = state?.seats?.[i];
-          const occupied = !!seat?.userId;
+          const occupied = !!seat?.occupantUserId;
+          const seatedMember = occupied ? state?.members?.find((member: any) => member.userId === seat?.occupantUserId) : null;
           return (
             <TouchableOpacity
               key={i}
               onPress={() => {
-                if (!occupied) emit(SOCKET_EVENTS.PARTY.SEAT_UPDATE, { roomId: id, seatNumber: i, action: "claim" });
+                if (!occupied) emit(SOCKET_EVENTS.PARTY.SEAT_UPDATE, { roomId: id, seatNumber: i + 1, action: "claim" });
               }}
               style={{
                 width: 72, height: 90, borderRadius: RADIUS.lg,
@@ -85,9 +104,9 @@ export default function PartyScreen() {
             >
               {occupied ? (
                 <>
-                  <Avatar size={40} />
+                  <Avatar uri={seatedMember?.avatarUrl} size={40} />
                   <Text style={{ fontSize: 10, color: COLORS.text, marginTop: 4, fontWeight: "500" }}>
-                    {seat.displayName ?? `Seat ${i + 1}`}
+                    {seatedMember?.displayName ?? `Seat ${i + 1}`}
                   </Text>
                 </>
               ) : (

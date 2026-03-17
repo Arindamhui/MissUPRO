@@ -7,6 +7,7 @@ import { COLORS, SPACING, RADIUS } from "@/theme";
 import { useCallStore, useUIStore } from "@/store";
 import { useSocket } from "@/hooks/useSocket";
 import { SOCKET_EVENTS } from "@missu/types";
+import { useAuthStore } from "@/store";
 
 export default function ProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -14,9 +15,12 @@ export default function ProfileScreen() {
   const isAuthenticated = authMode === "authenticated";
   const { emit } = useSocket();
   const requestCall = trpc.call.requestModelCall.useMutation();
+  const followUser = trpc.user.followUser.useMutation();
+  const unfollowUser = trpc.user.unfollowUser.useMutation();
   const profile = trpc.discovery.getModelCard.useQuery({ modelId: id! }, { retry: false, enabled: !!id && isAuthenticated });
   const model = profile.data as any;
   const modelUserId = String(model?.userId ?? "");
+  const isFollowing = trpc.user.isFollowing.useQuery({ targetUserId: modelUserId }, { retry: false, enabled: !!modelUserId && isAuthenticated });
   const pricingPreview = trpc.call.getCallPricingPreview.useQuery({ modelUserId }, { retry: false, enabled: !!modelUserId && isAuthenticated });
 
   const availability = trpc.user.getModelAvailability.useQuery(
@@ -168,13 +172,30 @@ export default function ProfileScreen() {
       </TouchableOpacity>
 
       <View style={{ flexDirection: "row", gap: SPACING.sm, marginTop: SPACING.md }}>
-        <Button title="Follow" variant="secondary" onPress={() => {}} style={{ flex: 1 }} />
+        <Button
+          title={isFollowing.data?.isFollowing ? "Following" : "Follow"}
+          variant="secondary"
+          onPress={() => {
+            const action = isFollowing.data?.isFollowing ? unfollowUser : followUser;
+            action.mutate(
+              { targetUserId: modelUserId },
+              {
+                onSuccess: () => {
+                  isFollowing.refetch();
+                  profile.refetch();
+                },
+              },
+            );
+          }}
+          style={{ flex: 1 }}
+          loading={followUser.isPending || unfollowUser.isPending}
+        />
         <Button title="Message" variant="ghost" onPress={() => router.push(`/chat/${modelUserId}?recipientId=${modelUserId}`)} style={{ flex: 1 }} />
       </View>
 
       <View style={{ flexDirection: "row", gap: SPACING.sm, marginTop: SPACING.sm, marginBottom: SPACING.sm }}>
-        <Button title="Followers" size="sm" variant="outline" onPress={() => router.push("/profile/followers")} style={{ flex: 1 }} />
-        <Button title="Following" size="sm" variant="outline" onPress={() => router.push("/profile/following")} style={{ flex: 1 }} />
+        <Button title="Followers" size="sm" variant="outline" onPress={() => router.push(`/profile/followers?userId=${modelUserId}`)} style={{ flex: 1 }} />
+        <Button title="Following" size="sm" variant="outline" onPress={() => router.push(`/profile/following?userId=${modelUserId}`)} style={{ flex: 1 }} />
         <Button title="Edit" size="sm" variant="outline" onPress={() => router.push("/profile/edit")} style={{ flex: 1 }} />
       </View>
 
