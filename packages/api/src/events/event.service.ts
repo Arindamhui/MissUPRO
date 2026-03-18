@@ -7,9 +7,10 @@ import {
   leaderboardEntries,
   leaderboardSnapshots,
   leaderboards,
+  profiles,
   users,
 } from "@missu/db/schema";
-import { and, asc, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { decodeCursor, encodeCursor, generateIdempotencyKey } from "@missu/utils";
 import { WalletService } from "../wallet/wallet.service";
@@ -26,6 +27,63 @@ type EventRewardRule = {
 @Injectable()
 export class EventService {
   constructor(private readonly walletService: WalletService) {}
+
+  private userSchemaModePromise: Promise<"modern" | "legacy"> | null = null;
+  private leaderboardSchemaModePromise: Promise<"modern" | "legacy"> | null = null;
+
+  private async getUserSchemaMode() {
+    if (!this.userSchemaModePromise) {
+      this.userSchemaModePromise = db.execute(sql`
+        select exists (
+          select 1
+          from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'users'
+            and column_name = 'display_name'
+        ) as has_display_name
+      `).then((result) => {
+        const value = result.rows[0] as { has_display_name?: boolean | string | number } | undefined;
+        return value?.has_display_name ? "modern" : "legacy";
+      });
+    }
+
+    return this.userSchemaModePromise;
+  }
+
+  private async getLeaderboardSchemaMode() {
+    if (!this.leaderboardSchemaModePromise) {
+      this.leaderboardSchemaModePromise = db.execute(sql`
+        select exists (
+          select 1
+          from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'leaderboards'
+            and column_name = 'leaderboard_type'
+        ) as has_leaderboard_type
+      `).then((result) => {
+        const value = result.rows[0] as { has_leaderboard_type?: boolean | string | number } | undefined;
+        return value?.has_leaderboard_type ? "modern" : "legacy";
+      });
+    }
+
+    return this.leaderboardSchemaModePromise;
+  }
+
+  private mapLegacyBoard(row: Record<string, unknown>) {
+    return {
+      id: String(row.id),
+      title: String(row.name ?? "Leaderboard"),
+      leaderboardType: String(row.boardType ?? row.board_type ?? "GENERAL"),
+      scoringMetric: String(row.boardType ?? row.board_type ?? "legacy_score"),
+      windowType: "ALL_TIME",
+      maxEntries: 100,
+      refreshIntervalSeconds: Number(row.refreshIntervalSeconds ?? row.refresh_interval_seconds ?? 300),
+      status: row.isActive ?? row.is_active ? "ACTIVE" : "INACTIVE",
+      createdAt: row.createdAt ?? row.created_at ?? null,
+      updatedAt: row.createdAt ?? row.created_at ?? null,
+      createdByAdminId: null,
+    };
+  }
 
   private async resolveAdminActorId(adminUserId: string) {
     const [admin] = await db
@@ -290,6 +348,29 @@ export class EventService {
   }
 
   async getEventLeaderboard(eventId: string, limit = 50) {
+    if (await this.getUserSchemaMode() === "legacy") {
+      const result = await db.execute(sql`
+        select
+          ep.user_id as "userId",
+          ep.score,
+          coalesce(p.display_name, u.username) as "displayName",
+          p.avatar_url as "avatarUrl"
+        from event_participants ep
+        inner join users u on u.id = ep.user_id
+        left join profiles p on p.user_id = u.id
+        where ep.event_id = ${eventId}::uuid
+        order by ep.score desc
+        limit ${limit}
+      `);
+
+      return (result.rows as Array<Record<string, unknown>>).map((row, index) => ({
+        ...row,
+        rank: index + 1,
+        rankPosition: index + 1,
+        scoreValue: Number(row.score ?? 0),
+      }));
+    }
+
     const rows = await db
       .select({
         userId: eventParticipants.userId,
@@ -416,6 +497,37 @@ export class EventService {
 
   async getLeaderboard(leaderboardId: string, cursor?: string, limit = 50) {
     const offset = cursor ? decodeCursor(cursor) : 0;
+    if (await this.getUserSchemaMode() === "legacy") {
+      const result = await db.execute(sql`
+        select
+          le.user_id as "userId",
+          le.score_value as score,
+          le.rank_position as rank,
+          coalesce(p.display_name, u.username) as "displayName",
+          p.avatar_url as "avatarUrl"
+        from leaderboard_entries le
+        inner join users u on u.id = le.user_id
+        left join profiles p on p.user_id = u.id
+        where le.leaderboard_id = ${leaderboardId}::uuid
+        order by le.rank_position asc
+        limit ${limit + 1}
+        offset ${offset}
+      `);
+
+      const results = result.rows as Array<Record<string, unknown>>;
+      const hasMore = results.length > limit;
+      const items = hasMore ? results.slice(0, limit) : results;
+
+      return {
+        items: items.map((entry) => ({
+          ...entry,
+          rankPosition: Number(entry.rank ?? 0),
+          scoreValue: Number(entry.score ?? 0),
+        })),
+        nextCursor: hasMore ? encodeCursor(offset + limit) : null,
+      };
+    }
+
     const results = await db
       .select({
         userId: leaderboardEntries.userId,
@@ -445,6 +557,21 @@ export class EventService {
   }
 
   async listLeaderboards() {
+    if (await this.getLeaderboardSchemaMode() === "legacy") {
+      const result = await db.execute(sql`
+        select
+          id,
+          name,
+          board_type as "boardType",
+          refresh_interval_seconds as "refreshIntervalSeconds",
+          is_active as "isActive",
+          created_at as "createdAt"
+        from leaderboards
+        order by created_at desc
+      `);
+      return (result.rows as Array<Record<string, unknown>>).map((row) => this.mapLegacyBoard(row));
+    }
+
     return db.select().from(leaderboards).orderBy(desc(leaderboards.createdAt));
   }
 
@@ -452,6 +579,22 @@ export class EventService {
     data: { title: string; leaderboardType: string; scoringMetric: string; windowType: string },
     createdByAdminId: string,
   ) {
+    if (await this.getLeaderboardSchemaMode() === "legacy") {
+      const result = await db.execute(sql`
+        insert into leaderboards (name, board_type, refresh_interval_seconds, is_active, created_at)
+        values (${data.title}, ${data.leaderboardType}, 300, true, now())
+        returning
+          id,
+          name,
+          board_type as "boardType",
+          refresh_interval_seconds as "refreshIntervalSeconds",
+          is_active as "isActive",
+          created_at as "createdAt"
+      `);
+
+      return this.mapLegacyBoard((result.rows[0] as Record<string, unknown>) ?? {});
+    }
+
     const [leaderboard] = await db
       .insert(leaderboards)
       .values({
@@ -467,7 +610,23 @@ export class EventService {
   }
 
   async recomputeLeaderboard(leaderboardId: string) {
-    const [board] = await db.select().from(leaderboards).where(eq(leaderboards.id, leaderboardId)).limit(1);
+    const board = (await this.getLeaderboardSchemaMode()) === "legacy"
+      ? await db.execute(sql`
+          select
+            id,
+            name,
+            board_type as "boardType",
+            refresh_interval_seconds as "refreshIntervalSeconds",
+            is_active as "isActive",
+            created_at as "createdAt"
+          from leaderboards
+          where id = ${leaderboardId}::uuid
+          limit 1
+        `).then((result) => {
+          const row = result.rows[0] as Record<string, unknown> | undefined;
+          return row ? this.mapLegacyBoard(row) : null;
+        })
+      : await db.select().from(leaderboards).where(eq(leaderboards.id, leaderboardId)).limit(1).then((rows) => rows[0] ?? null);
     if (!board) {
       throw new TRPCError({ code: "NOT_FOUND", message: "Leaderboard not found" });
     }
@@ -476,32 +635,56 @@ export class EventService {
       .select({ userId: eventParticipants.userId, score: eventParticipants.score })
       .from(eventParticipants)
       .orderBy(desc(eventParticipants.score))
-      .limit(board.maxEntries ?? 100);
+      .limit(Number((board as Record<string, unknown>).maxEntries ?? 100));
 
-    await db.transaction(async (tx) => {
-      await tx.delete(leaderboardEntries).where(eq(leaderboardEntries.leaderboardId, leaderboardId));
+    if (await this.getLeaderboardSchemaMode() === "legacy") {
+      await db.execute(sql`delete from leaderboard_entries where leaderboard_id = ${leaderboardId}::uuid`);
 
       for (let index = 0; index < ranked.length; index++) {
         const row = ranked[index]!;
-        await tx.insert(leaderboardEntries).values({
-          leaderboardId,
-          userId: row.userId,
-          rankPosition: index + 1,
-          scoreValue: row.score,
-          scoreDelta: "0",
-          snapshotAt: new Date(),
-        } as any);
+        await db.execute(sql`
+          insert into leaderboard_entries (leaderboard_id, user_id, score, rank, updated_at, created_at)
+          values (
+            ${leaderboardId}::uuid,
+            ${row.userId}::uuid,
+            ${row.score},
+            ${index + 1},
+            now(),
+            now()
+          )
+        `);
       }
 
-      await tx.insert(leaderboardSnapshots).values({
-        leaderboardId,
-        snapshotDate: new Date().toISOString().slice(0, 10) as any,
-        entriesJson: ranked,
-        totalParticipants: ranked.length,
-      } as any);
+      await db.execute(sql`
+        insert into leaderboard_snapshots (leaderboard_id, snapshot_json, snapshot_at, created_at)
+        values (${leaderboardId}::uuid, ${JSON.stringify(ranked)}::jsonb, now(), now())
+      `);
 
-      await tx.update(leaderboards).set({ updatedAt: new Date() }).where(eq(leaderboards.id, leaderboardId));
-    });
+      return { leaderboardId, updated: ranked.length };
+    }
+
+    await db.delete(leaderboardEntries).where(eq(leaderboardEntries.leaderboardId, leaderboardId));
+
+    for (let index = 0; index < ranked.length; index++) {
+      const row = ranked[index]!;
+      await db.insert(leaderboardEntries).values({
+        leaderboardId,
+        userId: row.userId,
+        rankPosition: index + 1,
+        scoreValue: row.score,
+        scoreDelta: "0",
+        snapshotAt: new Date(),
+      } as any);
+    }
+
+    await db.insert(leaderboardSnapshots).values({
+      leaderboardId,
+      snapshotDate: new Date().toISOString().slice(0, 10) as any,
+      entriesJson: ranked,
+      totalParticipants: ranked.length,
+    } as any);
+
+    await db.update(leaderboards).set({ updatedAt: new Date() }).where(eq(leaderboards.id, leaderboardId));
 
     return { leaderboardId, updated: ranked.length };
   }

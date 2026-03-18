@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import { supportedLocales, useI18n } from "@/i18n";
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
@@ -8,8 +9,8 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
     <div className="min-h-screen bg-white">
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <a href="/" className="text-2xl font-bold">
-            MissU<span className="text-primary">PRO</span>
+          <a href="/" className="flex items-center">
+            <Image src="/brand/missu-pro-web-logo.png" alt="MissU Pro" width={220} height={72} className="h-12 w-auto" priority />
           </a>
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
             <a href="#features" className="hover:text-gray-900">{t("public.nav.features")}</a>
@@ -73,7 +74,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           </div>
         </div>
         <div className="max-w-6xl mx-auto px-4 mt-8 pt-8 border-t text-center text-sm text-gray-400">
-          &copy; {new Date().getFullYear()} MissUPRO. {t("public.footer.rights")}
+          &copy; {new Date().getFullYear()} MissU Pro. {t("public.footer.rights")}
         </div>
       </footer>
     </div>

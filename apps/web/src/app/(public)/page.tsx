@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import { useI18n } from "@/i18n";
 
 const featureCards = [
@@ -23,6 +24,9 @@ export default function LandingPage() {
     <>
       <section className="py-24 px-4">
         <div className="max-w-4xl mx-auto text-center">
+          <div className="mb-8 flex justify-center">
+            <Image src="/brand/missu-pro-web-logo.png" alt="MissU Pro" width={420} height={138} className="h-auto w-full max-w-[360px] md:max-w-[420px]" priority />
+          </div>
           <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-gray-900 mb-6">
             {t("public.hero.title").split(", ").map((part, index) => (
               <span key={part} className={index === 2 ? "text-primary" : undefined}>

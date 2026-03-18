@@ -7,7 +7,8 @@ import Redis from "ioredis";
 const service = process.env["SERVICE_NAME"] ?? "chat";
 const port = Number(process.env["PORT"] ?? "4102");
 const startedAt = new Date().toISOString();
-const redisUrl = process.env["REDIS_URL"] ?? "redis://127.0.0.1:6379";
+const redisUrl = process.env["REDIS_URL"];
+const dmHistory = new Map<string, string[]>();
 
 let connectedSockets = 0;
 let publishedMessages = 0;
@@ -49,10 +50,32 @@ const io = new Server(httpServer, {
   transports: ["websocket", "polling"],
 });
 
-const pubClient = new Redis(redisUrl);
-const subClient = pubClient.duplicate();
+const pubClient = redisUrl ? new Redis(redisUrl) : null;
+const subClient = pubClient?.duplicate() ?? null;
 
-io.adapter(createAdapter(pubClient, subClient));
+pubClient?.on("error", () => undefined);
+subClient?.on("error", () => undefined);
+
+if (pubClient && subClient) {
+  io.adapter(createAdapter(pubClient, subClient));
+} else {
+  console.warn(`[${service}] REDIS_URL not set; using in-memory chat history for local dev.`);
+}
+
+const appendMessageHistory = (key: string, value: string) => {
+  if (pubClient) {
+    void pubClient.lpush(key, value);
+    void pubClient.ltrim(key, 0, 499);
+    return;
+  }
+
+  const history = dmHistory.get(key) ?? [];
+  history.unshift(value);
+  if (history.length > 500) {
+    history.length = 500;
+  }
+  dmHistory.set(key, history);
+};
 
 io.on("connection", (socket) => {
   connectedSockets += 1;
@@ -108,12 +131,11 @@ io.on("connection", (socket) => {
       createdAt: new Date().toISOString(),
     });
     // Store in Redis for message history
-    pubClient.lpush(`dm:history:${[userId, payload.recipientId].sort().join(":")}`, JSON.stringify({
+    appendMessageHistory(`dm:history:${[userId, payload.recipientId].sort().join(":")}`, JSON.stringify({
       id: messageId, senderUserId: userId, recipientId: payload.recipientId,
       message: payload.message, messageType: payload.messageType ?? "TEXT",
       createdAt: new Date().toISOString(),
     }));
-    pubClient.ltrim(`dm:history:${[userId, payload.recipientId].sort().join(":")}`, 0, 499);
     publishedMessages += 1;
     dmMessages += 1;
     ack?.({ ok: true, id: messageId });
@@ -135,13 +157,14 @@ io.on("connection", (socket) => {
   socket.on("dm.read", (payload: { conversationId: string; lastMessageId: string }) => {
     if (!payload?.conversationId || !payload?.lastMessageId) return;
     readReceipts += 1;
-    // Notify the other party
-    pubClient.publish("dm:read_receipts", JSON.stringify({
-      conversationId: payload.conversationId,
-      readBy: userId,
-      lastMessageId: payload.lastMessageId,
-      at: new Date().toISOString(),
-    }));
+    if (pubClient) {
+      void pubClient.publish("dm:read_receipts", JSON.stringify({
+        conversationId: payload.conversationId,
+        readBy: userId,
+        lastMessageId: payload.lastMessageId,
+        at: new Date().toISOString(),
+      }));
+    }
   });
 
   // Message history retrieval
@@ -149,11 +172,21 @@ io.on("connection", (socket) => {
     if (!payload?.otherUserId) { ack?.({ ok: false }); return; }
     const key = `dm:history:${[userId, payload.otherUserId].sort().join(":")}`;
     const limit = Math.min(payload.limit ?? 50, 100);
-    pubClient.lrange(key, 0, limit - 1).then(items => {
-      ack?.({ ok: true, messages: items.map(i => JSON.parse(i)) });
-    }).catch(() => {
+    if (pubClient) {
+      pubClient.lrange(key, 0, limit - 1).then(items => {
+        ack?.({ ok: true, messages: items.map(i => JSON.parse(i)) });
+      }).catch(() => {
+        ack?.({ ok: false });
+      });
+      return;
+    }
+
+    try {
+      const items = (dmHistory.get(key) ?? []).slice(0, limit).map((item) => JSON.parse(item));
+      ack?.({ ok: true, messages: items });
+    } catch {
       ack?.({ ok: false });
-    });
+    }
   });
 
   socket.on("disconnect", () => {
@@ -168,8 +201,10 @@ httpServer.listen(port, () => {
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, async () => {
     await new Promise<void>((resolve) => io.close(() => resolve()));
-    await pubClient.quit();
-    await subClient.quit();
+    await Promise.allSettled([
+      pubClient ? pubClient.quit() : Promise.resolve("skipped"),
+      subClient ? subClient.quit() : Promise.resolve("skipped"),
+    ]);
     httpServer.close(() => process.exit(0));
   });
 }

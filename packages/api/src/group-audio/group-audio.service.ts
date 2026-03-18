@@ -10,18 +10,47 @@ import { decodeCursor, encodeCursor, generateIdempotencyKey, acquireLock, releas
 
 @Injectable()
 export class GroupAudioService {
-  async createRoom(hostUserId: string, data: { title: string; description?: string; topicTagsJson?: any; maxSpeakers?: number; maxListeners?: number; scheduledStartAt?: Date }) {
+  private async selectWallet(userId: string) {
+    const [wallet] = await db
+      .select({
+        id: wallets.id,
+        userId: wallets.userId,
+        coinBalance: wallets.coinBalance,
+      })
+      .from(wallets)
+      .where(eq(wallets.userId, userId))
+      .limit(1);
+
+    return wallet ?? null;
+  }
+
+  private resolveCoinsPerMinute(roomType: "FREE" | "PAID" | "VIP_ONLY" | "INVITE_ONLY", coinsPerMinute?: number) {
+    if (roomType === "FREE") {
+      return null;
+    }
+
+    if (typeof coinsPerMinute === "number" && coinsPerMinute > 0) {
+      return coinsPerMinute;
+    }
+
+    return roomType === "PAID" ? DEFAULTS.GROUP_AUDIO.DEFAULT_COINS_PER_MINUTE : null;
+  }
+
+  async createRoom(hostUserId: string, data: { title: string; description?: string; roomType: "FREE" | "PAID" | "VIP_ONLY" | "INVITE_ONLY"; coinsPerMinute?: number; topicTagsJson?: any; maxSpeakers?: number; maxListeners?: number; scheduledStartAt?: Date }) {
     const [room] = await db
       .insert(groupAudioRooms)
       .values({
         hostUserId,
         title: data.title,
         description: data.description,
+        roomType: data.roomType,
+        coinsPerMinute: this.resolveCoinsPerMinute(data.roomType, data.coinsPerMinute),
         topicTagsJson: data.topicTagsJson,
         maxSpeakers: data.maxSpeakers ?? DEFAULTS.GROUP_AUDIO.MAX_SPEAKERS_PER_ROOM,
         maxListeners: data.maxListeners ?? 100,
         status: data.scheduledStartAt ? "SCHEDULED" : "CREATED" as any,
         scheduledStartAt: data.scheduledStartAt,
+        totalParticipantsCount: 1,
       } as any)
       .returning();
 
@@ -59,8 +88,32 @@ export class GroupAudioService {
       throw new Error("Room is full");
     }
 
-    const existing = await db.select().from(groupAudioParticipants).where(and(eq(groupAudioParticipants.roomId, roomId), eq(groupAudioParticipants.userId, userId))).limit(1);
-    if (existing[0]) return existing[0];
+    const existing = await db
+      .select()
+      .from(groupAudioParticipants)
+      .where(and(eq(groupAudioParticipants.roomId, roomId), eq(groupAudioParticipants.userId, userId)))
+      .orderBy(desc(groupAudioParticipants.createdAt))
+      .limit(1);
+
+    if (existing[0]?.status === "ACTIVE") {
+      return existing[0];
+    }
+
+    if (existing[0]) {
+      const [reactivated] = await db
+        .update(groupAudioParticipants)
+        .set({
+          status: "ACTIVE" as any,
+          role: existing[0].role === "HOST" ? existing[0].role : "LISTENER" as any,
+          isMuted: existing[0].role === "HOST" ? false : true,
+          joinedAt: new Date(),
+          leftAt: null,
+        })
+        .where(eq(groupAudioParticipants.id, existing[0].id))
+        .returning();
+
+      return reactivated;
+    }
 
     const [participant] = await db
       .insert(groupAudioParticipants)
@@ -99,8 +152,8 @@ export class GroupAudioService {
         role: groupAudioParticipants.role,
         isMuted: groupAudioParticipants.isMuted,
         joinedAt: groupAudioParticipants.joinedAt,
-        displayName: users.displayName,
-        avatarUrl: users.avatarUrl,
+        displayName: users.username,
+        avatarUrl: sql<string | null>`null`,
       })
       .from(groupAudioParticipants)
       .innerJoin(users, eq(users.id, groupAudioParticipants.userId))
@@ -128,8 +181,8 @@ export class GroupAudioService {
         maxSpeakers: groupAudioRooms.maxSpeakers,
         maxListeners: groupAudioRooms.maxListeners,
         status: groupAudioRooms.status,
-        hostName: users.displayName,
-        hostAvatar: users.avatarUrl,
+        hostName: users.username,
+        hostAvatar: sql<string | null>`null`,
       })
       .from(groupAudioRooms)
       .innerJoin(users, eq(users.id, groupAudioRooms.hostUserId))
@@ -207,42 +260,75 @@ export class GroupAudioService {
     const [room] = await db.select().from(groupAudioRooms).where(and(eq(groupAudioRooms.id, roomId), eq(groupAudioRooms.status, "LIVE" as any))).limit(1);
     if (!room) return;
 
-    const speakers = await db
+    const costPerMinute = room.coinsPerMinute ?? 0;
+    if (costPerMinute <= 0 || room.roomType === "FREE") {
+      return;
+    }
+
+    const listeners = await db
       .select()
       .from(groupAudioParticipants)
-      .where(and(eq(groupAudioParticipants.roomId, roomId), eq(groupAudioParticipants.role, "SPEAKER" as any), eq(groupAudioParticipants.status, "ACTIVE" as any)));
+      .where(and(eq(groupAudioParticipants.roomId, roomId), eq(groupAudioParticipants.role, "LISTENER" as any), eq(groupAudioParticipants.status, "ACTIVE" as any)));
 
-    const costPerMinute = DEFAULTS.GROUP_AUDIO.COST_PER_MINUTE_PER_SPEAKER;
-
-    for (const speaker of speakers) {
-      const lock = await acquireLock(`wallet:${speaker.userId}`, 5000);
+    for (const listener of listeners) {
+      const lock = await acquireLock(`wallet:${listener.userId}`, 5000);
       if (!lock) continue;
 
       try {
-        const [wallet] = await db.select().from(wallets).where(eq(wallets.userId, speaker.userId)).limit(1);
+        const wallet = await this.selectWallet(listener.userId);
         if (!wallet || wallet.coinBalance < costPerMinute) continue;
+
+        const existingTicks = await db
+          .select({ count: count() })
+          .from(groupAudioBillingTicks)
+          .where(and(eq(groupAudioBillingTicks.roomId, roomId), eq(groupAudioBillingTicks.participantId, listener.id)));
+
+        const tickNumber = Number(existingTicks[0]?.count ?? 0) + 1;
 
         const newBalance = wallet.coinBalance - costPerMinute;
         await db.update(wallets).set({ coinBalance: newBalance, updatedAt: new Date() }).where(eq(wallets.id, wallet.id));
-        await db.insert(coinTransactions).values({
-          userId: speaker.userId,
-          amount: -costPerMinute,
-          transactionType: "GROUP_AUDIO" as any,
-          description: `Group audio billing - room ${roomId}`,
-          balanceAfter: newBalance,
-          idempotencyKey: generateIdempotencyKey(speaker.userId, "ga_billing", `${roomId}_${Date.now()}`),
-        });
+        await db.execute(sql`
+          insert into coin_transactions (
+            user_id,
+            wallet_id,
+            amount,
+            direction,
+            balance_after,
+            reason,
+            reference_id,
+            metadata,
+            created_at
+          )
+          values (
+            ${listener.userId}::uuid,
+            ${wallet.id}::uuid,
+            ${-costPerMinute},
+            'DEBIT',
+            ${newBalance},
+            'GROUP_AUDIO',
+            ${roomId}::uuid,
+            ${JSON.stringify({ description: `Group audio billing - room ${roomId}`, idempotencyKey: generateIdempotencyKey(listener.userId, "ga_billing", `${roomId}_${tickNumber}`) })}::jsonb,
+            now()
+          )
+        `);
         await db.insert(groupAudioBillingTicks).values({
           roomId,
-          participantId: speaker.id,
-          userId: speaker.userId,
-          tickNumber: 0,
+          participantId: listener.id,
+          userId: listener.userId,
+          tickNumber,
           coinsDeducted: costPerMinute,
           userBalanceAfter: newBalance,
           tickTimestamp: new Date(),
         } as any);
+        await db
+          .update(groupAudioParticipants)
+          .set({
+            totalCoinsSpent: sql`${groupAudioParticipants.totalCoinsSpent} + ${costPerMinute}`,
+            billableMinutes: sql`${groupAudioParticipants.billableMinutes} + 1`,
+          })
+          .where(eq(groupAudioParticipants.id, listener.id));
       } finally {
-        await releaseLock(`wallet:${speaker.userId}`, lock);
+        await releaseLock(`wallet:${listener.userId}`, lock);
       }
     }
   }

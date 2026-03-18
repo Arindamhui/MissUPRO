@@ -7,7 +7,8 @@ import Redis from "ioredis";
 const service = process.env["SERVICE_NAME"] ?? "streaming";
 const port = Number(process.env["PORT"] ?? "4101");
 const startedAt = new Date().toISOString();
-const redisUrl = process.env["REDIS_URL"] ?? "redis://127.0.0.1:6379";
+const redisUrl = process.env["REDIS_URL"];
+const presenceState = new Map<string, string>();
 
 let connectedSockets = 0;
 let publishedEvents = 0;
@@ -40,9 +41,17 @@ const io = new Server(httpServer, {
   transports: ["websocket", "polling"],
 });
 
-const pubClient = new Redis(redisUrl);
-const subClient = pubClient.duplicate();
-io.adapter(createAdapter(pubClient, subClient));
+const pubClient = redisUrl ? new Redis(redisUrl) : null;
+const subClient = pubClient?.duplicate() ?? null;
+
+pubClient?.on("error", () => undefined);
+subClient?.on("error", () => undefined);
+
+if (pubClient && subClient) {
+  io.adapter(createAdapter(pubClient, subClient));
+} else {
+  console.warn(`[${service}] REDIS_URL not set; using in-memory Socket.IO adapter for local dev.`);
+}
 
 const publishToRoom = (room: string, event: string, payload: Record<string, unknown>) => {
   io.to(room).emit(event, payload);
@@ -210,8 +219,13 @@ io.on("connection", (socket) => {
   // Presence updates
   socket.on("presence.update", (payload: { status: "online" | "busy" | "in_call" | "streaming" }) => {
     if (!payload?.status) return;
-    pubClient.set(`presence:${userId}`, payload.status, "EX", 90);
-    pubClient.publish("presence:updates", JSON.stringify({ userId, status: payload.status, at: new Date().toISOString() }));
+    if (pubClient) {
+      void pubClient.set(`presence:${userId}`, payload.status, "EX", 90);
+      void pubClient.publish("presence:updates", JSON.stringify({ userId, status: payload.status, at: new Date().toISOString() }));
+      return;
+    }
+
+    presenceState.set(userId, payload.status);
   });
 
   // Call signaling enhancements
@@ -276,8 +290,10 @@ httpServer.listen(port, () => {
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, async () => {
     await new Promise<void>((resolve) => io.close(() => resolve()));
-    await pubClient.quit();
-    await subClient.quit();
+    await Promise.allSettled([
+      pubClient ? pubClient.quit() : Promise.resolve("skipped"),
+      subClient ? subClient.quit() : Promise.resolve("skipped"),
+    ]);
     httpServer.close(() => process.exit(0));
   });
 }

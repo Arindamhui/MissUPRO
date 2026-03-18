@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -49,7 +50,7 @@ export function Sidebar() {
       collapsed ? "w-16" : "w-64",
     )}>
       <div className="flex items-center justify-between px-4 py-5 border-b border-white/10">
-        {!collapsed && <span className="text-xl font-bold tracking-tight">MissU<span className="text-indigo-400">PRO</span></span>}
+        {!collapsed && <Image src="/brand/missu-pro-web-logo.png" alt="MissU Pro" width={170} height={56} className="h-10 w-auto" priority />}
         <button onClick={() => setCollapsed(!collapsed)} className="p-1 rounded hover:bg-slate-800">
           {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </button>

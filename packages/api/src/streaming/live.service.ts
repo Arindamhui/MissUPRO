@@ -14,6 +14,8 @@ import { NotificationService } from "../notifications/notification.service";
 
 @Injectable()
 export class LiveService {
+  private liveSchemaModePromise: Promise<"modern" | "legacy"> | null = null;
+
   constructor(
     private readonly configService: ConfigService,
     private readonly giftService: GiftService,
@@ -23,6 +25,109 @@ export class LiveService {
     private readonly levelService: LevelService,
     private readonly notificationService: NotificationService,
   ) {}
+
+  private async getLiveSchemaMode() {
+    if (!this.liveSchemaModePromise) {
+      this.liveSchemaModePromise = db.execute(sql`
+        select exists (
+          select 1
+          from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'live_streams'
+            and column_name = 'room_id'
+        ) as has_modern_live_streams
+      `).then((result) => {
+        const value = result.rows[0] as { has_modern_live_streams?: boolean | string | number } | undefined;
+        return value?.has_modern_live_streams ? "modern" : "legacy";
+      });
+    }
+
+    return this.liveSchemaModePromise;
+  }
+
+  private async getLegacyHostProfile(hostUserId: string) {
+    const result = await db.execute(sql`
+      select
+        coalesce(p.display_name, u.username) as "displayName",
+        u.username,
+        p.avatar_url as "avatarUrl"
+      from users u
+      left join profiles p on p.user_id = u.id
+      where u.id = ${hostUserId}::uuid
+      limit 1
+    `);
+
+    return (result.rows[0] as { displayName?: string | null; username?: string | null; avatarUrl?: string | null } | undefined) ?? null;
+  }
+
+  private mapLegacyStreamCard(row: Record<string, unknown>) {
+    return this.mapStreamCard({
+      streamId: String(row.streamId ?? ""),
+      roomId: String(row.roomId ?? ""),
+      hostUserId: String(row.hostUserId ?? ""),
+      title: String(row.title ?? row.roomName ?? "Live Room"),
+      roomName: String(row.roomName ?? row.title ?? "Live Room"),
+      category: String(row.category ?? "Live"),
+      hostDisplayName: row.hostDisplayName as string | null,
+      hostUsername: row.hostUsername as string | null,
+      avatarUrl: row.avatarUrl as string | null,
+      viewerCount: row.viewerCount as number | string | null,
+      peakViewers: row.peakViewers as number | string | null,
+      giftRevenueCoins: row.giftRevenueCoins as number | string | null,
+      startedAt: row.startedAt instanceof Date ? row.startedAt : row.startedAt ? new Date(String(row.startedAt)) : null,
+      trendingScore: row.trendingScore as number | string | null,
+    });
+  }
+
+  private async getLegacyStreamRow(streamId: string) {
+    const result = await db.execute(sql`
+      select
+        ls.id as "streamId",
+        lr.id as "roomId",
+        ls.host_user_id as "hostUserId",
+        coalesce(lr.title, 'Live Room') as title,
+        coalesce(lr.title, 'Live Room') as "roomName",
+        'Live'::text as category,
+        coalesce(p.display_name, u.username) as "hostDisplayName",
+        u.username as "hostUsername",
+        p.avatar_url as "avatarUrl",
+        coalesce(lr.viewer_count, 0) as "viewerCount",
+        coalesce(ls.peak_viewers, 0) as "peakViewers",
+        coalesce(ls.total_gift_coins, 0) as "giftRevenueCoins",
+        ls.started_at as "startedAt",
+        coalesce(ls.trending_score, 0) as "trendingScore",
+        ls.rtc_channel_name as "rtcChannelName"
+      from live_streams ls
+      inner join live_rooms lr on lr.id = ls.live_room_id
+      inner join users u on u.id = ls.host_user_id
+      left join profiles p on p.user_id = u.id
+      where ls.id = ${streamId}::uuid
+      limit 1
+    `);
+
+    return (result.rows[0] as Record<string, unknown> | undefined) ?? null;
+  }
+
+  private async getLegacyChatSessionId(roomId: string) {
+    const existing = await db.execute(sql`
+      select id
+      from chat_sessions
+      where live_room_id = ${roomId}::uuid
+      limit 1
+    `);
+
+    if (existing.rows[0]?.id) {
+      return String(existing.rows[0].id);
+    }
+
+    const created = await db.execute(sql`
+      insert into chat_sessions (id, live_room_id, created_at)
+      values (gen_random_uuid(), ${roomId}::uuid, now())
+      returning id
+    `);
+
+    return String(created.rows[0]?.id ?? "");
+  }
 
   private async finalizeViewerSession(viewer: { id: string; userId: string; joinedAt: Date; watchDurationSeconds: number | null }, streamId: string, endedAt: Date) {
     const sessionDurationSeconds = viewer.joinedAt
@@ -167,6 +272,32 @@ export class LiveService {
   }
 
   async getStreamPreview(streamId: string) {
+    if (await this.getLiveSchemaMode() === "legacy") {
+      const stream = await this.getLegacyStreamRow(streamId);
+      if (!stream) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Stream not found" });
+      }
+
+      const [followerCountRows, recentChat] = await Promise.all([
+        db.execute(sql`
+          select count(*)::int as count
+          from followers
+          where following_user_id = ${String(stream.hostUserId)}::uuid
+        `),
+        this.getRecentChatMessages(streamId, 12),
+      ]);
+
+      const normalized = this.mapLegacyStreamCard(stream);
+      return {
+        stream: {
+          ...normalized,
+          followerCount: Number((followerCountRows.rows[0] as { count?: number } | undefined)?.count ?? 0),
+        },
+        recentChat,
+        relatedStreams: [],
+      };
+    }
+
     const [stream] = await db
       .select({
         streamId: liveStreams.id,
@@ -254,6 +385,100 @@ export class LiveService {
   }
 
   async getViewerRoom(streamId: string, scope?: { platform?: "ALL" | "MOBILE" | "WEB" | "ANDROID" | "IOS"; appVersion?: string }) {
+    if (await this.getLiveSchemaMode() === "legacy") {
+      const [preview, bootstrap, activeGifts, coinPackages, activeViewerRows] = await Promise.all([
+        this.getStreamPreview(streamId),
+        this.configService.getConfigBootstrap(this.getRuntimeScope(scope)),
+        this.giftService.getActiveCatalog(),
+        this.walletService.getCoinPackages(),
+        db.execute(sql`
+          select
+            lv.user_id as "userId",
+            coalesce(p.display_name, u.username) as "displayName",
+            u.username,
+            p.avatar_url as "avatarUrl",
+            lv.joined_at as "joinedAt",
+            0::int as "giftCoinsSent",
+            0::int as "watchDurationSeconds"
+          from live_viewers lv
+          inner join users u on u.id = lv.user_id
+          left join profiles p on p.user_id = u.id
+          where lv.live_stream_id = ${streamId}::uuid and lv.left_at is null
+          order by lv.joined_at asc
+          limit 24
+        `),
+      ]);
+
+      const rawFeatureFlags = bootstrap.featureFlags.map((flag) => ({
+        flagKey: flag.flagKey,
+        enabled: Boolean(flag.enabled),
+      }));
+
+      return {
+        stream: preview.stream,
+        recentChat: preview.recentChat,
+        relatedStreams: preview.relatedStreams,
+        topSupporters: [],
+        activeViewers: (activeViewerRows.rows as Array<Record<string, unknown>>).map((viewer) => ({
+          userId: viewer.userId,
+          displayName: viewer.displayName,
+          username: viewer.username,
+          avatarUrl: viewer.avatarUrl,
+          joinedAt: viewer.joinedAt ? new Date(String(viewer.joinedAt)).toISOString() : null,
+          giftCoinsSent: 0,
+          watchDurationSeconds: 0,
+        })),
+        monetization: {
+          gifts: activeGifts.map((gift) => ({
+            id: gift.id,
+            displayName: gift.displayName,
+            catalogKey: gift.catalogKey,
+            coinPrice: Number(gift.coinPrice ?? 0),
+            diamondCredit: Number(gift.diamondCredit ?? 0),
+          })),
+          coinPackages: coinPackages.map((coinPackage) => ({
+            id: coinPackage.id,
+            title: coinPackage.name,
+            coins: Number(coinPackage.coins ?? 0),
+            bonusCoins: Number(coinPackage.bonusCoins ?? 0),
+            price: Number(coinPackage.price ?? 0),
+            priceDisplay: coinPackage.priceDisplay,
+            currency: coinPackage.currency,
+          })),
+        },
+        liveConfig: {
+          generatedAt: bootstrap.generatedAt,
+          featureFlags: bootstrap.featureFlags.map((flag) => ({
+            key: flag.flagKey,
+            enabled: Boolean(flag.enabled),
+            flagType: flag.flagType,
+          })),
+          pricingHighlights: bootstrap.pricingRules.slice(0, 8).map((rule) => {
+            const item = rule as Record<string, unknown>;
+            return {
+              ruleKey: String(item.ruleKey ?? "rule"),
+              price: item.priceUsd ?? item.priceValue ?? item.rateValue ?? null,
+              currency: item.currency ?? null,
+              billingUnit: item.billingUnit ?? item.unit ?? null,
+            };
+          }),
+          layout: {
+            videoContainer: true,
+            giftAnimationLayer: true,
+            chatOverlay: true,
+            viewerList: true,
+          },
+          uiLayoutHints: {
+            chatEnabled: this.resolveFeatureFlagState(rawFeatureFlags, ["live_chat", "chat_enabled", "stream_chat"]),
+            giftingEnabled: this.resolveFeatureFlagState(rawFeatureFlags, ["live_gifting", "gift_sending", "gifts_enabled"]),
+            pkEnabled: this.resolveFeatureFlagState(rawFeatureFlags, ["pk_battle", "pk_enabled", "live_pk"], false),
+            callupsellEnabled: this.resolveFeatureFlagState(rawFeatureFlags, ["video_calls", "calls_enabled", "paid_calls"], true),
+            withdrawalsEnabled: this.resolveFeatureFlagState(rawFeatureFlags, ["withdrawals", "creator_withdrawals"], true),
+          },
+        },
+      };
+    }
+
     const [preview, bootstrap, activeGifts, coinPackages, topSupportersRows, activeViewerRows] = await Promise.all([
       this.getStreamPreview(streamId),
       this.configService.getConfigBootstrap(this.getRuntimeScope(scope)),
@@ -382,6 +607,31 @@ export class LiveService {
   }
 
   async createRoom(hostUserId: string, roomName: string, category: string, roomType = "PUBLIC") {
+    if (await this.getLiveSchemaMode() === "legacy") {
+      const result = await db.execute(sql`
+        insert into live_rooms (
+          id,
+          host_user_id,
+          title,
+          status,
+          max_guests,
+          viewer_count,
+          created_at
+        )
+        values (
+          gen_random_uuid(),
+          ${hostUserId}::uuid,
+          ${roomName},
+          'WAITING',
+          4,
+          0,
+          now()
+        )
+        returning id, host_user_id as "hostUserId", title, status, max_guests as "maxGuests", viewer_count as "viewerCount", created_at as "createdAt"
+      `);
+      return result.rows[0];
+    }
+
     const [room] = await db.insert(liveRooms).values({
       hostUserId,
       roomName,
@@ -393,6 +643,38 @@ export class LiveService {
   }
 
   async getMyActiveStream(hostUserId: string) {
+    if (await this.getLiveSchemaMode() === "legacy") {
+      const result = await db.execute(sql`
+        select
+          ls.id as "streamId",
+          lr.id as "roomId",
+          ls.host_user_id as "hostUserId",
+          coalesce(lr.title, 'Live Room') as title,
+          coalesce(lr.title, 'Live Room') as "roomName",
+          'Live'::text as category,
+          coalesce(p.display_name, u.username) as "hostDisplayName",
+          u.username as "hostUsername",
+          p.avatar_url as "avatarUrl",
+          coalesce(lr.viewer_count, 0) as "viewerCount",
+          coalesce(ls.peak_viewers, 0) as "peakViewers",
+          coalesce(ls.total_gift_coins, 0) as "giftRevenueCoins",
+          ls.started_at as "startedAt",
+          coalesce(ls.trending_score, 0) as "trendingScore"
+        from live_streams ls
+        inner join live_rooms lr on lr.id = ls.live_room_id
+        inner join users u on u.id = ls.host_user_id
+        left join profiles p on p.user_id = u.id
+        where ls.host_user_id = ${hostUserId}::uuid
+          and ls.ended_at is null
+          and lr.status = 'LIVE'
+        order by ls.started_at desc nulls last, ls.created_at desc
+        limit 1
+      `);
+
+      const stream = result.rows[0] as Record<string, unknown> | undefined;
+      return stream ? this.mapLegacyStreamCard(stream) : null;
+    }
+
     const [stream] = await db
       .select({
         streamId: liveStreams.id,
@@ -426,14 +708,45 @@ export class LiveService {
       return existing;
     }
 
-    const [existingRoom] = await db
-      .select()
-      .from(liveRooms)
-      .where(eq(liveRooms.hostUserId, hostUserId))
-      .orderBy(desc(liveRooms.updatedAt), desc(liveRooms.createdAt))
-      .limit(1);
+    const existingRoom = await (async () => {
+      if (await this.getLiveSchemaMode() === "legacy") {
+        const result = await db.execute(sql`
+          select id, host_user_id as "hostUserId", title, status, created_at as "createdAt"
+          from live_rooms
+          where host_user_id = ${hostUserId}::uuid
+          order by created_at desc
+          limit 1
+        `);
+        return (result.rows[0] as Record<string, any> | undefined) ?? null;
+      }
+
+      const [room] = await db
+        .select()
+        .from(liveRooms)
+        .where(eq(liveRooms.hostUserId, hostUserId))
+        .orderBy(desc(liveRooms.updatedAt), desc(liveRooms.createdAt))
+        .limit(1);
+      return room ?? null;
+    })();
 
     const room = existingRoom ?? await this.createRoom(hostUserId, input.roomName, input.category, input.roomType ?? "PUBLIC");
+    if (!room || !("id" in room) || !room.id) {
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to prepare live room" });
+    }
+
+    if (await this.getLiveSchemaMode() === "legacy") {
+      await db.execute(sql`
+        update live_rooms
+        set title = ${input.roomName},
+            status = 'LIVE',
+            started_at = now(),
+            viewer_count = coalesce(viewer_count, 0)
+        where id = ${String(room.id)}::uuid
+      `);
+
+      const started = await this.startStream(String(room.id), hostUserId, input.title, input.streamType ?? "SOLO") as Record<string, unknown>;
+      return this.getViewerRoom(String(started.id ?? started.streamId ?? ""));
+    }
 
     await db.update(liveRooms).set({
       roomName: input.roomName,
@@ -443,12 +756,79 @@ export class LiveService {
       updatedAt: new Date(),
     }).where(eq(liveRooms.id, room.id));
 
-    const started = await this.startStream(room.id, hostUserId, input.title, input.streamType ?? "SOLO");
-    return this.getViewerRoom(started.id);
+    const started = await this.startStream(String(room.id), hostUserId, input.title, input.streamType ?? "SOLO") as Record<string, unknown>;
+    return this.getViewerRoom(String(started.id ?? started.streamId ?? ""));
   }
 
   async startStream(roomId: string, hostUserId: string, title: string, streamType: string) {
     const rtcChannelId = `live_${crypto.randomUUID()}`;
+
+    if (await this.getLiveSchemaMode() === "legacy") {
+      const tokenPayload = this.rtcTokenService.issueToken(rtcChannelId, 0, "publisher", 3600);
+      const result = await db.execute(sql`
+        insert into live_streams (
+          id,
+          live_room_id,
+          host_user_id,
+          rtc_channel_name,
+          rtc_token,
+          trending_score,
+          total_gift_coins,
+          peak_viewers,
+          started_at,
+          created_at
+        )
+        values (
+          gen_random_uuid(),
+          ${roomId}::uuid,
+          ${hostUserId}::uuid,
+          ${rtcChannelId},
+          ${tokenPayload.token},
+          0,
+          0,
+          0,
+          now(),
+          now()
+        )
+        returning id, live_room_id as "liveRoomId", host_user_id as "hostUserId", rtc_channel_name as "rtcChannelId"
+      `);
+
+      const host = await this.getLegacyHostProfile(hostUserId);
+      const followerRows = await db.execute(sql`
+        select follower_user_id as "followerUserId"
+        from followers
+        where following_user_id = ${hostUserId}::uuid
+      `);
+
+      const hostName = host?.displayName ?? host?.username ?? "Someone";
+      const started = result.rows[0] as Record<string, unknown> | undefined;
+
+      if (started) {
+        await Promise.allSettled(
+          (followerRows.rows as Array<{ followerUserId?: string }>).map((follower) => this.notificationService.createNotification(
+            String(follower.followerUserId ?? ""),
+            "LIVE_STARTED",
+            `${hostName} is live`,
+            title?.trim() ? title : `${hostName} just started a live stream.`,
+            {
+              hostUserId,
+              roomId,
+              streamId: started.id,
+              deepLink: `/stream/${started.id}`,
+              channels: ["PUSH"],
+            },
+          )),
+        );
+      }
+
+      return {
+        ...(started ?? {}),
+        agoraToken: tokenPayload.token,
+        agoraAppId: tokenPayload.appId,
+        expiresAt: tokenPayload.expiresAt,
+      };
+    }
+
     const [stream] = await db.insert(liveStreams).values({
       roomId,
       hostUserId,
@@ -508,6 +888,35 @@ export class LiveService {
   }
 
   async getActiveStreams(limit = 50) {
+    if (await this.getLiveSchemaMode() === "legacy") {
+      const result = await db.execute(sql`
+        select
+          ls.id as "streamId",
+          lr.id as "roomId",
+          ls.host_user_id as "hostUserId",
+          coalesce(lr.title, 'Live Room') as title,
+          coalesce(lr.title, 'Live Room') as "roomName",
+          'Live'::text as category,
+          coalesce(p.display_name, u.username) as "hostDisplayName",
+          u.username as "hostUsername",
+          p.avatar_url as "avatarUrl",
+          coalesce(lr.viewer_count, 0) as "viewerCount",
+          coalesce(ls.peak_viewers, 0) as "peakViewers",
+          coalesce(ls.total_gift_coins, 0) as "giftRevenueCoins",
+          ls.started_at as "startedAt",
+          coalesce(ls.trending_score, 0) as "trendingScore"
+        from live_streams ls
+        inner join live_rooms lr on lr.id = ls.live_room_id
+        inner join users u on u.id = ls.host_user_id
+        left join profiles p on p.user_id = u.id
+        where ls.ended_at is null and lr.status = 'LIVE'
+        order by coalesce(ls.trending_score, 0) desc, ls.started_at desc nulls last
+        limit ${limit}
+      `);
+
+      return { streams: (result.rows as Array<Record<string, unknown>>).map((stream) => this.mapLegacyStreamCard(stream)) };
+    }
+
     const streams = await db
       .select({
         streamId: liveStreams.id,
@@ -536,6 +945,24 @@ export class LiveService {
   }
 
   async issueViewerToken(streamId: string, userId: string) {
+    if (await this.getLiveSchemaMode() === "legacy") {
+      const stream = await this.getLegacyStreamRow(streamId);
+      const channel = String(stream?.rtcChannelName ?? "");
+
+      if (!stream || !channel) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Stream not live" });
+      }
+
+      const tokenPayload = this.rtcTokenService.issueToken(channel, 0, "subscriber", 1800);
+      return {
+        streamId,
+        channel,
+        agoraToken: tokenPayload.token,
+        agoraAppId: tokenPayload.appId,
+        expiresAt: tokenPayload.expiresAt,
+      };
+    }
+
     const [stream] = await db.select().from(liveStreams)
       .where(eq(liveStreams.id, streamId))
       .limit(1);
@@ -556,6 +983,28 @@ export class LiveService {
   }
 
   async issueHostToken(streamId: string, hostUserId: string) {
+    if (await this.getLiveSchemaMode() === "legacy") {
+      const stream = await this.getLegacyStreamRow(streamId);
+      const channel = String(stream?.rtcChannelName ?? "");
+
+      if (!stream || !channel) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Stream not live" });
+      }
+
+      if (String(stream.hostUserId ?? "") !== hostUserId) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only the host can publish to this stream" });
+      }
+
+      const tokenPayload = this.rtcTokenService.issueToken(channel, 0, "publisher", 1800);
+      return {
+        streamId,
+        channel,
+        agoraToken: tokenPayload.token,
+        agoraAppId: tokenPayload.appId,
+        expiresAt: tokenPayload.expiresAt,
+      };
+    }
+
     const [stream] = await db.select().from(liveStreams)
       .where(eq(liveStreams.id, streamId))
       .limit(1);
@@ -581,6 +1030,35 @@ export class LiveService {
 
   async endStream(streamId: string, reason?: string) {
     const endedAt = new Date();
+
+    if (await this.getLiveSchemaMode() === "legacy") {
+      const stream = await this.getLegacyStreamRow(streamId);
+      if (!stream) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const startedAt = stream.startedAt ? new Date(String(stream.startedAt)) : null;
+      const durationSeconds = startedAt
+        ? Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000)
+        : 0;
+
+      await db.execute(sql`
+        update live_streams
+        set ended_at = ${endedAt}
+        where id = ${streamId}::uuid
+      `);
+      await db.execute(sql`
+        update live_rooms
+        set status = 'ENDED', ended_at = ${endedAt}, viewer_count = 0
+        where id = ${String(stream.roomId ?? "")}::uuid
+      `);
+      await db.execute(sql`
+        update live_viewers
+        set left_at = ${endedAt}
+        where live_stream_id = ${streamId}::uuid and left_at is null
+      `);
+
+      return { streamId, durationSeconds };
+    }
+
     const [stream] = await db.select().from(liveStreams).where(eq(liveStreams.id, streamId)).limit(1);
     if (!stream) throw new TRPCError({ code: "NOT_FOUND" });
 
@@ -623,6 +1101,41 @@ export class LiveService {
   }
 
   async joinStream(streamId: string, userId: string) {
+    if (await this.getLiveSchemaMode() === "legacy") {
+      const existingViewerResult = await db.execute(sql`
+        select id, joined_at as "joinedAt"
+        from live_viewers
+        where live_stream_id = ${streamId}::uuid and user_id = ${userId}::uuid and left_at is null
+        limit 1
+      `);
+      if (existingViewerResult.rows[0]) {
+        return existingViewerResult.rows[0];
+      }
+
+      const [viewer] = await db.execute(sql`
+        insert into live_viewers (id, live_stream_id, user_id, joined_at, created_at)
+        values (gen_random_uuid(), ${streamId}::uuid, ${userId}::uuid, now(), now())
+        returning id, live_stream_id as "streamId", user_id as "userId", joined_at as "joinedAt"
+      `).then((result) => result.rows as Array<Record<string, unknown>>);
+
+      const stream = await this.getLegacyStreamRow(streamId);
+      if (stream?.roomId) {
+        await db.execute(sql`
+          update live_rooms
+          set viewer_count = greatest(coalesce(viewer_count, 0) + 1, 0)
+          where id = ${String(stream.roomId)}::uuid
+        `);
+      }
+      await db.execute(sql`
+        update live_streams
+        set peak_viewers = greatest(coalesce(peak_viewers, 0), coalesce((select viewer_count from live_rooms where id = ${String(stream?.roomId ?? "00000000-0000-0000-0000-000000000000")}::uuid), 0)),
+            trending_score = ${String(calculateTrendingScore(Number(stream?.giftRevenueCoins ?? 0), Number(stream?.peakViewers ?? 0), Number(stream?.viewerCount ?? 0) + 1))}
+        where id = ${streamId}::uuid
+      `);
+
+      return viewer;
+    }
+
     const [existingViewer] = await db.select().from(liveViewers)
       .where(and(eq(liveViewers.streamId, streamId), eq(liveViewers.userId, userId), isNull(liveViewers.leftAt)))
       .limit(1);
@@ -655,6 +1168,36 @@ export class LiveService {
   }
 
   async leaveStream(streamId: string, userId: string) {
+    if (await this.getLiveSchemaMode() === "legacy") {
+      const activeViewerResult = await db.execute(sql`
+        select id
+        from live_viewers
+        where live_stream_id = ${streamId}::uuid and user_id = ${userId}::uuid and left_at is null
+        limit 1
+      `);
+      const activeViewer = activeViewerResult.rows[0] as { id?: string } | undefined;
+      if (!activeViewer?.id) {
+        return;
+      }
+
+      const endedAt = new Date();
+      await db.execute(sql`
+        update live_viewers
+        set left_at = ${endedAt}
+        where id = ${activeViewer.id}::uuid
+      `);
+
+      const stream = await this.getLegacyStreamRow(streamId);
+      if (stream?.roomId) {
+        await db.execute(sql`
+          update live_rooms
+          set viewer_count = greatest(coalesce(viewer_count, 0) - 1, 0)
+          where id = ${String(stream.roomId)}::uuid
+        `);
+      }
+      return;
+    }
+
     const [activeViewer] = await db.select().from(liveViewers)
       .where(and(eq(liveViewers.streamId, streamId), eq(liveViewers.userId, userId), isNull(liveViewers.leftAt)))
       .limit(1);
@@ -690,6 +1233,31 @@ export class LiveService {
   }
 
   async sendChatMessage(streamId: string, userId: string, message: string) {
+    if (await this.getLiveSchemaMode() === "legacy") {
+      const stream = await this.getLegacyStreamRow(streamId);
+      if (!stream?.roomId) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Stream not found" });
+      }
+
+      const chatSessionId = await this.getLegacyChatSessionId(String(stream.roomId));
+      const [savedMessage] = await db.execute(sql`
+        insert into chat_messages (id, chat_session_id, user_id, content, is_system, metadata, created_at)
+        values (gen_random_uuid(), ${chatSessionId}::uuid, ${userId}::uuid, ${message}, false, '{}'::jsonb, now())
+        returning id, user_id as "userId", content as message, created_at as "createdAt"
+      `).then((result) => result.rows as Array<Record<string, unknown>>);
+      const sender = await this.getLegacyHostProfile(userId);
+      const createdAt = savedMessage?.createdAt ? new Date(String(savedMessage.createdAt)) : new Date();
+
+      return {
+        id: savedMessage?.id,
+        userId,
+        username: sender?.displayName ?? sender?.username ?? "User",
+        message: String(savedMessage?.message ?? ""),
+        timestamp: createdAt.getTime(),
+        createdAt: createdAt.toISOString(),
+      };
+    }
+
     const [savedMessage] = await db
       .insert(chatMessages)
       .values({
@@ -718,6 +1286,43 @@ export class LiveService {
   }
 
   async getRecentChatMessages(streamId: string, limit = 30) {
+    if (await this.getLiveSchemaMode() === "legacy") {
+      const stream = await this.getLegacyStreamRow(streamId);
+      if (!stream?.roomId) {
+        return [];
+      }
+
+      const chatSessionId = await this.getLegacyChatSessionId(String(stream.roomId));
+      const result = await db.execute(sql`
+        select
+          cm.id,
+          cm.user_id as "userId",
+          coalesce(p.display_name, u.username) as username,
+          cm.content as message,
+          cm.created_at as "createdAt"
+        from chat_messages cm
+        inner join users u on u.id = cm.user_id
+        left join profiles p on p.user_id = u.id
+        where cm.chat_session_id = ${chatSessionId}::uuid and coalesce(cm.is_system, false) = false
+        order by cm.created_at desc
+        limit ${limit}
+      `);
+
+      return (result.rows as Array<Record<string, unknown>>)
+        .reverse()
+        .map((item) => {
+          const createdAt = item.createdAt ? new Date(String(item.createdAt)) : new Date();
+          return {
+            id: item.id,
+            userId: item.userId,
+            username: item.username,
+            message: String(item.message ?? ""),
+            timestamp: createdAt.getTime(),
+            createdAt: createdAt.toISOString(),
+          };
+        });
+    }
+
     const messages = await db
       .select({
         id: chatMessages.id,

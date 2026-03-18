@@ -6,14 +6,20 @@ import * as AgoraToken from "agora-token";
 export class RtcTokenService {
   issueToken(channelName: string, uid: number, role: "publisher" | "subscriber" = "publisher", ttlSeconds = 3600) {
     const env = getEnv();
-    const appId = env.AGORA_APP_ID;
-    const appCertificate = env.AGORA_APP_CERTIFICATE;
+    const appId = env.AGORA_APP_ID?.trim() ?? "";
+    const appCertificate = env.AGORA_APP_CERTIFICATE?.trim() ?? "";
     const expiresAt = Math.floor(Date.now() / 1000) + ttlSeconds;
+    const hasRealAgoraConfig = Boolean(
+      appId
+      && appCertificate
+      && appId !== "..."
+      && appCertificate !== "...",
+    );
 
-    if (!appId || !appCertificate) {
+    if (!hasRealAgoraConfig) {
       return {
         token: `dev-${channelName}-${uid}-${expiresAt}`,
-        appId: appId || "",
+        appId: "",
         expiresAt,
       };
     }

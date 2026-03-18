@@ -15,12 +15,29 @@ const redisBlocking = new Redis(process.env["REDIS_URL"] ?? "redis://127.0.0.1:6
   maxRetriesPerRequest: null,
   lazyConnect: true,
 });
+const inMemoryQueue: string[] = [];
+const inMemoryDlq: string[] = [];
 
 let processed = 0;
 let succeeded = 0;
 let failed = 0;
 let retried = 0;
 let running = true;
+let redisReady = false;
+let loggedRedisUnavailable = false;
+
+redis.on("ready", () => {
+  redisReady = true;
+  loggedRedisUnavailable = false;
+});
+redis.on("close", () => {
+  redisReady = false;
+});
+redis.on("error", () => undefined);
+redisBlocking.on("close", () => {
+  redisReady = false;
+});
+redisBlocking.on("error", () => undefined);
 
 type DispatchJob = {
   notificationId?: string;
@@ -67,6 +84,92 @@ async function dispatch(job: DispatchJob) {
   return { deliveredAt: new Date().toISOString() };
 }
 
+function logRedisUnavailable() {
+  if (loggedRedisUnavailable) {
+    return;
+  }
+
+  loggedRedisUnavailable = true;
+  console.warn(`[${service}] Redis unavailable; using in-memory queues for local dev.`);
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function getQueueLength(): Promise<number> {
+  if (!redisReady) {
+    return inMemoryQueue.length;
+  }
+
+  return redis.llen(queueKey);
+}
+
+async function getDlqLength(): Promise<number> {
+  if (!redisReady) {
+    return inMemoryDlq.length;
+  }
+
+  return redis.llen(dlqKey);
+}
+
+async function pushQueue(payload: string): Promise<void> {
+  if (!redisReady) {
+    inMemoryQueue.unshift(payload);
+    return;
+  }
+
+  await redis.lpush(queueKey, payload);
+}
+
+async function pushDlq(payload: string): Promise<void> {
+  if (!redisReady) {
+    inMemoryDlq.unshift(payload);
+    return;
+  }
+
+  await redis.lpush(dlqKey, payload);
+}
+
+async function popDlq(): Promise<string | null> {
+  if (!redisReady) {
+    return inMemoryDlq.pop() ?? null;
+  }
+
+  return redis.rpop(dlqKey);
+}
+
+async function popQueue(): Promise<string | null> {
+  if (!redisReady) {
+    return inMemoryQueue.pop() ?? null;
+  }
+
+  const result = await redisBlocking.brpop(queueKey, 5);
+  return result?.[1] ?? null;
+}
+
+async function ensureRedisConnections(): Promise<boolean> {
+  if (redisReady) {
+    return true;
+  }
+
+  try {
+    if (redis.status !== "ready") {
+      await redis.connect();
+    }
+    if (redisBlocking.status !== "ready") {
+      await redisBlocking.connect();
+    }
+    redisReady = true;
+    loggedRedisUnavailable = false;
+    return true;
+  } catch {
+    redisReady = false;
+    logRedisUnavailable();
+    return false;
+  }
+}
+
 async function handleJob(raw: string) {
   processed += 1;
   let job: DispatchJob;
@@ -74,7 +177,7 @@ async function handleJob(raw: string) {
     job = JSON.parse(raw) as DispatchJob;
   } catch {
     failed += 1;
-    await redis.lpush(dlqKey, raw);
+    await pushDlq(raw);
     return;
   }
 
@@ -85,31 +188,40 @@ async function handleJob(raw: string) {
   } catch (error) {
     if (attempt < 3) {
       retried += 1;
-      await redis.lpush(queueKey, JSON.stringify({ ...job, attempt: attempt + 1, lastError: String(error) }));
+      await pushQueue(JSON.stringify({ ...job, attempt: attempt + 1, lastError: String(error) }));
       return;
     }
     failed += 1;
-    await redis.lpush(dlqKey, JSON.stringify({ ...job, attempt, lastError: String(error), failedAt: new Date().toISOString() }));
+    await pushDlq(JSON.stringify({ ...job, attempt, lastError: String(error), failedAt: new Date().toISOString() }));
   }
 }
 
 async function startWorkerLoop() {
-  await redis.connect();
-  await redisBlocking.connect();
   while (running) {
+    if (!(await ensureRedisConnections()) && inMemoryQueue.length === 0) {
+      await sleep(1_000);
+      continue;
+    }
+
     try {
-      const result = await redisBlocking.brpop(queueKey, 5);
-      if (!result) continue;
-      const [, payload] = result;
+      const payload = await popQueue();
+      if (!payload) {
+        await sleep(redisReady ? 0 : 250);
+        continue;
+      }
       await handleJob(payload);
     } catch (error) {
+      redisReady = false;
       console.error(`[${service}] worker loop error`, error);
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await sleep(500);
     }
   }
 }
 
-void startWorkerLoop();
+void startWorkerLoop().catch((error) => {
+  redisReady = false;
+  console.error(`[${service}] worker bootstrap error`, error);
+});
 
 const server = createServer((req, res) => {
   const url = req.url ?? "/";
@@ -117,11 +229,11 @@ const server = createServer((req, res) => {
 
   if (url === "/health" && method === "GET") {
     void (async () => {
-      const [queued, deadLetter] = await Promise.all([redis.llen(queueKey), redis.llen(dlqKey)]);
+      const [queued, deadLetter] = await Promise.all([getQueueLength(), getDlqLength()]);
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({
         service,
-        status: "ok",
+        status: redisReady ? "ok" : "degraded",
         startedAt,
         queue: { queued, deadLetter },
         counters: { processed, succeeded, failed, retried },
@@ -136,7 +248,7 @@ const server = createServer((req, res) => {
 
   if (url === "/metrics" && method === "GET") {
     void (async () => {
-      const [queued, deadLetter] = await Promise.all([redis.llen(queueKey), redis.llen(dlqKey)]);
+      const [queued, deadLetter] = await Promise.all([getQueueLength(), getDlqLength()]);
       res.writeHead(200, { "content-type": "text/plain; version=0.0.4" });
       res.end([
         `service_uptime_seconds{service="${service}"} ${Math.floor(process.uptime())}`,
@@ -162,7 +274,7 @@ const server = createServer((req, res) => {
         attempt: 1,
         queuedAt: new Date().toISOString(),
       } as DispatchJob;
-      await redis.lpush(queueKey, JSON.stringify(job));
+      await pushQueue(JSON.stringify(job));
       res.writeHead(202, { "content-type": "application/json" });
       res.end(JSON.stringify({ accepted: true }));
     })().catch((error) => {
@@ -178,9 +290,9 @@ const server = createServer((req, res) => {
       const limit = Math.max(1, Math.min(500, Number(parsed.searchParams.get("limit") ?? "100")));
       let moved = 0;
       for (let i = 0; i < limit; i++) {
-        const payload = await redis.rpop(dlqKey);
+        const payload = await popDlq();
         if (!payload) break;
-        await redis.lpush(queueKey, payload);
+        await pushQueue(payload);
         moved += 1;
       }
       res.writeHead(200, { "content-type": "application/json" });
@@ -204,7 +316,10 @@ for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, async () => {
     running = false;
     server.close(async () => {
-      await Promise.allSettled([redis.quit(), redisBlocking.quit()]);
+      await Promise.allSettled([
+        redis.status === "ready" ? redis.quit() : Promise.resolve("skipped"),
+        redisBlocking.status === "ready" ? redisBlocking.quit() : Promise.resolve("skipped"),
+      ]);
       process.exit(0);
     });
   });

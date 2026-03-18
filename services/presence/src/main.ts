@@ -6,8 +6,9 @@ import Redis from "ioredis";
 const service = process.env["SERVICE_NAME"] ?? "presence";
 const port = Number(process.env["PORT"] ?? "4103");
 const startedAt = new Date().toISOString();
-const redisUrl = process.env["REDIS_URL"] ?? "redis://127.0.0.1:6379";
+const redisUrl = process.env["REDIS_URL"];
 const ttlSeconds = Number(process.env["PRESENCE_TTL_SECONDS"] ?? "90");
+const inMemoryPresence = new Map<string, string>();
 
 let connectedSockets = 0;
 
@@ -16,7 +17,7 @@ const httpServer = createServer(async (req, res) => {
 
   if (url === "/health") {
     res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ service, status: "ok", startedAt, source: "redis-presence" }));
+    res.end(JSON.stringify({ service, status: "ok", startedAt, source: dataRedis ? "redis-presence" : "in-memory-presence" }));
     return;
   }
 
@@ -31,7 +32,11 @@ const httpServer = createServer(async (req, res) => {
 
   if (url.startsWith("/status/")) {
     const userId = url.replace("/status/", "").trim();
-    const status = userId ? await dataRedis.get(`presence:${userId}`) : null;
+    const status = userId
+      ? dataRedis
+        ? await dataRedis.get(`presence:${userId}`)
+        : inMemoryPresence.get(userId) ?? null
+      : null;
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ userId, status: status ?? "offline" }));
     return;
@@ -46,19 +51,35 @@ const io = new Server(httpServer, {
   transports: ["websocket", "polling"],
 });
 
-const dataRedis = new Redis(redisUrl);
-const pubClient = dataRedis.duplicate();
-const subClient = dataRedis.duplicate();
+const dataRedis = redisUrl ? new Redis(redisUrl) : null;
+const pubClient = dataRedis?.duplicate() ?? null;
+const subClient = dataRedis?.duplicate() ?? null;
 
-io.adapter(createAdapter(pubClient, subClient));
+dataRedis?.on("error", () => undefined);
+pubClient?.on("error", () => undefined);
+subClient?.on("error", () => undefined);
+
+if (pubClient && subClient) {
+  io.adapter(createAdapter(pubClient, subClient));
+} else {
+  console.warn(`[${service}] REDIS_URL not set; using in-memory presence state for local dev.`);
+}
 
 const setOnline = async (userId: string) => {
-  await dataRedis.set(`presence:${userId}`, "online", "EX", ttlSeconds);
+  if (dataRedis) {
+    await dataRedis.set(`presence:${userId}`, "online", "EX", ttlSeconds);
+  } else {
+    inMemoryPresence.set(userId, "online");
+  }
   io.emit("presence.status_changed", { userId, status: "online" });
 };
 
 const setOffline = async (userId: string) => {
-  await dataRedis.set(`presence:${userId}`, "offline", "EX", 15);
+  if (dataRedis) {
+    await dataRedis.set(`presence:${userId}`, "offline", "EX", 15);
+  } else {
+    inMemoryPresence.set(userId, "offline");
+  }
   io.emit("presence.status_changed", { userId, status: "offline" });
 };
 
@@ -74,7 +95,12 @@ io.on("connection", async (socket) => {
   await setOnline(userId);
 
   socket.on("presence.heartbeat", async () => {
-    await dataRedis.set(`presence:${userId}`, "online", "EX", ttlSeconds);
+    if (dataRedis) {
+      await dataRedis.set(`presence:${userId}`, "online", "EX", ttlSeconds);
+      return;
+    }
+
+    inMemoryPresence.set(userId, "online");
   });
 
   socket.on("presence.subscribe", (payload: { userIds: string[] }) => {
@@ -97,9 +123,11 @@ httpServer.listen(port, () => {
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, async () => {
     await new Promise<void>((resolve) => io.close(() => resolve()));
-    await pubClient.quit();
-    await subClient.quit();
-    await dataRedis.quit();
+    await Promise.allSettled([
+      pubClient ? pubClient.quit() : Promise.resolve("skipped"),
+      subClient ? subClient.quit() : Promise.resolve("skipped"),
+      dataRedis ? dataRedis.quit() : Promise.resolve("skipped"),
+    ]);
     httpServer.close(() => process.exit(0));
   });
 }

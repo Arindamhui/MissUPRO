@@ -2,13 +2,59 @@ import { Injectable } from "@nestjs/common";
 import { db } from "@missu/db";
 import {
   users, profiles, followers, userBlocks, accountDeletionRequests,
-  modelReviews, pushTokens, userLevels, levels, userBadges, badges,
+  modelReviews, pushTokens, userLevels, levels, userBadges, badges, userInboxPreferences,
 } from "@missu/db/schema";
 import { eq, and, desc, gt, lt, sql } from "drizzle-orm";
 import { getPresence, getPresenceBulk as redisGetPresenceBulk } from "@missu/utils";
 
+const DEFAULT_INBOX_PREFERENCES = {
+  dmPrivacyRule: "ALL_USERS",
+  allowLiveStreamLinks: true,
+} as const;
+
 @Injectable()
 export class UserService {
+  private userSchemaModePromise: Promise<"modern" | "legacy"> | null = null;
+  private followerSchemaModePromise: Promise<"modern" | "legacy"> | null = null;
+
+  private async getUserSchemaMode() {
+    if (!this.userSchemaModePromise) {
+      this.userSchemaModePromise = db.execute(sql`
+        select exists (
+          select 1
+          from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'users'
+            and column_name = 'display_name'
+        ) as has_display_name
+      `).then((result) => {
+        const value = result.rows[0] as { has_display_name?: boolean | string | number } | undefined;
+        return value?.has_display_name ? "modern" : "legacy";
+      });
+    }
+
+    return this.userSchemaModePromise;
+  }
+
+  private async getFollowerSchemaMode() {
+    if (!this.followerSchemaModePromise) {
+      this.followerSchemaModePromise = db.execute(sql`
+        select exists (
+          select 1
+          from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'followers'
+            and column_name = 'followed_user_id'
+        ) as has_followed_user_id
+      `).then((result) => {
+        const value = result.rows[0] as { has_followed_user_id?: boolean | string | number } | undefined;
+        return value?.has_followed_user_id ? "modern" : "legacy";
+      });
+    }
+
+    return this.followerSchemaModePromise;
+  }
+
   async getUserById(userId: string) {
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
     return user ?? null;
@@ -20,6 +66,28 @@ export class UserService {
   }
 
   async getMyProfile(userId: string) {
+    if (await this.getUserSchemaMode() === "legacy") {
+      const result = await db.execute(sql`
+        select
+          u.id,
+          u.email,
+          coalesce(p.display_name, u.username) as "displayName",
+          u.username,
+          p.avatar_url as "avatarUrl",
+          p.city,
+          'en'::text as "preferredLocale",
+          p.country,
+          p.bio,
+          trim(concat_ws(', ', p.city, p.country)) as "locationDisplay"
+        from users u
+        left join profiles p on p.user_id = u.id
+        where u.id = ${userId}::uuid
+        limit 1
+      `);
+
+      return (result.rows[0] as Record<string, unknown> | undefined) ?? null;
+    }
+
     const [result] = await db
       .select({
         id: users.id,
@@ -42,6 +110,38 @@ export class UserService {
   }
 
   async getPublicUserSummary(userId: string) {
+    if (await this.getUserSchemaMode() === "legacy") {
+      const result = await db.execute(sql`
+        select
+          u.id as "userId",
+          coalesce(p.display_name, u.username) as "displayName",
+          u.username,
+          p.avatar_url as "avatarUrl",
+          p.bio,
+          trim(concat_ws(', ', p.city, p.country)) as "locationDisplay",
+          coalesce(p.level, 1) as "currentLevel",
+          concat('Level ', coalesce(p.level, 1)) as "levelName"
+        from users u
+        left join profiles p on p.user_id = u.id
+        where u.id = ${userId}::uuid
+        limit 1
+      `);
+
+      const row = result.rows[0] as Record<string, unknown> | undefined;
+      if (!row) {
+        return null;
+      }
+
+      const presence = await getPresence(userId);
+      return {
+        ...row,
+        currentLevel: Number(row.currentLevel ?? 1),
+        levelName: row.levelName ?? "Level 1",
+        activeBadge: null,
+        presenceStatus: presence ?? "OFFLINE",
+      };
+    }
+
     const [result] = await db
       .select({
         userId: users.id,
@@ -84,6 +184,50 @@ export class UserService {
       activeBadge: activeBadge ?? null,
       presenceStatus: presence ?? "OFFLINE",
     };
+  }
+
+  async getInboxPreferences(userId: string) {
+    const [preferences] = await db
+      .select()
+      .from(userInboxPreferences)
+      .where(eq(userInboxPreferences.userId, userId))
+      .limit(1);
+
+    return preferences ?? {
+      id: null,
+      userId,
+      ...DEFAULT_INBOX_PREFERENCES,
+      createdAt: null,
+      updatedAt: null,
+    };
+  }
+
+  async updateInboxPreferences(
+    userId: string,
+    input: {
+      dmPrivacyRule?: "ALL_USERS" | "FOLLOWED_USERS" | "HIGHER_LEVEL_USERS";
+      allowLiveStreamLinks?: boolean;
+    },
+  ) {
+    const current = await this.getInboxPreferences(userId);
+    const [updated] = await db
+      .insert(userInboxPreferences)
+      .values({
+        userId,
+        dmPrivacyRule: input.dmPrivacyRule ?? current.dmPrivacyRule ?? DEFAULT_INBOX_PREFERENCES.dmPrivacyRule,
+        allowLiveStreamLinks: input.allowLiveStreamLinks ?? current.allowLiveStreamLinks ?? DEFAULT_INBOX_PREFERENCES.allowLiveStreamLinks,
+      })
+      .onConflictDoUpdate({
+        target: [userInboxPreferences.userId],
+        set: {
+          dmPrivacyRule: input.dmPrivacyRule ?? current.dmPrivacyRule ?? DEFAULT_INBOX_PREFERENCES.dmPrivacyRule,
+          allowLiveStreamLinks: input.allowLiveStreamLinks ?? current.allowLiveStreamLinks ?? DEFAULT_INBOX_PREFERENCES.allowLiveStreamLinks,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+
+    return updated;
   }
 
   async blockUser(userId: string, targetUserId: string, reason?: string) {
@@ -142,11 +286,29 @@ export class UserService {
   }
 
   async followUser(followerId: string, followingId: string) {
+    if (await this.getFollowerSchemaMode() === "legacy") {
+      await db.execute(sql`
+        insert into followers (follower_user_id, following_user_id, created_at)
+        values (${followerId}::uuid, ${followingId}::uuid, now())
+        on conflict do nothing
+      `);
+      return { success: true };
+    }
+
     await db.insert(followers).values({ followerUserId: followerId, followedUserId: followingId });
     return { success: true };
   }
 
   async unfollowUser(followerId: string, followingId: string) {
+    if (await this.getFollowerSchemaMode() === "legacy") {
+      await db.execute(sql`
+        delete from followers
+        where follower_user_id = ${followerId}::uuid
+          and following_user_id = ${followingId}::uuid
+      `);
+      return { success: true };
+    }
+
     await db
       .delete(followers)
       .where(
@@ -159,6 +321,18 @@ export class UserService {
   }
 
   async isFollowing(followerId: string, followingId: string) {
+    if (await this.getFollowerSchemaMode() === "legacy") {
+      const result = await db.execute(sql`
+        select id
+        from followers
+        where follower_user_id = ${followerId}::uuid
+          and following_user_id = ${followingId}::uuid
+        limit 1
+      `);
+
+      return { isFollowing: Boolean(result.rows[0]) };
+    }
+
     const [result] = await db
       .select({ id: followers.id })
       .from(followers)
@@ -169,6 +343,36 @@ export class UserService {
   }
 
   async listFollowers(userId: string, cursor?: string, limit = 30) {
+    if (await this.getFollowerSchemaMode() === "legacy") {
+      const results = await db.execute(sql`
+        select
+          f.id,
+          f.created_at as "createdAt",
+          u.id as "userId",
+          coalesce(p.display_name, u.username) as "displayName",
+          u.username,
+          p.avatar_url as "avatarUrl",
+          p.bio,
+          trim(concat_ws(', ', p.city, p.country)) as "locationDisplay"
+        from followers f
+        inner join users u on u.id = f.follower_user_id
+        left join profiles p on p.user_id = u.id
+        where f.following_user_id = ${userId}::uuid
+          ${cursor ? sql`and f.created_at < ${new Date(cursor)}` : sql``}
+        order by f.created_at desc
+        limit ${limit + 1}
+      `);
+
+      const rows = results.rows as Array<Record<string, unknown> & { createdAt?: Date | string }>;
+      const hasMore = rows.length > limit;
+      const items = hasMore ? rows.slice(0, -1) : rows;
+
+      return {
+        items,
+        nextCursor: hasMore ? new Date(String(items[items.length - 1]?.createdAt ?? new Date())).toISOString() : null,
+      };
+    }
+
     const query = db
       .select({
         id: followers.id,
@@ -202,6 +406,36 @@ export class UserService {
   }
 
   async listFollowing(userId: string, cursor?: string, limit = 30) {
+    if (await this.getFollowerSchemaMode() === "legacy") {
+      const results = await db.execute(sql`
+        select
+          f.id,
+          f.created_at as "createdAt",
+          u.id as "userId",
+          coalesce(p.display_name, u.username) as "displayName",
+          u.username,
+          p.avatar_url as "avatarUrl",
+          p.bio,
+          trim(concat_ws(', ', p.city, p.country)) as "locationDisplay"
+        from followers f
+        inner join users u on u.id = f.following_user_id
+        left join profiles p on p.user_id = u.id
+        where f.follower_user_id = ${userId}::uuid
+          ${cursor ? sql`and f.created_at < ${new Date(cursor)}` : sql``}
+        order by f.created_at desc
+        limit ${limit + 1}
+      `);
+
+      const rows = results.rows as Array<Record<string, unknown> & { createdAt?: Date | string }>;
+      const hasMore = rows.length > limit;
+      const items = hasMore ? rows.slice(0, -1) : rows;
+
+      return {
+        items,
+        nextCursor: hasMore ? new Date(String(items[items.length - 1]?.createdAt ?? new Date())).toISOString() : null,
+      };
+    }
+
     const query = db
       .select({
         id: followers.id,
@@ -244,6 +478,71 @@ export class UserService {
       locationDisplay?: string | null;
     },
   ) {
+    if (await this.getUserSchemaMode() === "legacy") {
+      const [existingProfile] = await db.execute(sql`
+        select user_id as "userId", country
+        from profiles
+        where user_id = ${userId}::uuid
+        limit 1
+      `).then((result) => result.rows as Array<{ userId?: string; country?: string | null }>);
+
+      const nextCity = input.city !== undefined
+        ? input.city
+        : input.locationDisplay !== undefined
+          ? input.locationDisplay
+          : existingProfile?.country ?? null;
+      const nextCountry = existingProfile?.country ?? null;
+
+      if (existingProfile?.userId) {
+        await db.execute(sql`
+          update profiles
+          set display_name = coalesce(${input.displayName ?? null}, display_name),
+              avatar_url = ${input.avatarUrl ?? null},
+              city = ${nextCity ?? null},
+              bio = ${input.bio ?? null},
+              updated_at = now()
+          where user_id = ${userId}::uuid
+        `);
+      } else {
+        await db.execute(sql`
+          insert into profiles (
+            id,
+            user_id,
+            display_name,
+            bio,
+            avatar_url,
+            country,
+            city,
+            preferred_timezone,
+            level,
+            xp,
+            follower_count,
+            following_count,
+            created_at,
+            updated_at
+          )
+          values (
+            gen_random_uuid(),
+            ${userId}::uuid,
+            ${input.displayName ?? null},
+            ${input.bio ?? null},
+            ${input.avatarUrl ?? null},
+            ${nextCountry},
+            ${nextCity ?? null},
+            'UTC',
+            1,
+            0,
+            0,
+            0,
+            now(),
+            now()
+          )
+        `);
+      }
+
+      return this.getMyProfile(userId);
+    }
+
     const userPatch: Record<string, string | Date | null | undefined> = {};
     if (input.displayName !== undefined) userPatch.displayName = input.displayName;
     if (input.avatarUrl !== undefined) userPatch.avatarUrl = input.avatarUrl;

@@ -1,6 +1,31 @@
 import Redis from "ioredis";
 
 let _redis: Redis | null = null;
+const inMemoryLocks = new Map<string, { token: string; expiresAt: number }>();
+
+function acquireLocalLock(key: string, ttlMs: number): string | null {
+  const lockKey = `lock:${key}`;
+  const now = Date.now();
+  const existing = inMemoryLocks.get(lockKey);
+  if (existing && existing.expiresAt > now) {
+    return null;
+  }
+
+  const token = crypto.randomUUID();
+  inMemoryLocks.set(lockKey, { token, expiresAt: now + ttlMs });
+  return token;
+}
+
+function releaseLocalLock(key: string, token: string): boolean {
+  const lockKey = `lock:${key}`;
+  const existing = inMemoryLocks.get(lockKey);
+  if (!existing || existing.token !== token) {
+    return false;
+  }
+
+  inMemoryLocks.delete(lockKey);
+  return true;
+}
 
 export function getRedis(): Redis {
   if (!_redis) {
@@ -12,6 +37,7 @@ export function getRedis(): Redis {
       enableReadyCheck: true,
       lazyConnect: true,
     });
+    _redis.on("error", () => undefined);
   }
   return _redis;
 }
@@ -61,18 +87,30 @@ export async function acquireLock(
   key: string,
   ttlMs: number,
 ): Promise<string | null> {
+  if (!process.env["REDIS_URL"]) {
+    return acquireLocalLock(key, ttlMs);
+  }
+
   const token = crypto.randomUUID();
-  const result = await getRedis().set(
-    `lock:${key}`,
-    token,
-    "PX",
-    ttlMs,
-    "NX",
-  );
-  return result === "OK" ? token : null;
+  try {
+    const result = await getRedis().set(
+      `lock:${key}`,
+      token,
+      "PX",
+      ttlMs,
+      "NX",
+    );
+    return result === "OK" ? token : null;
+  } catch {
+    return acquireLocalLock(key, ttlMs);
+  }
 }
 
 export async function releaseLock(key: string, token: string): Promise<boolean> {
+  if (!process.env["REDIS_URL"]) {
+    return releaseLocalLock(key, token);
+  }
+
   const script = `
     if redis.call("get", KEYS[1]) == ARGV[1] then
       return redis.call("del", KEYS[1])
@@ -80,8 +118,12 @@ export async function releaseLock(key: string, token: string): Promise<boolean> 
       return 0
     end
   `;
-  const result = await getRedis().eval(script, 1, `lock:${key}`, token);
-  return result === 1;
+  try {
+    const result = await getRedis().eval(script, 1, `lock:${key}`, token);
+    return result === 1;
+  } catch {
+    return releaseLocalLock(key, token);
+  }
 }
 
 // ─── Rate Limiter (Sliding Window) ───

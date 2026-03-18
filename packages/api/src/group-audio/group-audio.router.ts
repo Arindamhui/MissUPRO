@@ -15,6 +15,8 @@ export class GroupAudioRouter {
         .mutation(async ({ ctx, input }) => this.groupAudioService.createRoom(ctx.userId, {
           title: input.title,
           description: input.description,
+          roomType: input.roomType,
+          coinsPerMinute: input.coinsPerMinute,
           topicTagsJson: input.tags,
           maxSpeakers: input.maxSpeakers,
           maxListeners: input.maxListeners,

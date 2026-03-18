@@ -8,6 +8,17 @@ const startedAt = new Date().toISOString();
 const redisUrl = process.env["REDIS_URL"] ?? "redis://127.0.0.1:6379";
 
 const redis = new Redis(redisUrl, { maxRetriesPerRequest: 3, lazyConnect: true });
+let redisReady = false;
+let loggedRedisUnavailable = false;
+
+redis.on("ready", () => {
+  redisReady = true;
+  loggedRedisUnavailable = false;
+});
+redis.on("close", () => {
+  redisReady = false;
+});
+redis.on("error", () => undefined);
 
 let eventsIngested = 0;
 let eventsFlushed = 0;
@@ -33,6 +44,7 @@ const eventBuffer: AnalyticsEvent[] = [];
 
 async function flushBuffer() {
   if (eventBuffer.length === 0) return;
+  if (!redisReady) return;
   const batch = eventBuffer.splice(0, eventBuffer.length);
   try {
     const pipeline = redis.pipeline();
@@ -78,7 +90,14 @@ async function parseJsonBody(req: import("node:http").IncomingMessage): Promise<
   });
 }
 
-void redis.connect().catch((e) => console.error(`[${service}] Redis connect error`, e));
+void redis.connect().catch(() => {
+  if (loggedRedisUnavailable) {
+    return;
+  }
+
+  loggedRedisUnavailable = true;
+  console.warn(`[${service}] Redis unavailable at ${redisUrl}; continuing in degraded mode.`);
+});
 
 const server = createServer((req, res) => {
   const url = req.url ?? "/";

@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { db } from "@missu/db";
-import { callSessions, callBillingTicks, models, modelStats, systemSettings, calls, callHistory, modelCallStats } from "@missu/db/schema";
+import { callSessions, callBillingTicks, models, modelStats, systemSettings, calls, callHistory, modelCallStats, modelApplications, profiles } from "@missu/db/schema";
 import { eq, and, desc, or, isNull, gte, lte, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { calculateCallPrice } from "@missu/utils";
@@ -15,6 +15,11 @@ import { users } from "@missu/db/schema";
 
 @Injectable()
 export class CallService {
+  private modelSchemaModePromise: Promise<"modern" | "legacy"> | null = null;
+  private modelStatsSchemaModePromise: Promise<"modern" | "legacy"> | null = null;
+  private userSchemaModePromise: Promise<"modern" | "legacy"> | null = null;
+  private callSessionSchemaModePromise: Promise<"modern" | "legacy"> | null = null;
+
   constructor(
     private readonly rtcTokenService: RtcTokenService,
     private readonly modelService: ModelService,
@@ -22,6 +27,128 @@ export class CallService {
     private readonly configService: ConfigService,
     private readonly notificationService: NotificationService,
   ) {}
+
+  private async getModelSchemaMode() {
+    if (!this.modelSchemaModePromise) {
+      this.modelSchemaModePromise = db.execute(sql`
+        select exists (
+          select 1
+          from information_schema.tables
+          where table_schema = 'public'
+            and table_name = 'models'
+        ) as has_models
+      `).then((result) => {
+        const value = result.rows[0] as { has_models?: boolean | string | number } | undefined;
+        return value?.has_models ? "modern" : "legacy";
+      });
+    }
+
+    return this.modelSchemaModePromise;
+  }
+
+  private async getModelStatsSchemaMode() {
+    if (!this.modelStatsSchemaModePromise) {
+      this.modelStatsSchemaModePromise = db.execute(sql`
+        select exists (
+          select 1
+          from information_schema.tables
+          where table_schema = 'public'
+            and table_name = 'model_stats'
+        ) as has_model_stats
+      `).then((result) => {
+        const value = result.rows[0] as { has_model_stats?: boolean | string | number } | undefined;
+        return value?.has_model_stats ? "modern" : "legacy";
+      });
+    }
+
+    return this.modelStatsSchemaModePromise;
+  }
+
+  private async getUserSchemaMode() {
+    if (!this.userSchemaModePromise) {
+      this.userSchemaModePromise = db.execute(sql`
+        select exists (
+          select 1
+          from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'users'
+            and column_name = 'display_name'
+        ) as has_display_name
+      `).then((result) => {
+        const value = result.rows[0] as { has_display_name?: boolean | string | number } | undefined;
+        return value?.has_display_name ? "modern" : "legacy";
+      });
+    }
+
+    return this.userSchemaModePromise;
+  }
+
+  private async getCallSessionSchemaMode() {
+    if (!this.callSessionSchemaModePromise) {
+      this.callSessionSchemaModePromise = db.execute(sql`
+        select exists (
+          select 1
+          from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'call_sessions'
+            and column_name = 'model_level_snapshot'
+        ) as has_model_level_snapshot
+      `).then((result) => {
+        const value = result.rows[0] as { has_model_level_snapshot?: boolean | string | number } | undefined;
+        return value?.has_model_level_snapshot ? "modern" : "legacy";
+      });
+    }
+
+    return this.callSessionSchemaModePromise;
+  }
+
+  private getLegacyCallType(callType: "AUDIO" | "VIDEO") {
+    return callType === "AUDIO" ? "VOICE" : "VIDEO";
+  }
+
+  private normalizeCallSessionRow(row: Record<string, unknown>) {
+    return {
+      ...row,
+      coinsPerMinuteSnapshot: Number(row.coinsPerMinuteSnapshot ?? 0),
+      totalDurationSeconds: Number(row.totalDurationSeconds ?? 0),
+      billableMinutes: Number(row.billableMinutes ?? 0),
+      totalCoinsSpent: Number(row.totalCoinsSpent ?? 0),
+      minutesCreditedToModel: Number(row.minutesCreditedToModel ?? 0),
+      startedAt: row.startedAt ? new Date(String(row.startedAt)) : null,
+      endedAt: row.endedAt ? new Date(String(row.endedAt)) : null,
+      createdAt: row.createdAt ? new Date(String(row.createdAt)) : null,
+    } as unknown as typeof callSessions.$inferSelect;
+  }
+
+  private async getCallSessionById(sessionId: string) {
+    if (await this.getCallSessionSchemaMode() === "legacy") {
+      const result = await db.execute(sql`
+        select
+          id,
+          caller_user_id as "callerUserId",
+          model_user_id as "modelUserId",
+          call_type as "callType",
+          status,
+          end_reason as "endReason",
+          coins_per_minute_snapshot as "coinsPerMinuteSnapshot",
+          total_duration_seconds as "totalDurationSeconds",
+          billable_minutes as "billableMinutes",
+          total_coins_spent as "totalCoinsSpent",
+          minutes_credited_to_model as "minutesCreditedToModel",
+          started_at as "startedAt",
+          ended_at as "endedAt",
+          created_at as "createdAt"
+        from call_sessions
+        where id = ${sessionId}::uuid
+        limit 1
+      `);
+      return result.rows[0] ? this.normalizeCallSessionRow(result.rows[0] as Record<string, unknown>) : null;
+    }
+
+    const [session] = await db.select().from(callSessions)
+      .where(eq(callSessions.id, sessionId)).limit(1);
+    return session ?? null;
+  }
 
   private async getCallMonetizationPolicy() {
     const [pricingSetting, commissionSetting] = await Promise.all([
@@ -61,10 +188,20 @@ export class CallService {
   }
 
   private async resolveCoinsPerMinute(modelUserId: string, callType: "AUDIO" | "VIDEO") {
-    const [mStats] = await db.select().from(modelStats)
-      .where(eq(modelStats.modelUserId, modelUserId)).limit(1);
+    const modelStatsMode = await this.getModelStatsSchemaMode();
+    const [modernStats, legacyProfileResult] = await Promise.all([
+      modelStatsMode === "modern"
+        ? db.select().from(modelStats).where(eq(modelStats.modelUserId, modelUserId)).limit(1)
+        : Promise.resolve([] as typeof modelStats.$inferSelect[]),
+      modelStatsMode === "legacy"
+        ? db.execute(sql`select level from profiles where user_id = ${modelUserId}::uuid limit 1`)
+        : Promise.resolve({ rows: [] } as { rows: unknown[] }),
+    ]);
+    const mStats = modernStats[0] ?? null;
+    const legacyProfile = (legacyProfileResult.rows[0] as { level?: number | string } | undefined) ?? null;
     const policy = await this.getCallMonetizationPolicy();
-    const modelLevel = mStats?.currentLevel ?? null;
+    const modelLevelRaw = mStats?.currentLevel ?? legacyProfile?.level ?? null;
+    const modelLevel = modelLevelRaw == null ? null : Number(modelLevelRaw);
     const rawCoinsPerMinute = calculateCallPrice(callType, modelLevel, {
       levelBasedEnabled: policy.modelLevelMultiplierEnabled,
       formulaType: LEVEL_PRICING.FORMULA_TYPE,
@@ -119,7 +256,9 @@ export class CallService {
 
   private async ensureModelCallStats(modelUserId: string) {
     await db.insert(modelCallStats).values({ modelUserId }).onConflictDoNothing();
-    await db.insert(modelStats).values({ modelUserId }).onConflictDoNothing();
+    if (await this.getModelStatsSchemaMode() === "modern") {
+      await db.insert(modelStats).values({ modelUserId }).onConflictDoNothing();
+    }
   }
 
   private async creditModelMinutes(session: typeof callSessions.$inferSelect, chargedMinutes: number, endedAt: Date) {
@@ -129,23 +268,24 @@ export class CallService {
 
     await this.ensureModelCallStats(session.modelUserId);
 
-    const audioMinutes = session.callType === "AUDIO" ? chargedMinutes : 0;
-    const videoMinutes = session.callType === "VIDEO" ? chargedMinutes : 0;
+    const sessionCallType = String(session.callType);
+    const audioMinutes = sessionCallType === "AUDIO" || sessionCallType === "VOICE" ? chargedMinutes : 0;
+    const videoMinutes = sessionCallType === "VIDEO" ? chargedMinutes : 0;
 
-    await db.transaction(async (tx) => {
-      await tx
-        .update(modelCallStats)
-        .set({
-          audioMinutesTotal: sql`${modelCallStats.audioMinutesTotal} + ${audioMinutes}`,
-          videoMinutesTotal: sql`${modelCallStats.videoMinutesTotal} + ${videoMinutes}`,
-          audioMinutesPending: sql`${modelCallStats.audioMinutesPending} + ${audioMinutes}`,
-          videoMinutesPending: sql`${modelCallStats.videoMinutesPending} + ${videoMinutes}`,
-          lastCallAt: endedAt,
-          updatedAt: endedAt,
-        })
-        .where(eq(modelCallStats.modelUserId, session.modelUserId));
+    await db
+      .update(modelCallStats)
+      .set({
+        audioMinutesTotal: sql`${modelCallStats.audioMinutesTotal} + ${audioMinutes}`,
+        videoMinutesTotal: sql`${modelCallStats.videoMinutesTotal} + ${videoMinutes}`,
+        audioMinutesPending: sql`${modelCallStats.audioMinutesPending} + ${audioMinutes}`,
+        videoMinutesPending: sql`${modelCallStats.videoMinutesPending} + ${videoMinutes}`,
+        lastCallAt: endedAt,
+        updatedAt: endedAt,
+      })
+      .where(eq(modelCallStats.modelUserId, session.modelUserId));
 
-      await tx
+    if (await this.getModelStatsSchemaMode() === "modern") {
+      await db
         .update(modelStats)
         .set({
           totalAudioMinutes: sql`${modelStats.totalAudioMinutes} + ${audioMinutes}`,
@@ -154,14 +294,14 @@ export class CallService {
           updatedAt: endedAt,
         })
         .where(eq(modelStats.modelUserId, session.modelUserId));
+    }
 
-      await tx
-        .update(callSessions)
-        .set({
-          minutesCreditedToModel: true,
-        })
-        .where(eq(callSessions.id, session.id));
-    });
+    await db
+      .update(callSessions)
+      .set({
+        minutesCreditedToModel: true,
+      })
+      .where(eq(callSessions.id, session.id));
   }
 
   private async upsertCallHistory(
@@ -186,6 +326,32 @@ export class CallService {
   }
 
   private async getParticipantSession(sessionId: string, userId: string) {
+    if (await this.getCallSessionSchemaMode() === "legacy") {
+      const result = await db.execute(sql`
+        select
+          id,
+          caller_user_id as "callerUserId",
+          model_user_id as "modelUserId",
+          call_type as "callType",
+          status,
+          end_reason as "endReason",
+          coins_per_minute_snapshot as "coinsPerMinuteSnapshot",
+          total_duration_seconds as "totalDurationSeconds",
+          billable_minutes as "billableMinutes",
+          total_coins_spent as "totalCoinsSpent",
+          minutes_credited_to_model as "minutesCreditedToModel",
+          started_at as "startedAt",
+          ended_at as "endedAt",
+          created_at as "createdAt"
+        from call_sessions
+        where id = ${sessionId}::uuid
+          and (caller_user_id = ${userId}::uuid or model_user_id = ${userId}::uuid)
+        limit 1
+      `);
+
+      return result.rows[0] ? this.normalizeCallSessionRow(result.rows[0] as Record<string, unknown>) : null;
+    }
+
     const [session] = await db.select().from(callSessions)
       .where(and(
         eq(callSessions.id, sessionId),
@@ -219,11 +385,19 @@ export class CallService {
     const enforceSchedule = setting ? Boolean(setting.valueJson) : true;
     const availability = await this.modelService.getAvailabilitySummary(modelUserId);
 
-    const [model] = await db.select().from(models)
-      .where(eq(models.userId, modelUserId))
-      .limit(1);
+    const modelSchemaMode = await this.getModelSchemaMode();
+    const [modernModels, legacyApplications] = await Promise.all([
+      modelSchemaMode === "modern"
+        ? db.select().from(models).where(eq(models.userId, modelUserId)).limit(1)
+        : Promise.resolve([] as typeof models.$inferSelect[]),
+      modelSchemaMode === "legacy"
+        ? db.select().from(modelApplications).where(and(eq(modelApplications.userId, modelUserId), eq(modelApplications.status, "APPROVED" as any))).limit(1)
+        : Promise.resolve([] as typeof modelApplications.$inferSelect[]),
+    ]);
+    const model = modernModels[0] ?? null;
+    const legacyApplication = legacyApplications[0] ?? null;
 
-    if (!model || !model.approvedAt) {
+    if ((!model || !model.approvedAt) && !legacyApplication) {
       throw new TRPCError({ code: "BAD_REQUEST", message: "Model is unavailable" });
     }
 
@@ -247,6 +421,7 @@ export class CallService {
 
     const sessionId = randomUUID();
     const callId = randomUUID();
+    const legacyCallType = this.getLegacyCallType(callType);
     const metadataJson = {
       billingMode: "PER_MINUTE",
       minimumBalanceCoinsRequired,
@@ -254,8 +429,26 @@ export class CallService {
       creatorPayoutPercent: policy.creatorPayoutPercent,
     };
 
-    await db.transaction(async (tx) => {
-      await tx.insert(callSessions).values({
+    if (await this.getCallSessionSchemaMode() === "legacy") {
+      await db.execute(sql`
+        insert into call_sessions (
+          id,
+          caller_user_id,
+          model_user_id,
+          call_type,
+          status,
+          coins_per_minute_snapshot
+        ) values (
+          ${sessionId}::uuid,
+          ${callerUserId}::uuid,
+          ${modelUserId}::uuid,
+          ${legacyCallType},
+          'REQUESTED',
+          ${coinsPerMinute}
+        )
+      `);
+    } else {
+      await db.insert(callSessions).values({
         id: sessionId,
         callerUserId,
         modelUserId,
@@ -264,19 +457,50 @@ export class CallService {
         coinsPerMinuteSnapshot: coinsPerMinute,
         modelLevelSnapshot: modelLevel,
       });
+    }
 
-      await tx.insert(calls).values({
-        id: callId,
-        callerUserId,
-        modelUserId,
-        callType: callType as any,
-        status: "REQUESTED" as any,
-        callSessionId: sessionId,
-        metadataJson,
-      });
-    });
+    try {
+      if (await this.getCallSessionSchemaMode() === "legacy") {
+        await db.execute(sql`
+          insert into calls (
+            id,
+            caller_user_id,
+            model_user_id,
+            call_type,
+            status,
+            requested_at,
+            call_session_id,
+            metadata_json,
+            created_at
+          ) values (
+            ${callId}::uuid,
+            ${callerUserId}::uuid,
+            ${modelUserId}::uuid,
+            ${legacyCallType},
+            'REQUESTED',
+            now(),
+            ${sessionId}::uuid,
+            ${JSON.stringify(metadataJson)}::jsonb,
+            now()
+          )
+        `);
+      } else {
+        await db.insert(calls).values({
+          id: callId,
+          callerUserId,
+          modelUserId,
+          callType: callType as any,
+          status: "REQUESTED" as any,
+          callSessionId: sessionId,
+          metadataJson,
+        });
+      }
+    } catch (error) {
+      await db.delete(callSessions).where(eq(callSessions.id, sessionId));
+      throw error;
+    }
 
-    const [session] = await db.select().from(callSessions).where(eq(callSessions.id, sessionId)).limit(1);
+    const session = await this.getCallSessionById(sessionId);
 
     return {
       ...session!,
@@ -310,10 +534,11 @@ export class CallService {
   }
 
   async acceptCall(sessionId: string, modelUserId: string) {
-    const [session] = await db.select().from(callSessions)
-      .where(and(eq(callSessions.id, sessionId), eq(callSessions.modelUserId, modelUserId)))
-      .limit(1);
+    const session = await this.getCallSessionById(sessionId);
     if (!session || session.status !== "REQUESTED") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid call session" });
+    }
+    if (session.modelUserId !== modelUserId) {
       throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid call session" });
     }
 
@@ -352,10 +577,11 @@ export class CallService {
   }
 
   async rejectCall(sessionId: string, modelUserId: string) {
-    const [session] = await db.select().from(callSessions)
-      .where(and(eq(callSessions.id, sessionId), eq(callSessions.modelUserId, modelUserId)))
-      .limit(1);
+    const session = await this.getCallSessionById(sessionId);
     if (!session || session.status !== "REQUESTED") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid call session" });
+    }
+    if (session.modelUserId !== modelUserId) {
       throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid call session" });
     }
 
@@ -372,18 +598,29 @@ export class CallService {
       failureReason: "rejected",
     }).where(eq(calls.callSessionId, sessionId));
 
-    const [updatedSession] = await db.select().from(callSessions).where(eq(callSessions.id, sessionId)).limit(1);
+    const updatedSession = await this.getCallSessionById(sessionId);
     const callRecord = await this.getOrCreateCallRecord(updatedSession!);
     await this.upsertCallHistory(updatedSession!, callRecord, "FAILED");
 
-    const [modelProfile] = await db
-      .select({
-        displayName: users.displayName,
-        username: users.username,
-      })
-      .from(users)
-      .where(eq(users.id, modelUserId))
-      .limit(1);
+    const modelProfile = (await this.getUserSchemaMode()) === "legacy"
+      ? await db.execute(sql`
+          select
+            coalesce(p.display_name, u.username) as "displayName",
+            u.username
+          from users u
+          left join profiles p on p.user_id = u.id
+          where u.id = ${modelUserId}::uuid
+          limit 1
+        `).then((result) => result.rows[0] as { displayName?: string; username?: string } | undefined)
+      : await db
+          .select({
+            displayName: users.displayName,
+            username: users.username,
+          })
+          .from(users)
+          .where(eq(users.id, modelUserId))
+          .limit(1)
+          .then((rows) => rows[0]);
 
     const modelName = modelProfile?.displayName ?? modelProfile?.username ?? "The model";
     await this.notificationService.createNotification(
@@ -403,8 +640,7 @@ export class CallService {
   }
 
   async refreshRtcToken(sessionId: string, role: "publisher" | "subscriber" = "subscriber") {
-    const [session] = await db.select().from(callSessions)
-      .where(eq(callSessions.id, sessionId)).limit(1);
+    const session = await this.getCallSessionById(sessionId);
 
     if (!session) {
       throw new TRPCError({ code: "NOT_FOUND", message: "Call session not found" });
@@ -456,8 +692,7 @@ export class CallService {
   }
 
   async endCall(sessionId: string, reason?: string, options?: { skipOutstandingDebit?: boolean; endedAt?: Date }) {
-    const [session] = await db.select().from(callSessions)
-      .where(eq(callSessions.id, sessionId)).limit(1);
+    const session = await this.getCallSessionById(sessionId);
     if (!session) throw new TRPCError({ code: "NOT_FOUND" });
 
     if (session.status === "ENDED" || session.status === "FAILED") {
@@ -518,7 +753,7 @@ export class CallService {
       status: "ENDED" as any,
     }).where(eq(calls.callSessionId, sessionId));
 
-    const [updatedSession] = await db.select().from(callSessions).where(eq(callSessions.id, sessionId)).limit(1);
+    const updatedSession = await this.getCallSessionById(sessionId);
     const callRecord = await this.getOrCreateCallRecord(updatedSession!);
     await this.creditModelMinutes(updatedSession!, chargedMinutes, endedAt);
     await this.upsertCallHistory(updatedSession!, callRecord, "ENDED");
@@ -527,8 +762,7 @@ export class CallService {
   }
 
   async processBillingTick(sessionId: string, tickNumber: number, _userBalanceAfter: number) {
-    const [session] = await db.select().from(callSessions)
-      .where(eq(callSessions.id, sessionId)).limit(1);
+    const session = await this.getCallSessionById(sessionId);
     if (!session || session.status !== "ACTIVE") return null;
 
     const [existingTick] = await db.select().from(callBillingTicks)
@@ -595,8 +829,7 @@ export class CallService {
   }
 
   async getBillingState(sessionId: string) {
-    const [session] = await db.select().from(callSessions)
-      .where(eq(callSessions.id, sessionId)).limit(1);
+    const session = await this.getCallSessionById(sessionId);
     if (!session) return null;
 
     const ticks = await db.select().from(callBillingTicks)

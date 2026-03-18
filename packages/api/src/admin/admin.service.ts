@@ -41,6 +41,10 @@ function buildGiftCode(name: string) {
 
 @Injectable()
 export class AdminService {
+  private adminUserSchemaModePromise: Promise<"modern" | "legacy"> | null = null;
+  private adminModelSchemaModePromise: Promise<"modern" | "legacy"> | null = null;
+  private adminLogSchemaModePromise: Promise<"modern" | "legacy"> | null = null;
+
   constructor(
     private readonly pkService: PkService,
     private readonly walletService: WalletService,
@@ -55,8 +59,99 @@ export class AdminService {
     private readonly modelService: ModelService,
   ) {}
 
+  private async getAdminUserSchemaMode() {
+    if (!this.adminUserSchemaModePromise) {
+      this.adminUserSchemaModePromise = db.execute(sql`
+        select exists (
+          select 1
+          from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'users'
+            and column_name = 'status'
+        ) as has_status
+      `).then((result) => {
+        const value = result.rows[0] as { has_status?: boolean | string | number } | undefined;
+        return value?.has_status ? "modern" : "legacy";
+      });
+    }
+
+    return this.adminUserSchemaModePromise;
+  }
+
+  private async getAdminModelSchemaMode() {
+    if (!this.adminModelSchemaModePromise) {
+      this.adminModelSchemaModePromise = db.execute(sql`
+        select exists (
+          select 1
+          from information_schema.tables
+          where table_schema = 'public'
+            and table_name = 'models'
+        ) as has_models
+      `).then((result) => {
+        const value = result.rows[0] as { has_models?: boolean | string | number } | undefined;
+        return value?.has_models ? "modern" : "legacy";
+      });
+    }
+
+    return this.adminModelSchemaModePromise;
+  }
+
+  private async getAdminLogSchemaMode() {
+    if (!this.adminLogSchemaModePromise) {
+      this.adminLogSchemaModePromise = db.execute(sql`
+        select exists (
+          select 1
+          from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'admin_logs'
+            and column_name = 'admin_id'
+        ) as has_admin_id
+      `).then((result) => {
+        const value = result.rows[0] as { has_admin_id?: boolean | string | number } | undefined;
+        return value?.has_admin_id ? "modern" : "legacy";
+      });
+    }
+
+    return this.adminLogSchemaModePromise;
+  }
+
   // ─── User Management ───
   async listUsers(cursor?: string, limit = 20, search?: string) {
+    if (await this.getAdminUserSchemaMode() === "legacy") {
+      const offset = cursor ? decodeCursor(cursor) : 0;
+      const results = await db.execute(sql`
+        select
+          u.id,
+          u.email,
+          u.role,
+          case
+            when u.is_banned then 'BANNED'
+            when u.is_suspended then 'SUSPENDED'
+            else 'ACTIVE'
+          end as status,
+          coalesce(p.display_name, u.username) as "displayName",
+          p.avatar_url as "avatarUrl",
+          u.created_at as "createdAt"
+        from users u
+        left join profiles p on p.user_id = u.id
+        where (${search
+          ? sql`coalesce(p.display_name, u.username, '') ilike ${`%${search}%`}
+              or coalesce(u.username, '') ilike ${`%${search}%`}
+              or coalesce(u.email, '') ilike ${`%${search}%`}`
+          : sql`true`})
+        order by u.created_at desc
+        limit ${limit + 1}
+        offset ${offset}
+      `);
+
+      const rows = results.rows as Array<Record<string, unknown>>;
+      const hasMore = rows.length > limit;
+      return {
+        items: hasMore ? rows.slice(0, limit) : rows,
+        nextCursor: hasMore ? encodeCursor(offset + limit) : null,
+      };
+    }
+
     const offset = cursor ? decodeCursor(cursor) : 0;
     const conditions: any[] = [];
     if (search) conditions.push(like(users.displayName, `%${search}%`));
@@ -85,6 +180,24 @@ export class AdminService {
   }
 
   async updateUserStatus(userId: string, status: string, adminId: string) {
+    if (await this.getAdminUserSchemaMode() === "legacy") {
+      const normalized = status.trim().toUpperCase();
+      const isBanned = normalized === "BANNED";
+      const isSuspended = normalized === "SUSPENDED";
+      const result = await db.execute(sql`
+        update users
+        set
+          is_banned = ${isBanned},
+          is_suspended = ${isSuspended},
+          updated_at = now()
+        where id = ${userId}::uuid
+        returning *
+      `);
+      const updated = result.rows[0] ?? null;
+      await this.logAction(adminId, "user_status_update", { userId, status: normalized });
+      return updated;
+    }
+
     const [updated] = await db.update(users).set({ status: status as any, updatedAt: new Date() }).where(eq(users.id, userId)).returning();
     await this.logAction(adminId, "user_status_update", { userId, status });
     return updated;
@@ -119,7 +232,9 @@ export class AdminService {
     if (!app) throw new Error("Application not found");
 
     await db.update(modelApplications).set({ status: "APPROVED" as any, reviewedByAdminId: adminId, reviewedAt: new Date() }).where(eq(modelApplications.id, applicationId));
-    await db.insert(models).values({ userId: app.userId, approvedAt: new Date(), approvedByAdminId: adminId } as any).onConflictDoNothing();
+    if (await this.getAdminModelSchemaMode() === "modern") {
+      await db.insert(models).values({ userId: app.userId, approvedAt: new Date(), approvedByAdminId: adminId } as any).onConflictDoNothing();
+    }
     await db.update(users).set({ role: "MODEL" as any }).where(eq(users.id, app.userId));
 
     await this.logAction(adminId, "model_application_approve", { applicationId, userId: app.userId });
@@ -133,6 +248,62 @@ export class AdminService {
   }
 
   async listModels(status?: string, cursor?: string, limit = 20) {
+    if (await this.getAdminModelSchemaMode() === "legacy") {
+      const offset = cursor ? decodeCursor(cursor) : 0;
+      const normalizedStatus = status?.trim().toUpperCase();
+      const results = await db.execute(sql`
+        select
+          u.id,
+          u.id as "modelId",
+          coalesce(p.display_name, u.username) as "displayName",
+          coalesce(mcs.audio_minutes_total, 0) as "totalAudioMinutes",
+          coalesce(mcs.video_minutes_total, 0) as "totalVideoMinutes",
+          coalesce(p.level, 1) as level,
+          case
+            when u.is_banned then 'BANNED'
+            when u.is_suspended then 'SUSPENDED'
+            else 'ACTIVE'
+          end as status,
+          false as "isOnline",
+          coalesce(v.demo_video_count, 0) as "demoVideoCount",
+          u.created_at as "createdAt"
+        from users u
+        left join profiles p on p.user_id = u.id
+        left join model_call_stats mcs on mcs.model_user_id = u.id
+        left join (
+          select user_id, count(*)::int as demo_video_count
+          from model_demo_videos
+          where is_active = true
+          group by user_id
+        ) v on v.user_id = u.id
+        where u.role = 'MODEL'
+          ${normalizedStatus === "ACTIVE" ? sql`and not u.is_banned and not u.is_suspended` : sql``}
+          ${normalizedStatus === "SUSPENDED" ? sql`and u.is_suspended = true and u.is_banned = false` : sql``}
+          ${normalizedStatus === "BANNED" ? sql`and u.is_banned = true` : sql``}
+        order by u.created_at desc
+        limit ${limit + 1}
+        offset ${offset}
+      `);
+
+      const rows = results.rows as Array<Record<string, unknown>>;
+      const items = await Promise.all(
+        rows.slice(0, limit).map(async (row) => {
+          const [pendingPayout] = await db
+            .select({ total: sum(withdrawRequests.totalPayoutAmount) })
+            .from(withdrawRequests)
+            .where(and(eq(withdrawRequests.modelUserId, String(row.id)), eq(withdrawRequests.status, "PENDING" as any)));
+
+          return {
+            ...row,
+            pendingPayout: Number(pendingPayout?.total ?? 0),
+          };
+        }),
+      );
+
+      const hasMore = rows.length > limit;
+      return { models: items, nextCursor: hasMore ? encodeCursor(offset + limit) : null };
+    }
+
     const offset = cursor ? decodeCursor(cursor) : 0;
     const conditions: any[] = [isNotNull(models.approvedAt)];
 
@@ -238,28 +409,26 @@ export class AdminService {
       && Number(request.diamondBalanceSnapshot ?? 0) > 0;
 
     if (action === "approve") {
-      await db.transaction(async (tx) => {
-        await tx
-          .update(withdrawRequests)
-          .set({
-            status: (isCreatorOnlyWithdrawal ? "COMPLETED" : "APPROVED") as any,
-            approvedByAdminId: adminId,
-            approvedAt: new Date(),
-            completedAt: isCreatorOnlyWithdrawal ? new Date() : null,
-            updatedAt: new Date(),
-          })
-          .where(eq(withdrawRequests.id, requestId));
+      await db
+        .update(withdrawRequests)
+        .set({
+          status: (isCreatorOnlyWithdrawal ? "COMPLETED" : "APPROVED") as any,
+          approvedByAdminId: adminId,
+          approvedAt: new Date(),
+          completedAt: isCreatorOnlyWithdrawal ? new Date() : null,
+          updatedAt: new Date(),
+        })
+        .where(eq(withdrawRequests.id, requestId));
 
-        if (isCreatorOnlyWithdrawal) {
-          await tx
-            .update(wallets)
-            .set({
-              lifetimeDiamondsWithdrawn: sql`${wallets.lifetimeDiamondsWithdrawn} + ${Number(request.diamondBalanceSnapshot ?? 0)}`,
-              updatedAt: new Date(),
-            } as any)
-            .where(eq(wallets.userId, request.modelUserId));
-        }
-      });
+      if (isCreatorOnlyWithdrawal) {
+        await db
+          .update(wallets)
+          .set({
+            lifetimeDiamondsWithdrawn: sql`${wallets.lifetimeDiamondsWithdrawn} + ${Number(request.diamondBalanceSnapshot ?? 0)}`,
+            updatedAt: new Date(),
+          } as any)
+          .where(eq(wallets.userId, request.modelUserId));
+      }
     } else {
       await db.update(withdrawRequests).set({ status: "REJECTED" as any, rejectionReason: reason ?? "", updatedAt: new Date() }).where(eq(withdrawRequests.id, requestId));
       if (Number(request.diamondBalanceSnapshot ?? 0) > 0) {
@@ -598,10 +767,12 @@ export class AdminService {
     const reviewerAdminIds = Array.from(new Set(items.map((item) => item.reviewedByAdminId).filter(Boolean))) as string[];
 
     const reporterRows = reporterIds.length
-      ? await db
-          .select({ id: users.id, displayName: users.displayName, email: users.email, avatarUrl: users.avatarUrl, status: users.status })
-          .from(users)
-          .where(sql`${users.id} = ANY(${reporterIds})`)
+      ? await this.getAdminUserSchemaMode().then((mode) => mode === "legacy"
+        ? this.fetchLegacyAdminUsers(reporterIds)
+        : db
+            .select({ id: users.id, displayName: users.displayName, email: users.email, avatarUrl: users.avatarUrl, status: users.status })
+            .from(users)
+            .where(sql`${users.id} = ANY(${reporterIds})`))
       : [];
 
     const reviewerRows = reviewerAdminIds.length
@@ -613,10 +784,12 @@ export class AdminService {
 
     const reviewerUserIds = Array.from(new Set(reviewerRows.map((item) => item.userId).filter(Boolean))) as string[];
     const reviewerUsers = reviewerUserIds.length
-      ? await db
-          .select({ id: users.id, displayName: users.displayName, email: users.email })
-          .from(users)
-          .where(sql`${users.id} = ANY(${reviewerUserIds})`)
+      ? await this.getAdminUserSchemaMode().then((mode) => mode === "legacy"
+        ? this.fetchLegacyAdminUsers(reviewerUserIds)
+        : db
+            .select({ id: users.id, displayName: users.displayName, email: users.email })
+            .from(users)
+            .where(sql`${users.id} = ANY(${reviewerUserIds})`))
       : [];
 
     const reporterMap = new Map(reporterRows.map((item) => [item.id, item]));
@@ -687,10 +860,12 @@ export class AdminService {
     const sourceReportIds = Array.from(new Set(items.map((item) => item.sourceReportId).filter(Boolean))) as string[];
 
     const userRows = userIds.length
-      ? await db
-          .select({ id: users.id, displayName: users.displayName, email: users.email, avatarUrl: users.avatarUrl, status: users.status })
-          .from(users)
-          .where(sql`${users.id} = ANY(${userIds})`)
+      ? await this.getAdminUserSchemaMode().then((mode) => mode === "legacy"
+        ? this.fetchLegacyAdminUsers(userIds)
+        : db
+            .select({ id: users.id, displayName: users.displayName, email: users.email, avatarUrl: users.avatarUrl, status: users.status })
+            .from(users)
+            .where(sql`${users.id} = ANY(${userIds})`))
       : [];
 
     const adminRows = adminIds.length
@@ -702,10 +877,12 @@ export class AdminService {
 
     const adminUserIds = Array.from(new Set(adminRows.map((item) => item.userId).filter(Boolean))) as string[];
     const adminUsers = adminUserIds.length
-      ? await db
-          .select({ id: users.id, displayName: users.displayName, email: users.email })
-          .from(users)
-          .where(sql`${users.id} = ANY(${adminUserIds})`)
+      ? await this.getAdminUserSchemaMode().then((mode) => mode === "legacy"
+        ? this.fetchLegacyAdminUsers(adminUserIds)
+        : db
+            .select({ id: users.id, displayName: users.displayName, email: users.email })
+            .from(users)
+            .where(sql`${users.id} = ANY(${adminUserIds})`))
       : [];
 
     const reportRows = sourceReportIds.length
@@ -1289,6 +1466,28 @@ export class AdminService {
 
   // ─── Admin Audit Log ───
   async getAuditLog(cursor?: string, limit = 50) {
+    if (await this.getAdminLogSchemaMode() === "legacy") {
+      const offset = cursor ? decodeCursor(cursor) : 0;
+      const result = await db.execute(sql`
+        select
+          id,
+          admin_user_id as "adminId",
+          action,
+          target_entity as "targetType",
+          target_entity_id as "targetId",
+          reason,
+          before_snapshot as "metadataJson",
+          created_at as "createdAt"
+        from admin_logs
+        order by created_at desc
+        limit ${limit + 1}
+        offset ${offset}
+      `);
+      const rows = result.rows as Array<Record<string, unknown>>;
+      const hasMore = rows.length > limit;
+      return { items: hasMore ? rows.slice(0, limit) : rows, nextCursor: hasMore ? encodeCursor(offset + limit) : null };
+    }
+
     const offset = cursor ? decodeCursor(cursor) : 0;
     const results = await db.select().from(adminLogs).orderBy(desc(adminLogs.createdAt)).limit(limit + 1).offset(offset);
     const hasMore = results.length > limit;
@@ -1298,7 +1497,9 @@ export class AdminService {
   // ─── Dashboard Stats ───
   async getDashboardStats() {
     const totalUsers = await db.select({ count: count() }).from(users);
-    const totalModels = await db.select({ count: count() }).from(models).where(isNotNull(models.approvedAt));
+    const totalModels = (await this.getAdminModelSchemaMode()) === "legacy"
+      ? await db.select({ count: count() }).from(users).where(eq(users.role, "MODEL" as any))
+      : await db.select({ count: count() }).from(models).where(isNotNull(models.approvedAt));
     const activeStreams = await db.select({ count: count() }).from(liveRooms).where(eq(liveRooms.status, "LIVE" as any));
     const activeCalls = await db.select({ count: count() }).from(callSessions).where(eq(callSessions.status, "ACTIVE" as any));
     const activeGroupAudio = await db.select({ count: count() }).from(groupAudioRooms).where(eq(groupAudioRooms.status, "LIVE" as any));
@@ -1326,6 +1527,26 @@ export class AdminService {
     }
 
     return actor.id;
+  }
+
+  private async fetchLegacyAdminUsers(userIds: string[]) {
+    const result = await db.execute(sql`
+      select
+        u.id,
+        coalesce(p.display_name, u.username) as "displayName",
+        u.email,
+        p.avatar_url as "avatarUrl",
+        case
+          when u.is_banned then 'BANNED'
+          when u.is_suspended then 'SUSPENDED'
+          else 'ACTIVE'
+        end as status
+      from users u
+      left join profiles p on p.user_id = u.id
+      where u.id = any(${userIds})
+    `);
+
+    return result.rows as Array<Record<string, unknown>>;
   }
 
   private mapAdminAction(action: string) {
@@ -1390,6 +1611,32 @@ export class AdminService {
   private async logAction(adminId: string, action: string, details: Record<string, any>) {
     const actorAdminId = await this.resolveAdminActorId(adminId);
     const targetId = details.userId ?? details.modelUserId ?? details.demoVideoId ?? details.giftId ?? details.banId ?? details.reportId ?? details.ruleId ?? details.campaignId ?? details.eventId ?? details.flagId ?? details.requestId ?? details.agencyId ?? details.applicationId ?? details.paymentId ?? null;
+    if (await this.getAdminLogSchemaMode() === "legacy") {
+      await db.execute(sql`
+        insert into admin_logs (
+          admin_user_id,
+          action,
+          target_entity,
+          target_entity_id,
+          reason,
+          before_snapshot,
+          after_snapshot,
+          created_at
+        )
+        values (
+          ${adminId}::uuid,
+          ${String(this.mapAdminAction(action))},
+          ${String(this.mapAdminTargetType(details))},
+          ${String(targetId ?? adminId)},
+          ${JSON.stringify(details)},
+          ${JSON.stringify(details)}::jsonb,
+          null,
+          now()
+        )
+      `);
+      return;
+    }
+
     await db.insert(adminLogs).values({
       adminId: actorAdminId,
       action: this.mapAdminAction(action),

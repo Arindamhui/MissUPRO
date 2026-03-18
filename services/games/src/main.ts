@@ -7,7 +7,7 @@ import Redis from "ioredis";
 const service = process.env["SERVICE_NAME"] ?? "games";
 const port = Number(process.env["PORT"] ?? "4107");
 const startedAt = new Date().toISOString();
-const redisUrl = process.env["REDIS_URL"] ?? "redis://127.0.0.1:6379";
+const redisUrl = process.env["REDIS_URL"];
 
 let connectedSockets = 0;
 let sessionsCreated = 0;
@@ -92,9 +92,17 @@ const io = new Server(httpServer, {
   transports: ["websocket", "polling"],
 });
 
-const pubClient = new Redis(redisUrl);
-const subClient = pubClient.duplicate();
-io.adapter(createAdapter(pubClient, subClient));
+const pubClient = redisUrl ? new Redis(redisUrl) : null;
+const subClient = pubClient?.duplicate() ?? null;
+
+pubClient?.on("error", () => undefined);
+subClient?.on("error", () => undefined);
+
+if (pubClient && subClient) {
+  io.adapter(createAdapter(pubClient, subClient));
+} else {
+  console.warn(`[${service}] REDIS_URL not set; using in-memory Socket.IO adapter for local dev.`);
+}
 
 io.on("connection", (socket) => {
   connectedSockets += 1;
@@ -197,8 +205,10 @@ httpServer.listen(port, () => {
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, async () => {
     await new Promise<void>((resolve) => io.close(() => resolve()));
-    await pubClient.quit();
-    await subClient.quit();
+    await Promise.allSettled([
+      pubClient ? pubClient.quit() : Promise.resolve("skipped"),
+      subClient ? subClient.quit() : Promise.resolve("skipped"),
+    ]);
     httpServer.close(() => process.exit(0));
   });
 }

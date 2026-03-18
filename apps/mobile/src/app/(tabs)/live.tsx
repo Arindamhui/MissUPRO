@@ -351,7 +351,7 @@ export default function LiveScreen() {
   const [sheetTab, setSheetTab] = useState<"mine" | "store">("mine");
   const [gateOpen, setGateOpen] = useState(false);
   const [selectedThemeId, setSelectedThemeId] = useState<string | null>(null);
-  const [unlockedThemeIds, setUnlockedThemeIds] = useState<string[]>([]);
+  const [pendingOwnedThemeIds, setPendingOwnedThemeIds] = useState<string[]>([]);
   const [selectedTag, setSelectedTag] = useState("");
 
   const streams = trpc.live.activeStreams.useQuery(undefined, { retry: false });
@@ -363,6 +363,7 @@ export default function LiveScreen() {
   const wallet = trpc.wallet.getBalance.useQuery(undefined, { enabled: isAuthenticated, retry: false });
   const roomConfigs = trpc.config.listPartyRoomConfigs.useQuery(undefined, { retry: false });
   const themes = trpc.party.listAvailableThemes.useQuery(undefined, { enabled: isAuthenticated, retry: false });
+  const ownedThemes = trpc.party.listOwnedThemes.useQuery(undefined, { enabled: isAuthenticated, retry: false });
   const activeParties = trpc.party.listActiveRooms.useQuery({ limit: 6 }, { enabled: isAuthenticated, retry: false });
   const pkFlag = trpc.config.evaluateFeatureFlag.useQuery({ key: "pk_battles", platform: "MOBILE" }, { retry: false });
 
@@ -399,11 +400,12 @@ export default function LiveScreen() {
     onSuccess: (result: any) => {
       const purchasedId = String(result?.theme?.id ?? "");
       if (purchasedId) {
-        setUnlockedThemeIds((current) => (current.includes(purchasedId) ? current : [...current, purchasedId]));
+        setPendingOwnedThemeIds((current) => (current.includes(purchasedId) ? current : [...current, purchasedId]));
         setSelectedThemeId(purchasedId);
       }
+      void ownedThemes.refetch();
       void wallet.refetch();
-      Alert.alert("Theme unlocked", "The room skin is now ready to use.");
+      Alert.alert(result?.alreadyOwned ? "Theme already unlocked" : "Theme unlocked", result?.alreadyOwned ? "This room skin is already in your collection." : "The room skin is now ready to use.");
     },
     onError: (error: any) => {
       Alert.alert("Unable to buy theme", error?.message ?? "Try again in a moment.");
@@ -421,6 +423,7 @@ export default function LiveScreen() {
   const streamList = (streams.data?.streams ?? []) as any[];
   const partyList = ((activeParties.data as any)?.items ?? []) as any[];
   const themeList = ((themes.data ?? []) as ThemeRecord[]).map((item) => ({ ...item, id: String(item.id) }));
+  const ownedThemeList = ((ownedThemes.data ?? []) as Array<{ themeId?: string | null }>).map((item) => String(item.themeId ?? "")).filter(Boolean);
   const configs = (roomConfigs.data ?? []) as Array<{ configKey: string; configJson?: Record<string, unknown> | null }>;
 
   const displayName = String(myProfile.data?.displayName ?? me.data?.displayName ?? "Guest Host");
@@ -483,19 +486,15 @@ export default function LiveScreen() {
   }, [categoryChips, selectedTag]);
 
   useEffect(() => {
-    const freeThemeIds = themeList.filter((item) => !item.isPremium || !item.coinPrice).map((item) => item.id);
-    if (freeThemeIds.length > 0) {
-      setUnlockedThemeIds((current) => [...new Set([...current, ...freeThemeIds])]);
-    }
-  }, [themeList]);
-
-  useEffect(() => {
     if (selectedThemeId || themeList.length === 0) return;
     const matchedTheme = themeList.find((item) => item.themeName.toLowerCase().includes(defaultThemeName));
     setSelectedThemeId(matchedTheme?.id ?? themeList[0]?.id ?? null);
   }, [defaultThemeName, selectedThemeId, themeList]);
 
-  const unlockedThemeSet = useMemo(() => new Set(unlockedThemeIds), [unlockedThemeIds]);
+  const unlockedThemeSet = useMemo(() => {
+    const freeThemeIds = themeList.filter((item) => !item.isPremium || !item.coinPrice).map((item) => item.id);
+    return new Set([...freeThemeIds, ...ownedThemeList, ...pendingOwnedThemeIds]);
+  }, [ownedThemeList, pendingOwnedThemeIds, themeList]);
   const selectedTheme = themeList.find((item) => item.id === selectedThemeId) ?? themeList[0] ?? null;
   const mineThemes = themeList.filter((item) => unlockedThemeSet.has(item.id));
   const storeThemes = themeList.filter((item) => !unlockedThemeSet.has(item.id));

@@ -18,16 +18,188 @@ import { eq, and, desc, asc, sql, inArray } from "drizzle-orm";
 import { DEFAULTS } from "@missu/config";
 import { ConfigService } from "../config/config.service";
 
+type NormalizedLevel = {
+  id: string;
+  levelNumber: number;
+  levelName: string;
+  levelTrack: string;
+  thresholdValue: number;
+  iconUrl: string | null;
+  status?: string | null;
+  createdAt?: Date | string | null;
+};
+
+type NormalizedUserLevel = {
+  id: string;
+  userId: string;
+  currentLevelId: string;
+  currentProgressValue: number;
+  levelUpAt?: Date | string | null;
+  updatedAt?: Date | string | null;
+};
+
+type NormalizedLevelReward = {
+  id: string;
+  levelId: string;
+  rewardType: string;
+  rewardValue: string;
+  rewardName: string | null;
+  description: string | null;
+  autoGrant: boolean;
+  createdAt?: Date | string | null;
+};
+
+type NormalizedBadge = {
+  badgeId: string;
+  badgeKey: string | null;
+  awardedAt: Date | string | null;
+  name: string;
+  description: string | null;
+  iconUrl: string | null;
+  category: string | null;
+};
+
 @Injectable()
 export class LevelService {
+  private levelSchemaModePromise: Promise<"modern" | "legacy"> | null = null;
+
   constructor(private readonly configService: ConfigService) {}
 
+  private async getLevelSchemaMode() {
+    if (!this.levelSchemaModePromise) {
+      this.levelSchemaModePromise = db.execute(sql`
+        select exists (
+          select 1
+          from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'levels'
+            and column_name = 'level_track'
+        ) as has_modern_levels
+      `).then((result) => {
+        const value = result.rows[0] as { has_modern_levels?: boolean | string | number } | undefined;
+        return value?.has_modern_levels ? "modern" : "legacy";
+      });
+    }
+
+    return this.levelSchemaModePromise;
+  }
+
+  private async ensureLegacyUserLevelsSeeded() {
+    const existing = await db.execute(sql`
+      select count(*)::int as count
+      from levels
+      where level_type = 'USER'
+    `).then((result) => Number((result.rows[0] as { count?: number } | undefined)?.count ?? 0));
+
+    if (existing > 0) {
+      return;
+    }
+
+    const seeds = [
+      { levelNumber: 1, levelName: "Spark", thresholdValue: 0, iconUrl: "https://missu.local/levels/spark.png" },
+      { levelNumber: 2, levelName: "Rising", thresholdValue: 120, iconUrl: "https://missu.local/levels/rising.png" },
+      { levelNumber: 3, levelName: "Spotlight", thresholdValue: 280, iconUrl: "https://missu.local/levels/spotlight.png" },
+      { levelNumber: 4, levelName: "Pulse", thresholdValue: 600, iconUrl: "https://missu.local/levels/pulse.png" },
+      { levelNumber: 5, levelName: "Supernova", thresholdValue: 1200, iconUrl: "https://missu.local/levels/supernova.png" },
+      { levelNumber: 6, levelName: "Legend", thresholdValue: 2400, iconUrl: "https://missu.local/levels/legend.png" },
+    ];
+
+    for (const seed of seeds) {
+      await db.execute(sql`
+        insert into levels (id, level_type, level_number, name, threshold_value, icon_url, created_at)
+        select gen_random_uuid(), 'USER', ${seed.levelNumber}, ${seed.levelName}, ${seed.thresholdValue}, ${seed.iconUrl}, now()
+        where not exists (
+          select 1 from levels
+          where level_type = 'USER' and level_number = ${seed.levelNumber}
+        )
+      `);
+    }
+  }
+
   private async getOrderedLevels(track: "USER" | "MODEL") {
+    if (await this.getLevelSchemaMode() === "legacy") {
+      if (track === "USER") {
+        await this.ensureLegacyUserLevelsSeeded();
+      }
+
+      const result = await db.execute(sql`
+        select
+          id,
+          level_number as "levelNumber",
+          name as "levelName",
+          level_type as "levelTrack",
+          threshold_value as "thresholdValue",
+          icon_url as "iconUrl",
+          created_at as "createdAt"
+        from levels
+        where level_type = ${track}
+        order by level_number asc
+      `);
+
+      return result.rows as NormalizedLevel[];
+    }
+
     return db
       .select()
       .from(levels)
       .where(and(eq(levels.levelTrack, track as any), eq(levels.status, "ACTIVE" as any)))
       .orderBy(asc(levels.levelNumber));
+  }
+
+  private async getLevelById(levelId: string) {
+    if (await this.getLevelSchemaMode() === "legacy") {
+      const result = await db.execute(sql`
+        select
+          id,
+          level_number as "levelNumber",
+          name as "levelName",
+          level_type as "levelTrack",
+          threshold_value as "thresholdValue",
+          icon_url as "iconUrl",
+          created_at as "createdAt"
+        from levels
+        where id = ${levelId}::uuid
+        limit 1
+      `);
+
+      return (result.rows[0] as NormalizedLevel | undefined) ?? null;
+    }
+
+    const [level] = await db.select().from(levels).where(eq(levels.id, levelId)).limit(1);
+    return (level as NormalizedLevel | undefined) ?? null;
+  }
+
+  private async getLevelRewards(levelIds: string[]) {
+    if (levelIds.length === 0) {
+      return [] as NormalizedLevelReward[];
+    }
+
+    if (await this.getLevelSchemaMode() === "legacy") {
+      const result = await db.execute(sql`
+        select
+          id,
+          level_id as "levelId",
+          reward_type as "rewardType",
+          reward_value as "rewardValue",
+          null::text as "rewardName",
+          null::text as description,
+          true as "autoGrant",
+          created_at as "createdAt"
+        from level_rewards
+        where level_id in (${sql.join(levelIds.map((levelId) => sql`${levelId}::uuid`), sql`, `)})
+        order by created_at asc
+      `);
+
+      return result.rows as NormalizedLevelReward[];
+    }
+
+    const rewards = await db
+      .select()
+      .from(levelRewards)
+      .where(and(inArray(levelRewards.levelId, levelIds), eq(levelRewards.status, "ACTIVE" as any)))
+      .orderBy(asc(levelRewards.createdAt));
+
+    return rewards as NormalizedLevelReward[];
   }
 
   private async getFirstActiveUserLevel() {
@@ -55,21 +227,38 @@ export class LevelService {
   }
 
   private async autoGrantLevelRewards(userId: string, levelId: string) {
-    const rewards = await db
-      .select()
-      .from(levelRewards)
-      .where(and(eq(levelRewards.levelId, levelId), eq(levelRewards.autoGrant, true), eq(levelRewards.status, "ACTIVE" as any)));
+    const rewards = (await this.getLevelRewards([levelId])).filter((reward) => reward.autoGrant);
+    const schemaMode = await this.getLevelSchemaMode();
 
     const grantedRewards: any[] = [];
     for (const reward of rewards) {
       if (reward.rewardType === "BADGE") {
-        const [badge] = await db.select().from(badges).where(eq(badges.badgeKey, reward.rewardValue)).limit(1);
+        const badge = schemaMode === "legacy"
+          ? (await db.execute(sql`
+            select id, name, icon_url as "iconUrl", description
+            from badges
+            where name = ${reward.rewardValue} or criteria = ${reward.rewardValue}
+            limit 1
+          `).then((result) => result.rows[0] as { id: string } | undefined))
+          : (await db.select().from(badges).where(eq(badges.badgeKey, reward.rewardValue)).limit(1))[0];
+
         if (badge) {
-          await db.insert(userBadges).values({
-            userId,
-            badgeId: badge.id,
-            source: "LEVEL_UP",
-          } as any).onConflictDoNothing({ target: [userBadges.userId, userBadges.badgeId] });
+          if (schemaMode === "legacy") {
+            await db.execute(sql`
+              insert into user_badges (id, user_id, badge_id, awarded_at)
+              select gen_random_uuid(), ${userId}::uuid, ${badge.id}::uuid, now()
+              where not exists (
+                select 1 from user_badges
+                where user_id = ${userId}::uuid and badge_id = ${badge.id}::uuid
+              )
+            `);
+          } else {
+            await db.insert(userBadges).values({
+              userId,
+              badgeId: badge.id,
+              source: "LEVEL_UP",
+            } as any).onConflictDoNothing({ target: [userBadges.userId, userBadges.badgeId] });
+          }
         }
       }
 
@@ -80,6 +269,45 @@ export class LevelService {
   }
 
   private async ensureUserLevelRecord(userId: string) {
+    if (await this.getLevelSchemaMode() === "legacy") {
+      const existing = await db.execute(sql`
+        select
+          id,
+          user_id as "userId",
+          level_id as "currentLevelId",
+          current_value as "currentProgressValue",
+          updated_at as "updatedAt"
+        from user_levels
+        where user_id = ${userId}::uuid
+        limit 1
+      `);
+
+      const userLevel = existing.rows[0] as NormalizedUserLevel | undefined;
+      if (userLevel) {
+        return userLevel;
+      }
+
+      const firstLevel = await this.getFirstActiveUserLevel();
+      const created = await db.execute(sql`
+        insert into user_levels (id, user_id, level_id, current_value, updated_at)
+        values (gen_random_uuid(), ${userId}::uuid, ${firstLevel.id}::uuid, 0, now())
+        returning
+          id,
+          user_id as "userId",
+          level_id as "currentLevelId",
+          current_value as "currentProgressValue",
+          updated_at as "updatedAt"
+      `);
+
+      const row = created.rows[0] as NormalizedUserLevel | undefined;
+      if (!row) {
+        throw new Error("Failed to create user level");
+      }
+
+      await this.autoGrantLevelRewards(userId, firstLevel.id);
+      return row;
+    }
+
     const [userLevel] = await db
       .select()
       .from(userLevels)
@@ -140,7 +368,8 @@ export class LevelService {
       };
     }
 
-    const allLevels = await this.getOrderedLevels("USER");
+    const schemaMode = await this.getLevelSchemaMode();
+    const allLevels = await this.getOrderedLevels("USER") as NormalizedLevel[];
     const currentLevelIndex = Math.max(0, allLevels.findIndex((level) => level.id === ensuredLevel.currentLevelId));
     const currentLevel = allLevels[currentLevelIndex] ?? allLevels[0];
     if (!currentLevel) {
@@ -163,15 +392,29 @@ export class LevelService {
       unlockedLevelIds.push(nextLevel.id);
     }
 
-    await db
-      .update(userLevels)
-      .set({
-        currentLevelId: nextLevelId,
-        currentProgressValue: nextProgress,
-        levelUpAt: unlockedLevelIds.length > 0 ? new Date() : ensuredLevel.levelUpAt,
-        updatedAt: new Date(),
-      })
-      .where(eq(userLevels.id, ensuredLevel.id));
+    if (schemaMode === "legacy") {
+      await db.execute(sql`
+        update user_levels
+        set level_id = ${nextLevelId}::uuid,
+            current_value = ${nextProgress},
+            updated_at = now()
+        where id = ${ensuredLevel.id}::uuid
+      `);
+    } else {
+      await db
+        .update(userLevels)
+        .set({
+          currentLevelId: nextLevelId,
+          currentProgressValue: nextProgress,
+          levelUpAt: unlockedLevelIds.length > 0
+            ? new Date()
+            : ensuredLevel.levelUpAt instanceof Date
+              ? ensuredLevel.levelUpAt
+              : null,
+          updatedAt: new Date(),
+        })
+        .where(eq(userLevels.id, ensuredLevel.id));
+    }
 
     const grantedRewards: any[] = [];
     for (const levelId of unlockedLevelIds) {
@@ -189,21 +432,15 @@ export class LevelService {
 
   async getMyLevelSummary(userId: string) {
     const userLevel = await this.ensureUserLevelRecord(userId);
-    const [currentLevel] = await db.select().from(levels).where(eq(levels.id, userLevel.currentLevelId)).limit(1);
+    const currentLevel = await this.getLevelById(userLevel.currentLevelId);
     if (!currentLevel) {
       throw new Error("Current level not found");
     }
 
-    const userTrackLevels = await this.getOrderedLevels("USER");
+    const userTrackLevels = await this.getOrderedLevels("USER") as NormalizedLevel[];
     const unlockedLevels = userTrackLevels.filter((level) => level.levelNumber <= currentLevel.levelNumber);
     const unlockedLevelIds = unlockedLevels.map((level) => level.id);
-    const unlockedRewards = unlockedLevelIds.length > 0
-      ? await db
-        .select()
-        .from(levelRewards)
-        .where(and(inArray(levelRewards.levelId, unlockedLevelIds), eq(levelRewards.status, "ACTIVE" as any)))
-        .orderBy(asc(levelRewards.createdAt))
-      : [];
+    const unlockedRewards = await this.getLevelRewards(unlockedLevelIds);
 
     const badgeRows = await this.getUserBadges(userId);
     const nextLevel = userTrackLevels.find((level) => level.levelNumber > currentLevel.levelNumber) ?? null;
@@ -245,7 +482,9 @@ export class LevelService {
       visualEffects: formattedRewards.filter((reward) => reward.rewardType === "VISUAL_EFFECT"),
       rankingBenefits: formattedRewards.filter((reward) => reward.rewardType === "RANKING_BENEFIT"),
       unlockedRewards: formattedRewards,
-      levelUpAt: userLevel.levelUpAt?.toISOString?.() ?? userLevel.levelUpAt ?? null,
+      levelUpAt: userLevel.levelUpAt instanceof Date
+        ? userLevel.levelUpAt.toISOString()
+        : userLevel.levelUpAt ?? null,
     };
   }
 
@@ -340,6 +579,25 @@ export class LevelService {
 
   // ─── Badges ───
   async getUserBadges(userId: string) {
+    if (await this.getLevelSchemaMode() === "legacy") {
+      const result = await db.execute(sql`
+        select
+          ub.badge_id as "badgeId",
+          null::text as "badgeKey",
+          ub.awarded_at as "awardedAt",
+          b.name,
+          b.description,
+          b.icon_url as "iconUrl",
+          null::text as category
+        from user_badges ub
+        inner join badges b on b.id = ub.badge_id
+        where ub.user_id = ${userId}::uuid
+        order by ub.awarded_at desc
+      `);
+
+      return result.rows as NormalizedBadge[];
+    }
+
     return db
       .select({
         badgeId: userBadges.badgeId,
@@ -357,6 +615,22 @@ export class LevelService {
   }
 
   async awardBadge(userId: string, badgeId: string) {
+    if (await this.getLevelSchemaMode() === "legacy") {
+      const existing = await db.execute(sql`
+        select id from user_badges
+        where user_id = ${userId}::uuid and badge_id = ${badgeId}::uuid
+        limit 1
+      `);
+      if (existing.rows[0]) return existing.rows[0];
+
+      const created = await db.execute(sql`
+        insert into user_badges (id, user_id, badge_id, awarded_at)
+        values (gen_random_uuid(), ${userId}::uuid, ${badgeId}::uuid, now())
+        returning id, user_id as "userId", badge_id as "badgeId", awarded_at as "awardedAt"
+      `);
+      return created.rows[0] ?? null;
+    }
+
     const existing = await db.select().from(userBadges).where(and(eq(userBadges.userId, userId), eq(userBadges.badgeId, badgeId))).limit(1);
     if (existing[0]) return existing[0];
 
@@ -365,19 +639,21 @@ export class LevelService {
   }
 
   async listAllBadges() {
+    if (await this.getLevelSchemaMode() === "legacy") {
+      const result = await db.execute(sql`
+        select id, null::text as "badgeKey", name, description, icon_url as "iconUrl", null::text as category, created_at as "createdAt"
+        from badges
+        order by name asc
+      `);
+      return result.rows;
+    }
+
     return db.select().from(badges).orderBy(asc(badges.category), asc(badges.name));
   }
 
   async listAllLevels() {
-    const allLevels = await db
-      .select()
-      .from(levels)
-      .where(eq(levels.levelTrack, "USER" as any))
-      .orderBy(asc(levels.levelNumber));
-
-    const rewards = allLevels.length > 0
-      ? await db.select().from(levelRewards).where(inArray(levelRewards.levelId, allLevels.map((level) => level.id)))
-      : [];
+    const allLevels = await this.getOrderedLevels("USER") as NormalizedLevel[];
+    const rewards = await this.getLevelRewards(allLevels.map((level) => level.id));
 
     return allLevels.map((level) => ({
       ...level,

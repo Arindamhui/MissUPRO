@@ -22,6 +22,11 @@ export class WalletRouter {
           return this.walletService.getCoinPackages();
         }),
 
+      getTopUpHistory: this.trpc.protectedProcedure
+        .query(async ({ ctx }) => {
+          return this.walletService.getTopUpHistory(ctx.userId);
+        }),
+
       requestWithdrawal: this.trpc.protectedProcedure
         .input(requestWithdrawalSchema)
         .mutation(async ({ ctx, input }) => {

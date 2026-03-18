@@ -29,6 +29,21 @@ export class GiftService {
     private readonly notificationService: NotificationService,
   ) {}
 
+  private async selectWallet(userId: string) {
+    const [wallet] = await db
+      .select({
+        id: wallets.id,
+        userId: wallets.userId,
+        coinBalance: wallets.coinBalance,
+        diamondBalance: wallets.diamondBalance,
+      })
+      .from(wallets)
+      .where(eq(wallets.userId, userId))
+      .limit(1);
+
+    return wallet ?? null;
+  }
+
   async getActiveCatalog() {
     const catalog = await db.select().from(gifts)
       .where(eq(gifts.isActive, true))
@@ -116,186 +131,244 @@ export class GiftService {
 
           const giftTransactionId = randomUUID();
 
-          await db.transaction(async (tx) => {
-            const [senderWallet] = await tx
-              .select()
-              .from(wallets)
-              .where(eq(wallets.userId, senderId))
-              .limit(1);
+          const senderWallet = await this.selectWallet(senderId);
+          const receiverWallet = await this.selectWallet(receiverId);
 
-            const [receiverWallet] = await tx
-              .select()
-              .from(wallets)
-              .where(eq(wallets.userId, receiverId))
-              .limit(1);
+          if (!senderWallet || !receiverWallet) {
+            throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Wallet missing" });
+          }
 
-            if (!senderWallet || !receiverWallet) {
-              throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Wallet missing" });
-            }
+          if (senderWallet.coinBalance < coinCost) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Insufficient balance" });
+          }
 
-            if (senderWallet.coinBalance < coinCost) {
-              throw new TRPCError({ code: "BAD_REQUEST", message: "Insufficient balance" });
-            }
+          await db
+            .update(wallets)
+            .set({
+              coinBalance: sql`${wallets.coinBalance} - ${coinCost}`,
+              updatedAt: new Date(),
+            })
+            .where(eq(wallets.userId, senderId));
 
-            await tx
-              .update(wallets)
-              .set({
-                coinBalance: sql`${wallets.coinBalance} - ${coinCost}`,
-                lifetimeCoinsSpent: sql`${wallets.lifetimeCoinsSpent} + ${coinCost}`,
-                updatedAt: new Date(),
-              })
-              .where(eq(wallets.userId, senderId));
+          await db.execute(sql`
+            insert into coin_transactions (
+              user_id,
+              wallet_id,
+              amount,
+              direction,
+              balance_after,
+              reason,
+              reference_id,
+              metadata,
+              created_at
+            )
+            values (
+              ${senderId}::uuid,
+              ${senderWallet.id}::uuid,
+              ${-coinCost},
+              'DEBIT',
+              ${senderWallet.coinBalance - coinCost},
+              'GIFT_SENT',
+              ${giftTransactionId}::uuid,
+              ${JSON.stringify({ description: `Gift sent: ${gift.name}`, idempotencyKey: `gift:coin:${idemKey}` })}::jsonb,
+              now()
+            )
+          `);
 
-            await tx.insert(coinTransactions).values({
-              userId: senderId,
-              transactionType: "GIFT_SENT" as any,
-              amount: -coinCost,
-              balanceAfter: senderWallet.coinBalance - coinCost,
-              referenceType: "gift_transaction",
-              referenceId: giftTransactionId,
-              description: `Gift sent: ${gift.name}`,
-              idempotencyKey: `gift:coin:${idemKey}`,
-            });
+          await db
+            .update(wallets)
+            .set({
+              diamondBalance: sql`${wallets.diamondBalance} + ${diamondCredit}`,
+              updatedAt: new Date(),
+            })
+            .where(eq(wallets.userId, receiverId));
 
-            await tx
-              .update(wallets)
-              .set({
-                diamondBalance: sql`${wallets.diamondBalance} + ${diamondCredit}`,
-                lifetimeDiamondsEarned: sql`${wallets.lifetimeDiamondsEarned} + ${diamondCredit}`,
-                updatedAt: new Date(),
-              })
-              .where(eq(wallets.userId, receiverId));
+          await db.execute(sql`
+            insert into diamond_transactions (
+              user_id,
+              wallet_id,
+              amount,
+              direction,
+              balance_after,
+              reason,
+              reference_id,
+              metadata,
+              created_at
+            )
+            values (
+              ${receiverId}::uuid,
+              ${receiverWallet.id}::uuid,
+              ${diamondCredit},
+              'CREDIT',
+              ${receiverWallet.diamondBalance + diamondCredit},
+              'GIFT_CREDIT',
+              ${giftTransactionId}::uuid,
+              ${JSON.stringify({ description: `Gift received: ${gift.name}`, idempotencyKey: `gift:diamond:${idemKey}` })}::jsonb,
+              now()
+            )
+          `);
 
-            await tx.insert(diamondTransactions).values({
-              userId: receiverId,
-              transactionType: "GIFT_CREDIT" as any,
-              amount: diamondCredit,
-              balanceAfter: receiverWallet.diamondBalance + diamondCredit,
-              referenceType: "gift_transaction",
-              referenceId: giftTransactionId,
-              description: `Gift received: ${gift.name}`,
-              idempotencyKey: `gift:diamond:${idemKey}`,
-            });
+          await db.execute(sql`
+            insert into gift_transactions (
+              id,
+              sender_user_id,
+              receiver_user_id,
+              gift_id,
+              context_type,
+              context_id,
+              coin_debit_amount,
+              diamond_credit_amount,
+              economy_profile_key,
+              created_at
+            )
+            values (
+              ${giftTransactionId}::uuid,
+              ${senderId}::uuid,
+              ${receiverId}::uuid,
+              ${giftId}::uuid,
+              ${contextType},
+              ${contextId}::uuid,
+              ${coinCost},
+              ${diamondCredit},
+              ${gift.economyProfileKey ?? "default"},
+              now()
+            )
+          `);
 
-            await tx.insert(giftTransactions).values({
-              id: giftTransactionId,
-              giftId,
-              senderUserId: senderId,
-              receiverUserId: receiverId,
-              coinCost,
-              diamondCredit,
-              contextType: contextType as any,
-              contextId,
-              comboCount,
-              economyProfileKeySnapshot: gift.economyProfileKey ?? "default",
-              platformCommissionBpsSnapshot: Math.round(platformCommissionPercent * 100),
-              diamondValueUsdPer100Snapshot: policy.diamondValueUsdPer100.toFixed(4),
-              senderDisplayNameSnapshot: senderId,
-              idempotencyKey: idemKey,
-            });
+          if (["LIVE_STREAM", "GROUP_AUDIO", "PARTY", "PK_BATTLE"].includes(contextType)) {
+            let liveRoomId = contextId;
 
-            if (["LIVE_STREAM", "GROUP_AUDIO", "PARTY", "PK_BATTLE"].includes(contextType)) {
-              await tx.insert(liveGiftEvents).values({
-                giftTransactionId,
-                liveStreamId: contextId,
-                roomId: contextId,
-                senderUserId: senderId,
-                receiverUserId: receiverId,
-                displayMessage: `sent a ${gift.giftCode}!`,
-                animationKey: gift.giftCode,
-                comboGroupId,
-                comboCountSnapshot: comboCount,
-                broadcastEventId: randomUUID(),
-              });
+            if (contextType === "LIVE_STREAM") {
+              const [currentStream] = await db.execute(sql`
+                select
+                  id,
+                  live_room_id as "liveRoomId",
+                  total_gift_coins as "totalGiftCoins",
+                  peak_viewers as "peakViewers"
+                from live_streams
+                where id = ${contextId}::uuid
+                limit 1
+              `).then((result) => result.rows as Array<Record<string, unknown>>);
 
-              if (contextType === "LIVE_STREAM") {
-                const [currentStream] = await tx
-                  .select({
-                    giftRevenueCoins: liveStreams.giftRevenueCoins,
-                    viewerCountPeak: liveStreams.viewerCountPeak,
-                    viewerCountCurrent: liveStreams.viewerCountCurrent,
-                  })
-                  .from(liveStreams)
-                  .where(eq(liveStreams.id, contextId))
-                  .limit(1);
+              if (currentStream) {
+                liveRoomId = String(currentStream.liveRoomId ?? contextId);
+                const [viewerCount] = await db.execute(sql`
+                  select count(*)::int as count
+                  from live_viewers
+                  where live_stream_id = ${contextId}::uuid and left_at is null
+                `).then((result) => result.rows as Array<Record<string, unknown>>);
 
-                if (currentStream) {
-                  const nextGiftRevenue = Number(currentStream.giftRevenueCoins ?? 0) + coinCost;
-                  const nextTrendingScore = calculateTrendingScore(
-                    nextGiftRevenue,
-                    Number(currentStream.viewerCountPeak ?? 0),
-                    Number(currentStream.viewerCountCurrent ?? 0),
-                  );
+                const nextGiftRevenue = Number(currentStream.totalGiftCoins ?? 0) + coinCost;
+                const nextTrendingScore = calculateTrendingScore(
+                  nextGiftRevenue,
+                  Number(currentStream.peakViewers ?? 0),
+                  Number(viewerCount?.count ?? 0),
+                );
 
-                  await tx
-                    .update(liveStreams)
-                    .set({
-                      giftRevenueCoins: sql`${liveStreams.giftRevenueCoins} + ${coinCost}`,
-                      trendingScore: String(nextTrendingScore),
-                    })
-                    .where(eq(liveStreams.id, contextId));
-                }
-
-                await tx
-                  .update(liveViewers)
-                  .set({
-                    giftCoinsSent: sql`${liveViewers.giftCoinsSent} + ${coinCost}`,
-                  })
-                  .where(
-                    and(
-                      eq(liveViewers.streamId, contextId),
-                      eq(liveViewers.userId, senderId),
-                      sql`${liveViewers.leftAt} is null`,
-                    ),
-                  );
+                await db.execute(sql`
+                  update live_streams
+                  set total_gift_coins = coalesce(total_gift_coins, 0) + ${coinCost},
+                      trending_score = ${String(nextTrendingScore)}
+                  where id = ${contextId}::uuid
+                `);
               }
             }
-          });
 
-          const [transaction] = await db
-            .select()
-            .from(giftTransactions)
-            .where(eq(giftTransactions.idempotencyKey, idemKey))
-            .limit(1);
+            await db.execute(sql`
+              insert into live_gift_events (
+                gift_transaction_id,
+                live_stream_id,
+                live_room_id,
+                sender_user_id,
+                receiver_user_id,
+                display_message,
+                animation_key,
+                combo_group_id,
+                combo_count_snapshot,
+                broadcast_event_id,
+                metadata_json,
+                created_at
+              )
+              values (
+                ${giftTransactionId}::uuid,
+                ${contextId}::uuid,
+                ${liveRoomId}::uuid,
+                ${senderId}::uuid,
+                ${receiverId}::uuid,
+                ${`sent a ${gift.giftCode}!`},
+                ${gift.giftCode},
+                ${comboGroupId ?? null},
+                ${comboCount},
+                ${randomUUID()},
+                ${JSON.stringify({ contextType, comboCount, platformCommissionPercent, diamondValueUsdPer100: policy.diamondValueUsdPer100 })}::jsonb,
+                now()
+              )
+            `);
+          }
+
+          const transaction = {
+            id: giftTransactionId,
+          };
 
           if (!transaction) {
             throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Gift transaction not created" });
           }
 
-          await this.levelService.awardGiftXp(senderId, coinCost, transaction.id, {
-            receiverUserId: receiverId,
-            contextType,
-            contextId,
-          });
+          try {
+            await this.levelService.awardGiftXp(senderId, coinCost, transaction.id, {
+              receiverUserId: receiverId,
+              contextType,
+              contextId,
+            });
+          } catch (error) {
+            console.warn("Gift XP award failed", {
+              transactionId: transaction.id,
+              senderId,
+              receiverId,
+              contextType,
+              contextId,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
 
           const [senderProfile] = await db
             .select({
-              displayName: users.displayName,
               username: users.username,
             })
             .from(users)
             .where(eq(users.id, senderId))
             .limit(1);
 
-          const senderName = senderProfile?.displayName ?? senderProfile?.username ?? senderId;
+          const senderName = senderProfile?.username ?? senderId;
 
-          await this.notificationService.createNotification(
-            receiverId,
-            "GIFT_RECEIVED",
-            `${senderName} sent you a gift`,
-            `${senderName} sent ${comboCount}x ${gift.name}.`,
-            {
-              senderUserId: senderId,
-              receiverUserId: receiverId,
-              giftId,
-              giftName: gift.name,
-              quantity: comboCount,
+          try {
+            await this.notificationService.createNotification(
+              receiverId,
+              "GIFT_RECEIVED",
+              `${senderName} sent you a gift`,
+              `${senderName} sent ${comboCount}x ${gift.name}.`,
+              {
+                senderUserId: senderId,
+                receiverUserId: receiverId,
+                giftId,
+                giftName: gift.name,
+                quantity: comboCount,
+                contextType,
+                contextId,
+                transactionId: transaction.id,
+                channels: ["PUSH"],
+              },
+            );
+          } catch (error) {
+            console.warn("Gift notification failed", {
+              transactionId: transaction.id,
+              senderId,
+              receiverId,
               contextType,
               contextId,
-              transactionId: transaction.id,
-              channels: ["PUSH"],
-            },
-          );
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
 
           if (contextType === "PK_BATTLE") {
             const scoreResult = await this.pkService.addGiftScore(contextId, senderId, receiverId, giftId, coinCost);
@@ -364,22 +437,18 @@ export class GiftService {
   }
 
   async getGiftLeaderboard(contextType: string, contextId: string, limit: number) {
-    const leaderboard = await db
-      .select({
-        senderUserId: giftTransactions.senderUserId,
-        totalCoins: sql<number>`SUM(${giftTransactions.coinCost})`,
-      })
-      .from(giftTransactions)
-      .where(
-        and(
-          eq(giftTransactions.contextType, contextType as any),
-          eq(giftTransactions.contextId, contextId),
-        ),
-      )
-      .groupBy(giftTransactions.senderUserId)
-      .orderBy(sql`SUM(${giftTransactions.coinCost}) DESC`)
-      .limit(limit);
+    const leaderboard = await db.execute(sql`
+      select
+        sender_user_id as "senderUserId",
+        sum(coin_debit_amount)::int as "totalCoins"
+      from gift_transactions
+      where context_type = ${contextType}
+        and context_id = ${contextId}::uuid
+      group by sender_user_id
+      order by sum(coin_debit_amount) desc
+      limit ${limit}
+    `);
 
-    return leaderboard;
+    return leaderboard.rows;
   }
 }

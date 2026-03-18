@@ -49,7 +49,7 @@ export default function SplashScreen() {
 
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}>
         <Animated.View style={{ alignItems: "center", opacity, transform: [{ translateY }] }}>
-          <BrandLogo size={118} subtitle="Jashn Har Din, Party Har Waqt!" />
+          <BrandLogo size={152} />
         </Animated.View>
       </View>
     </View>

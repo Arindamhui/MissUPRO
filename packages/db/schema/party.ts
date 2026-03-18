@@ -31,6 +31,19 @@ export const partyThemes = pgTable("party_themes", {
   index("party_themes_season_status_idx").on(t.seasonTag, t.status),
 ]);
 
+export const partyThemeOwnerships = pgTable("party_theme_ownerships", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  themeId: uuid("theme_id").notNull().references(() => partyThemes.id),
+  purchasePriceCoins: integer("purchase_price_coins"),
+  acquiredAt: timestamp("acquired_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("party_theme_ownerships_user_theme_idx").on(t.userId, t.themeId),
+  index("party_theme_ownerships_user_acquired_idx").on(t.userId, t.acquiredAt),
+  index("party_theme_ownerships_theme_idx").on(t.themeId),
+]);
+
 // ─── party_rooms ───
 export const partyRooms = pgTable("party_rooms", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -137,6 +150,12 @@ export const partyActivityParticipants = pgTable("party_activity_participants", 
 // ─── Relations ───
 export const partyThemesRelations = relations(partyThemes, ({ many }) => ({
   rooms: many(partyRooms),
+  ownerships: many(partyThemeOwnerships),
+}));
+
+export const partyThemeOwnershipsRelations = relations(partyThemeOwnerships, ({ one }) => ({
+  user: one(users, { fields: [partyThemeOwnerships.userId], references: [users.id] }),
+  theme: one(partyThemes, { fields: [partyThemeOwnerships.themeId], references: [partyThemes.id] }),
 }));
 
 export const partyRoomsRelations = relations(partyRooms, ({ one, many }) => ({

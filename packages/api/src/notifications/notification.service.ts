@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { db } from "@missu/db";
 import {
   notifications, notificationPreferences, notificationTemplates,
-  notificationCampaigns, pushTokens,
+  notificationCampaigns,
   users,
 } from "@missu/db/schema";
 import { eq, and, desc, sql, isNull, count, lte, inArray } from "drizzle-orm";
@@ -15,10 +15,57 @@ import { SOCKET_EVENTS } from "@missu/types";
 
 @Injectable()
 export class NotificationService {
+  private notificationSchemaModePromise: Promise<"modern" | "legacy"> | null = null;
+
   constructor(
     private readonly socketEmitterService: SocketEmitterService,
     private readonly realtimeStateService: RealtimeStateService,
   ) {}
+
+  private async getNotificationSchemaMode() {
+    if (!this.notificationSchemaModePromise) {
+      this.notificationSchemaModePromise = db.execute(sql`
+        select exists (
+          select 1
+          from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'notifications'
+            and column_name = 'notification_type'
+        ) as has_modern_notifications
+      `).then((result) => {
+        const value = result.rows[0] as { has_modern_notifications?: boolean | string | number } | undefined;
+        return value?.has_modern_notifications ? "modern" : "legacy";
+      });
+    }
+
+    return this.notificationSchemaModePromise;
+  }
+
+  private resolveNotificationCategory(type: string) {
+    switch (type) {
+      case "GIFT_RECEIVED":
+      case "DIAMOND_EARNED":
+        return "GIFTS" as const;
+      case "NEW_FOLLOWER":
+        return "FOLLOWS" as const;
+      case "EVENT_REMINDER":
+      case "LIVE_STARTED":
+        return "EVENTS" as const;
+      case "SECURITY_ALERT":
+      case "WITHDRAWAL_UPDATE":
+      case "MODEL_APPLICATION_UPDATE":
+        return "SECURITY" as const;
+      case "SYSTEM_ANNOUNCEMENT":
+      case "STREAK_REMINDER":
+      case "DM_RECEIVED":
+      case "CALL_MISSED":
+      case "LEVEL_UP":
+      case "REWARD_GRANTED":
+        return "MARKETING" as const;
+      default:
+        return null;
+    }
+  }
 
   private async emitTrackedUserEvent(userId: string, event: string, payload: Record<string, unknown>, critical = false) {
     const deliveryId = randomUUID();
@@ -40,6 +87,16 @@ export class NotificationService {
   }
 
   private async getUnreadCount(userId: string) {
+    if (await this.getNotificationSchemaMode() === "legacy") {
+      const [result] = await db.execute(sql`
+        select count(*)::int as count
+        from notifications
+        where user_id = ${userId}::uuid and coalesce(is_read, false) = false
+      `).then((queryResult) => queryResult.rows as Array<{ count?: number }>);
+
+      return Number(result?.count ?? 0);
+    }
+
     const [result] = await db
       .select({ count: sql<number>`count(*)` })
       .from(notifications)
@@ -50,6 +107,35 @@ export class NotificationService {
 
   async getNotificationCenter(userId: string, cursor?: string, limit = 20) {
     const offset = cursor ? decodeCursor(cursor) : 0;
+
+    if (await this.getNotificationSchemaMode() === "legacy") {
+      const results = await db.execute(sql`
+        select
+          id,
+          user_id as "userId",
+          category as "notificationType",
+          title,
+          body,
+          coalesce(is_read, false) as "isRead",
+          null::timestamp as "readAt",
+          metadata as "metadataJson",
+          created_at as "createdAt"
+        from notifications
+        where user_id = ${userId}::uuid
+        order by created_at desc
+        limit ${limit + 1}
+        offset ${offset}
+      `).then((queryResult) => queryResult.rows);
+
+      const hasMore = results.length > limit;
+      const items = hasMore ? results.slice(0, limit) : results;
+
+      return {
+        items,
+        unreadCount: await this.getUnreadCount(userId),
+        nextCursor: hasMore ? encodeCursor(offset + limit) : null,
+      };
+    }
 
     const results = await db
       .select()
@@ -75,6 +161,26 @@ export class NotificationService {
   }
 
   async markAsRead(notificationId: string, userId: string) {
+    if (await this.getNotificationSchemaMode() === "legacy") {
+      const [updated] = await db.execute(sql`
+        update notifications
+        set is_read = true
+        where id = ${notificationId}::uuid and user_id = ${userId}::uuid
+        returning id, user_id as "userId", created_at as "createdAt"
+      `).then((queryResult) => queryResult.rows as Array<Record<string, unknown>>);
+
+      if (updated) {
+        const unreadCount = await this.getUnreadCount(userId);
+        await this.emitTrackedUserEvent(userId, SOCKET_EVENTS.NOTIFICATION.READ, {
+          notificationId: String(updated.id ?? notificationId),
+          readAt: new Date().toISOString(),
+          unreadCount,
+        });
+      }
+
+      return updated ?? null;
+    }
+
     const [updated] = await db
       .update(notifications)
       .set({ readAt: new Date() })
@@ -94,6 +200,21 @@ export class NotificationService {
   }
 
   async markAllAsRead(userId: string) {
+    if (await this.getNotificationSchemaMode() === "legacy") {
+      await db.execute(sql`
+        update notifications
+        set is_read = true
+        where user_id = ${userId}::uuid and coalesce(is_read, false) = false
+      `);
+
+      await this.emitTrackedUserEvent(userId, SOCKET_EVENTS.NOTIFICATION.ALL_READ, {
+        readAt: new Date().toISOString(),
+        unreadCount: 0,
+      });
+
+      return { success: true };
+    }
+
     const readAt = new Date();
     await db
       .update(notifications)
@@ -109,11 +230,15 @@ export class NotificationService {
   }
 
   async createNotification(userId: string, type: string, title: string, body: string, data?: Record<string, any>) {
-    const prefs = await db
-      .select()
-      .from(notificationPreferences)
-      .where(and(eq(notificationPreferences.userId, userId), eq(notificationPreferences.category, type as any)))
-      .limit(1);
+    const schemaMode = await this.getNotificationSchemaMode();
+    const category = this.resolveNotificationCategory(type);
+    const prefs = category
+      ? await db
+        .select()
+        .from(notificationPreferences)
+        .where(and(eq(notificationPreferences.userId, userId), eq(notificationPreferences.category, category as any)))
+        .limit(1)
+      : [];
 
     if (prefs[0] && !prefs[0].isEnabled) return null;
 
@@ -121,18 +246,51 @@ export class NotificationService {
       ? (data!.channels as string[]).filter((channel): channel is "PUSH" | "EMAIL" => channel === "PUSH" || channel === "EMAIL")
       : ["PUSH"];
 
-    const [notification] = await db
-      .insert(notifications)
-      .values({
-        userId,
-        notificationType: type as any,
-        title,
-        body,
-        metadataJson: data,
-        channel: "IN_APP" as any,
-        deliveryStatus: "PENDING" as any,
-      })
-      .returning();
+    const notification = schemaMode === "legacy"
+      ? await db.execute(sql`
+        insert into notifications (
+          id,
+          user_id,
+          category,
+          title,
+          body,
+          is_read,
+          metadata,
+          created_at
+        )
+        values (
+          gen_random_uuid(),
+          ${userId}::uuid,
+          ${category ?? "MARKETING"},
+          ${title},
+          ${body},
+          false,
+          ${JSON.stringify({ ...(data ?? {}), notificationType: type })}::jsonb,
+          now()
+        )
+        returning
+          id,
+          user_id as "userId",
+          category as "notificationType",
+          title,
+          body,
+          false as "isRead",
+          null::timestamp as "readAt",
+          metadata as "metadataJson",
+          created_at as "createdAt"
+      `).then((queryResult) => queryResult.rows[0] as { id: string } & Record<string, unknown> | undefined)
+      : (await db
+        .insert(notifications)
+        .values({
+          userId,
+          notificationType: type as any,
+          title,
+          body,
+          metadataJson: data,
+          channel: "IN_APP" as any,
+          deliveryStatus: "PENDING" as any,
+        })
+        .returning())[0];
 
     if (!notification) {
       return null;
@@ -199,6 +357,21 @@ export class NotificationService {
   }
 
   async deleteNotification(notificationId: string, userId: string) {
+    if (await this.getNotificationSchemaMode() === "legacy") {
+      await db.execute(sql`
+        delete from notifications
+        where id = ${notificationId}::uuid and user_id = ${userId}::uuid
+      `);
+
+      const unreadCount = await this.getUnreadCount(userId);
+      await this.emitTrackedUserEvent(userId, SOCKET_EVENTS.NOTIFICATION.DELETED, {
+        notificationId,
+        unreadCount,
+      });
+
+      return { success: true };
+    }
+
     await db
       .delete(notifications)
       .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)));
@@ -314,8 +487,8 @@ export class NotificationService {
         templateKey: "generic-campaign",
         locale: "en",
         channel: "PUSH" as any,
-        titleTemplate: "MissUPRO update",
-        bodyTemplate: "There is something new waiting for you in MissUPRO.",
+        titleTemplate: "MissU Pro update",
+        bodyTemplate: "There is something new waiting for you in MissU Pro.",
         variablesJson: {},
         updatedByAdminId: adminUserId,
       })
@@ -351,20 +524,27 @@ export class NotificationService {
   }
 
   private async sendPushNotification(notificationId: string, userId: string, title: string, body: string, data?: Record<string, any>) {
-    const tokens = await db
-      .select()
-      .from(pushTokens)
-      .where(eq(pushTokens.userId, userId));
+    const tokens = await db.execute(sql`
+      select token, platform
+      from push_tokens
+      where user_id = ${userId}::uuid
+    `).then((queryResult) => queryResult.rows as Array<{ token?: string | null; platform?: string | null }>).catch(() => []);
 
     if (tokens.length === 0) {
-      await db
-        .update(notifications)
-        .set({ deliveryStatus: "FAILED" as any })
-        .where(eq(notifications.id, notificationId));
+      if (await this.getNotificationSchemaMode() === "modern") {
+        await db
+          .update(notifications)
+          .set({ deliveryStatus: "FAILED" as any })
+          .where(eq(notifications.id, notificationId));
+      }
       return;
     }
 
     for (const token of tokens) {
+      if (!token.token) {
+        continue;
+      }
+
       await this.enqueueDispatchJob({
         notificationId,
         userId,
@@ -372,17 +552,19 @@ export class NotificationService {
         body,
         data,
         channel: "PUSH",
-        platform: token.platform,
+        platform: token.platform ?? "UNKNOWN",
         token: token.token,
         attempt: 1,
         queuedAt: new Date().toISOString(),
       });
     }
 
-    await db
-      .update(notifications)
-      .set({ deliveryStatus: "SENT" as any })
-      .where(eq(notifications.id, notificationId));
+    if (await this.getNotificationSchemaMode() === "modern") {
+      await db
+        .update(notifications)
+        .set({ deliveryStatus: "SENT" as any })
+        .where(eq(notifications.id, notificationId));
+    }
   }
 
   private async sendEmailNotification(notificationId: string, userId: string, title: string, body: string, data?: Record<string, any>) {

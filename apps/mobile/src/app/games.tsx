@@ -7,7 +7,8 @@ import { BackgroundCollage } from "@/components/BackgroundCollage";
 import { AnimatedSnow } from "@/components/AnimatedSnow";
 import { Badge, Button } from "@/components/ui";
 import { COLORS, RADIUS, SPACING } from "@/theme";
-import { useCallStore } from "@/store";
+import { trpc } from "@/lib/trpc";
+import { useAuthStore, useCallStore } from "@/store";
 
 type GameInfo = {
   id: string;
@@ -26,17 +27,35 @@ const GAMES: GameInfo[] = [
 ];
 
 export default function GamesScreen() {
+  const authMode = useAuthStore((s) => s.authMode);
+  const isAuthenticated = authMode === "authenticated";
   const isInCall = useCallStore((s) => s.isInCall);
+  const activeCallId = useCallStore((s) => s.activeCallId);
+  const otherUserId = useCallStore((s) => s.otherUserId);
+  const callType = useCallStore((s) => s.callType);
+  const callStatus = useCallStore((s) => s.callStatus);
+  const onlineModels = trpc.discovery.getOnlineModels.useQuery({ limit: 4 }, { retry: false, enabled: isAuthenticated && !isInCall });
+  const activePeer = trpc.user.getUserSummary.useQuery({ userId: otherUserId! }, { retry: false, enabled: Boolean(otherUserId && isAuthenticated) });
+  const startInCallGame = trpc.game.startInCallGame.useMutation({
+    onError: (error: unknown) => {
+      Alert.alert("Unable to start game", error instanceof Error ? error.message : "Please try again.");
+    },
+  });
 
   const handleStartGame = (game: GameInfo) => {
-    if (!isInCall) {
-      Alert.alert("Call Required", "Games can only be played during an active voice or video call with a verified model.");
+    if (!isInCall || !activeCallId) {
+      router.push(`/calls/request?type=${callType === "video" ? "video" : "audio"}` as never);
       return;
     }
-    Alert.alert("Start Game", `Start a ${game.name} session?`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Start", onPress: () => { /* Game start handled by socket event */ } },
-    ]);
+
+    startInCallGame.mutate(
+      { callSessionId: activeCallId, gameType: game.id.toUpperCase() as "CHESS" | "LUDO" | "CARROM" | "SUDOKU" },
+      {
+        onSuccess: (session: any) => {
+          router.push({ pathname: `/call/${activeCallId}` as never, params: { game: game.id, sessionId: String(session.id) } } as never);
+        },
+      },
+    );
   };
 
   const renderGame = ({ item }: { item: GameInfo }) => (
@@ -96,10 +115,59 @@ export default function GamesScreen() {
         {!isInCall ? (
           <LinearGradient colors={["rgba(103,231,255,0.16)", "rgba(108,92,231,0.12)"]} style={{ padding: SPACING.md, borderRadius: 18, marginBottom: SPACING.md, borderWidth: 1, borderColor: "rgba(103,231,255,0.16)" }}>
             <Text style={{ fontSize: 14, color: "#A4F1FF", textAlign: "center", lineHeight: 20 }}>
-              Games are available during active voice or video calls with verified models.
+              Games unlock inside the real call flow. Start an audio or video call first, then reopen this screen to pin a mini-game challenge.
             </Text>
-            <Button title="Open Call Flow" onPress={() => router.push("/(tabs)/discover")} style={{ marginTop: SPACING.md }} />
+            <View style={{ flexDirection: "row", gap: SPACING.sm, marginTop: SPACING.md }}>
+              <Button title="Audio Call" onPress={() => router.push("/calls/request?type=audio" as never)} style={{ flex: 1 }} />
+              <Button title="Video Call" variant="outline" onPress={() => router.push("/calls/request?type=video" as never)} style={{ flex: 1, borderColor: "rgba(255,255,255,0.26)", backgroundColor: "rgba(255,255,255,0.08)" }} />
+            </View>
           </LinearGradient>
+        ) : (
+          <LinearGradient colors={["rgba(123,198,255,0.18)", "rgba(121,82,255,0.16)"]} style={{ padding: SPACING.md, borderRadius: 18, marginBottom: SPACING.md, borderWidth: 1, borderColor: "rgba(123,198,255,0.18)" }}>
+            <Text style={{ fontSize: 18, color: COLORS.white, fontWeight: "800" }}>Active call ready</Text>
+            <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.72)", marginTop: 6, lineHeight: 18 }}>
+              {activePeer.data?.displayName ?? otherUserId ?? "Creator"} • {callType === "video" ? "Video" : "Audio"} • {String(callStatus ?? "active").toLowerCase()}
+            </Text>
+            <View style={{ flexDirection: "row", gap: SPACING.sm, marginTop: SPACING.md }}>
+              <Button title="Open Active Call" onPress={() => activeCallId && router.push(`/call/${activeCallId}` as never)} style={{ flex: 1 }} />
+              <Button title="Switch Call" variant="outline" onPress={() => router.push("/calls/request?type=audio" as never)} style={{ flex: 1, borderColor: "rgba(255,255,255,0.26)", backgroundColor: "rgba(255,255,255,0.08)" }} />
+            </View>
+          </LinearGradient>
+        )}
+
+        {!isInCall && onlineModels.data?.items?.length ? (
+          <View style={{ marginBottom: SPACING.md }}>
+            <Text style={{ color: COLORS.white, fontSize: 16, fontWeight: "800", marginBottom: SPACING.sm }}>Online creators</Text>
+            {(onlineModels.data?.items ?? []).slice(0, 3).map((item: any, index: number) => {
+              const targetId = String(item.userId ?? item.modelId ?? item.id ?? `creator-${index}`);
+              return (
+                <TouchableOpacity
+                  key={targetId}
+                  onPress={() => router.push(`/profile/${targetId}` as never)}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    borderRadius: 18,
+                    paddingHorizontal: SPACING.md,
+                    paddingVertical: 14,
+                    backgroundColor: "rgba(255,255,255,0.08)",
+                    borderWidth: 1,
+                    borderColor: "rgba(255,255,255,0.08)",
+                    marginBottom: SPACING.sm,
+                  }}
+                >
+                  <View style={{ flex: 1, paddingRight: SPACING.sm }}>
+                    <Text style={{ color: COLORS.white, fontSize: 16, fontWeight: "700" }} numberOfLines={1}>{String(item.displayName ?? "Creator")}</Text>
+                    <Text style={{ color: "rgba(255,255,255,0.62)", fontSize: 12, marginTop: 4 }} numberOfLines={1}>
+                      {(callType === "video" ? Number(item.videoPrice ?? 50) : Number(item.audioPrice ?? 30))} coins/min • Open profile to request
+                    </Text>
+                  </View>
+                  <MaterialCommunityIcons color="#7FD1FF" name="chevron-right" size={24} />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         ) : null}
 
         <FlatList
@@ -108,6 +176,7 @@ export default function GamesScreen() {
           renderItem={renderGame}
           contentContainerStyle={{ paddingBottom: SPACING.xl }}
           showsVerticalScrollIndicator={false}
+          extraData={startInCallGame.isPending}
         />
       </View>
     </View>

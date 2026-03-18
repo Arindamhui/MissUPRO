@@ -60,6 +60,36 @@ export class MediaService {
     return { asset, scanResult };
   }
 
+  getPublicUrl(storageKey: string) {
+    const baseUrl = env.R2_PUBLIC_URL.replace(/\/+$/, "");
+    const normalizedKey = storageKey.split("/").map((segment) => encodeURIComponent(segment)).join("/");
+    return `${baseUrl}/${normalizedKey}`;
+  }
+
+  async uploadAvatarFromBase64(userId: string, input: { base64Data: string; fileName: string; mimeType: string }) {
+    const normalizedBase64 = input.base64Data.replace(/^data:[^;]+;base64,/, "");
+    const fileBuffer = Buffer.from(normalizedBase64, "base64");
+
+    if (!fileBuffer.length) {
+      throw new Error("Avatar image payload is empty");
+    }
+
+    if (!input.mimeType.startsWith("image/")) {
+      throw new Error("Only image uploads are supported for avatars");
+    }
+
+    if (fileBuffer.length > 5 * 1024 * 1024) {
+      throw new Error("Avatar image must be 5 MB or smaller");
+    }
+
+    const { asset } = await this.uploadWithScan(userId, fileBuffer, input.fileName, input.mimeType, "avatars");
+
+    return {
+      assetId: asset.id,
+      avatarUrl: this.getPublicUrl(asset.storageKey),
+    };
+  }
+
   async getSignedUrl(assetId: string, userId: string) {
     const [asset] = await db
       .select()

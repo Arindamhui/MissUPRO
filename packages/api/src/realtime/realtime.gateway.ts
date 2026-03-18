@@ -487,16 +487,29 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
       };
     }
 
-    const saved = await this.socialService.sendMessage(
-      senderId,
-      data.recipientId,
-      moderationResult.sanitizedMessage.trim(),
-      data.messageType ?? data.message?.type ?? "TEXT",
-    );
+    let saved;
+
+    try {
+      saved = await this.socialService.sendMessage(
+        senderId,
+        data.recipientId,
+        moderationResult.sanitizedMessage.trim(),
+        data.messageType ?? data.message?.type ?? "TEXT",
+      );
+    } catch (error) {
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : "Unable to send message",
+      };
+    }
 
     if (!saved.message) {
       return { ok: false, error: "Failed to persist message" };
     }
+
+    const createdAt = saved.message.createdAt instanceof Date
+      ? saved.message.createdAt.toISOString()
+      : new Date(String(saved.message.createdAt ?? Date.now())).toISOString();
 
     const payload = {
       id: saved.message.id,
@@ -506,7 +519,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
       content: saved.message.contentText,
       mediaUrl: saved.message.mediaUrl,
       messageType: saved.message.messageType,
-      createdAt: saved.message.createdAt.toISOString(),
+      createdAt,
       isRead: saved.message.isRead,
     };
 

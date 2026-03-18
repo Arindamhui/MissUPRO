@@ -64,7 +64,15 @@ function OverlapAvatars({ entries, accentColor }: { entries: LeaderboardEntry[];
 
 function FeatureCard({ item, previewEntries }: { item: ShowcaseCard; previewEntries: LeaderboardEntry[] }) {
   const { preset, board } = item;
-  const sizeStyle: ViewStyle = preset.layout === "hero" ? { width: "47.6%", height: 448 } : preset.layout === "wide" ? { width: "100%", height: 140 } : preset.layout === "tall" ? { width: "47.6%", height: 260 } : { width: "100%", height: 152 };
+  const isWeeklyStar = preset.key === "weekly-star";
+  const isRecordBreaker = preset.key === "record-breaker";
+  const sizeStyle: ViewStyle = preset.layout === "hero"
+    ? { width: "47.6%", height: 448 }
+    : preset.layout === "wide"
+      ? { width: "100%", height: isWeeklyStar ? 156 : 140 }
+      : preset.layout === "tall"
+        ? { width: "47.6%", height: 260 }
+        : { width: "100%", height: isRecordBreaker ? 168 : 152 };
 
   return (
     <TouchableOpacity activeOpacity={0.94} onPress={() => router.push(`/leaderboards/${preset.key}` as never)} style={[sizeStyle, { marginBottom: 14 }]}>
@@ -81,13 +89,17 @@ function FeatureCard({ item, previewEntries }: { item: ShowcaseCard; previewEntr
           {preset.accent ? <Text style={{ color: "rgba(255,255,255,0.56)", fontSize: 18, fontWeight: "900" }}>{preset.accent}</Text> : null}
         </View>
 
-        <View style={{ flex: 1, justifyContent: "space-between", marginTop: 10 }}>
+        <View style={{ flex: 1, justifyContent: "space-between", marginTop: isWeeklyStar || isRecordBreaker ? 16 : 10 }}>
           {preset.layout === "hero" ? <TopRankPreview entries={previewEntries} /> : null}
           {preset.layout === "wide" ? (
             <View style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-              <View>
-                {previewEntries.slice(0, 5).map((entry, index) => (
-                  <Text key={`${entry.userId ?? index}`} style={{ color: index === 0 ? "#FFEAA0" : "#FFFFFF", fontSize: index === 0 ? 18 : 13, fontWeight: index === 0 ? "900" : "700", marginBottom: 4 }}>
+              <View style={{ flex: 1, paddingTop: isWeeklyStar ? 4 : 0, paddingRight: 12 }}>
+                {previewEntries.slice(0, isWeeklyStar ? 4 : 5).map((entry, index) => (
+                  <Text
+                    key={`${entry.userId ?? index}`}
+                    style={{ color: index === 0 ? "#FFEAA0" : "#FFFFFF", fontSize: index === 0 ? 16 : 12, lineHeight: index === 0 ? 19 : 15, fontWeight: index === 0 ? "900" : "700", marginBottom: 3 }}
+                    numberOfLines={1}
+                  >
                     {entry.displayName ?? `Gift ${index + 1}`}
                   </Text>
                 ))}
@@ -98,9 +110,13 @@ function FeatureCard({ item, previewEntries }: { item: ShowcaseCard; previewEntr
           {preset.layout === "small" ? (
             <View style={{ flex: 1, justifyContent: "flex-end" }}>
               {preset.key === "record-breaker" ? (
-                <View>
+                <View style={{ paddingTop: 6 }}>
                   {previewEntries.slice(0, 3).map((entry, index) => (
-                    <Text key={`${entry.userId ?? index}`} style={{ color: index === 0 ? "#FFFFFF" : "rgba(255,255,255,0.68)", fontSize: index === 0 ? 22 : 15, fontWeight: "900", marginBottom: 4 }}>
+                    <Text
+                      key={`${entry.userId ?? index}`}
+                      style={{ color: index === 0 ? "#FFFFFF" : "rgba(255,255,255,0.68)", fontSize: index === 0 ? 20 : 14, lineHeight: index === 0 ? 23 : 17, fontWeight: "900", marginBottom: 3 }}
+                      numberOfLines={1}
+                    >
                       x{Number(entry.scoreValue ?? 0)}
                     </Text>
                   ))}

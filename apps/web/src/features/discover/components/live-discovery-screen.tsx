@@ -134,7 +134,7 @@ export function LiveDiscoveryScreen() {
         <header className="sticky top-0 z-20 -mx-4 mb-6 border-b border-white/8 bg-[rgba(5,8,22,0.82)] px-4 py-4 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.32em] text-white/46">MissUPRO Live</p>
+              <p className="text-xs uppercase tracking-[0.32em] text-white/46">MissU Pro Live</p>
               <h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">Discovery lobby</h1>
             </div>
             <div className="flex items-center gap-2">

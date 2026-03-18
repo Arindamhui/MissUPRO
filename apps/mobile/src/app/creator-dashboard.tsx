@@ -1,5 +1,6 @@
+import * as ImagePicker from "expo-image-picker";
 import React, { useEffect, useState } from "react";
-import { Alert, Text, View } from "react-native";
+import { Alert, Image, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { Screen, Card, SectionHeader, DiamondDisplay, Button, Input, Badge } from "@/components/ui";
@@ -16,11 +17,22 @@ type ScheduleSlot = {
 const DAY_OPTIONS: ScheduleSlot["day"][] = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
 export default function CreatorDashboardScreen() {
+  const applicationStatus = trpc.model.getMyApplicationStatus.useQuery(undefined, { retry: false });
   const level = trpc.model.getMyLevel.useQuery(undefined, { retry: false });
   const stats = trpc.model.getMyStats.useQuery(undefined, { retry: false });
   const availability = trpc.model.getMyAvailability.useQuery(undefined, { retry: false });
   const demoVideos = trpc.model.getMyDemoVideos.useQuery(undefined, { retry: false });
   const creatorEconomy = trpc.config.getCreatorEconomy.useQuery(getMobileRuntimeScope(), { retry: false });
+  const uploadImage = trpc.media.uploadAvatar.useMutation();
+  const submitApplication = trpc.model.submitApplication.useMutation({
+    onSuccess: () => {
+      applicationStatus.refetch();
+      Alert.alert("Application submitted", "Your official talent application is now under review.");
+    },
+    onError: (error: unknown) => {
+      Alert.alert("Unable to apply", error instanceof Error ? error.message : "Please try again.");
+    },
+  });
   const router = useRouter();
 
   const updateAvailability = trpc.model.updateAvailability.useMutation({
@@ -92,6 +104,22 @@ export default function CreatorDashboardScreen() {
     thumbnailUrl: "",
     durationSeconds: "",
   });
+  const [applicationForm, setApplicationForm] = useState({
+    legalName: "",
+    phone: "",
+    country: "India",
+    stateRegion: "",
+    address: "",
+    email: "",
+    nationalId: "",
+    dob: "1998-01-01",
+    agencyId: "",
+  });
+  const [documents, setDocuments] = useState({
+    idFrontUrl: "",
+    holdingIdUrl: "",
+    selfieUrl: "",
+  });
 
   useEffect(() => {
     const remoteSlots = (availabilityData.schedule ?? []).map((slot) => ({
@@ -111,6 +139,78 @@ export default function CreatorDashboardScreen() {
   const totalGiftsReceived = Number(statsData.totalGiftsReceived ?? 0);
   const availabilityStatus = availabilityData.availabilityStatus ?? "OFFLINE";
   const canSubmitVideo = Boolean(videoForm.videoUrl && videoForm.thumbnailUrl && videoForm.durationSeconds);
+  const gemBalance = Math.max(0, totalDiamonds);
+
+  const pickAndUploadImage = async (slot: "idFrontUrl" | "holdingIdUrl" | "selfieUrl") => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Allow gallery access to upload your document.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (result.canceled || !result.assets?.[0]?.base64) {
+      return;
+    }
+
+    const asset = result.assets[0];
+    const mimeType = asset.mimeType && asset.mimeType.startsWith("image/") ? asset.mimeType : "image/jpeg";
+    const extension = mimeType.split("/")[1] === "jpeg" ? "jpg" : (mimeType.split("/")[1] ?? "jpg");
+
+    try {
+      const uploaded = await uploadImage.mutateAsync({
+        base64Data: asset.base64,
+        fileName: asset.fileName?.trim() || `${slot}.${extension}`,
+        mimeType,
+      });
+      setDocuments((current) => ({ ...current, [slot]: String(uploaded.avatarUrl) }));
+    } catch (error) {
+      Alert.alert("Upload failed", error instanceof Error ? error.message : "Please try again.");
+    }
+  };
+
+  const handleSubmitApplication = () => {
+    if (!applicationForm.legalName.trim() || !applicationForm.email.trim() || !applicationForm.stateRegion.trim() || !applicationForm.nationalId.trim()) {
+      Alert.alert("Missing information", "Complete the required application fields before applying.");
+      return;
+    }
+    if (!documents.idFrontUrl || !documents.holdingIdUrl || !documents.selfieUrl) {
+      Alert.alert("Missing uploads", "Upload your ID image, holding photo, and selfie before applying.");
+      return;
+    }
+
+    const dobValue = new Date(applicationForm.dob);
+    if (Number.isNaN(dobValue.getTime())) {
+      Alert.alert("Invalid date", "Enter your birth date using YYYY-MM-DD.");
+      return;
+    }
+
+    submitApplication.mutate({
+      legalName: applicationForm.legalName.trim(),
+      displayName: applicationForm.legalName.trim(),
+      talentDescription: applicationForm.agencyId.trim() ? `Agency application with ID ${applicationForm.agencyId.trim()}` : "Independent official talent application",
+      talentCategories: [applicationForm.agencyId.trim() ? "Agency Talent" : "Official Talent"],
+      languages: ["English", "Hindi"],
+      country: applicationForm.country.trim(),
+      city: applicationForm.stateRegion.trim(),
+      dob: dobValue,
+      introVideoUrl: documents.selfieUrl,
+      idDocFrontUrl: documents.idFrontUrl,
+      idDocBackUrl: documents.holdingIdUrl,
+      scheduleJson: {
+        phone: applicationForm.phone.trim() || null,
+        address: applicationForm.address.trim() || null,
+        email: applicationForm.email.trim(),
+        nationalId: applicationForm.nationalId.trim(),
+        agencyId: applicationForm.agencyId.trim() || null,
+      },
+    });
+  };
 
   const handleAddSlot = () => {
     setSchedule((current) => [
@@ -145,6 +245,98 @@ export default function CreatorDashboardScreen() {
 
   return (
     <Screen scroll>
+      <Card style={{ marginBottom: SPACING.md, backgroundColor: "#0A1021", borderRadius: RADIUS.xl, padding: 0, overflow: "hidden" }}>
+        <View style={{ padding: SPACING.md }}>
+          <Text style={{ fontSize: 20, fontWeight: "800", color: COLORS.white }}>Official Talent Instruction</Text>
+        </View>
+        <View style={{ backgroundColor: COLORS.white, padding: SPACING.md }}>
+          <Text style={{ color: "#E63793", fontSize: 16, fontWeight: "800", marginBottom: SPACING.md }}>What you need to become an official talent</Text>
+
+          <Text style={{ color: "#151515", fontSize: 18, fontWeight: "800", marginBottom: 10 }}>Official Talent Requirements</Text>
+          <Text style={{ color: "#262626", fontSize: 16, lineHeight: 24 }}>• If you have earned at least 200,000 gems, then you can apply to be an official talent.</Text>
+          <Text style={{ color: "#E63793", fontSize: 18, fontWeight: "900", marginVertical: 10 }}>OR</Text>
+          <Text style={{ color: "#262626", fontSize: 16, lineHeight: 24 }}>• If you have an Agency ID and agency you would like to join, you can apply with the Agency ID and join into an Agency right away.</Text>
+
+          <Text style={{ color: "#151515", fontSize: 18, fontWeight: "800", marginTop: 18, marginBottom: 10 }}>Why should you become an official talent?</Text>
+          <Text style={{ color: "#262626", fontSize: 16, lineHeight: 24 }}>• You can earn real money from streaming, receive allowance, and earn from the gems you collect.</Text>
+          <Text style={{ color: "#262626", fontSize: 16, lineHeight: 24, marginTop: 8 }}>• Your stream can be promoted on popular and discovery surfaces when you broadcast.</Text>
+          <Text style={{ color: "#262626", fontSize: 16, lineHeight: 24, marginTop: 8 }}>• Special placement, badges, training, and support are unlocked for approved talents.</Text>
+
+          <Text style={{ color: "#B63A3A", fontSize: 15, fontWeight: "800", lineHeight: 24, marginTop: 18 }}>Notice: You must be 18+, child-related content is prohibited, and inactive talents may lose status after long inactivity.</Text>
+        </View>
+        <View style={{ padding: SPACING.md, backgroundColor: "#111623" }}>
+          <Text style={{ color: "rgba(255,255,255,0.74)", fontSize: 15, textAlign: "center" }}>Current Gem Balance: {gemBalance} gems</Text>
+          <Text style={{ color: "rgba(255,255,255,0.74)", fontSize: 15, textAlign: "center", marginTop: 4 }}>Gems Required to Apply: 200000 gems</Text>
+          {applicationStatus.data ? (
+            <View style={{ marginTop: SPACING.md, borderRadius: RADIUS.lg, padding: SPACING.md, backgroundColor: "rgba(255,255,255,0.06)" }}>
+              <Text style={{ color: COLORS.white, fontSize: 16, fontWeight: "700" }}>Application Status: {String((applicationStatus.data as any)?.status ?? "SUBMITTED")}</Text>
+              <Text style={{ color: "rgba(255,255,255,0.66)", marginTop: 6 }}>Submitted official talent application is now linked to your creator tools below.</Text>
+            </View>
+          ) : (
+            <View style={{ marginTop: SPACING.md }}>
+              <Button title={gemBalance >= 200_000 || applicationForm.agencyId.trim() ? "Apply now" : "Cannot apply"} onPress={() => {}} disabled={!(gemBalance >= 200_000 || applicationForm.agencyId.trim())} />
+            </View>
+          )}
+        </View>
+      </Card>
+
+      {!applicationStatus.data ? (
+        <Card style={{ marginBottom: SPACING.md, backgroundColor: "#0A1021", borderRadius: RADIUS.xl }}>
+          <Text style={{ fontSize: 20, fontWeight: "800", color: COLORS.white, marginBottom: SPACING.md }}>Apply to be an Official Talent</Text>
+
+          <Input label="*Enter your real name" value={applicationForm.legalName} onChangeText={(value) => setApplicationForm((current) => ({ ...current, legalName: value }))} placeholder="Real name" style={{ backgroundColor: "#0E162A", color: COLORS.white }} />
+          <Input label="*Enter your mobile/WhatsApp number" value={applicationForm.phone} onChangeText={(value) => setApplicationForm((current) => ({ ...current, phone: value }))} placeholder="Phone" style={{ backgroundColor: "#0E162A", color: COLORS.white }} />
+          <Input label="*Select your country/region" value={applicationForm.country} onChangeText={(value) => setApplicationForm((current) => ({ ...current, country: value }))} placeholder="Country" style={{ backgroundColor: "#0E162A", color: COLORS.white }} />
+          <Input label="*Please Select Your State/UT" value={applicationForm.stateRegion} onChangeText={(value) => setApplicationForm((current) => ({ ...current, stateRegion: value }))} placeholder="State / UT" style={{ backgroundColor: "#0E162A", color: COLORS.white }} />
+          <Input label="Enter your address (optional)" value={applicationForm.address} onChangeText={(value) => setApplicationForm((current) => ({ ...current, address: value }))} placeholder="Address" style={{ backgroundColor: "#0E162A", color: COLORS.white }} />
+          <Input label="*Enter your email address" value={applicationForm.email} onChangeText={(value) => setApplicationForm((current) => ({ ...current, email: value }))} placeholder="Email" style={{ backgroundColor: "#0E162A", color: COLORS.white }} />
+          <Input label="*Enter your national ID number" value={applicationForm.nationalId} onChangeText={(value) => setApplicationForm((current) => ({ ...current, nationalId: value }))} placeholder="National ID" style={{ backgroundColor: "#0E162A", color: COLORS.white }} />
+          <Input label="*Enter your birth date" value={applicationForm.dob} onChangeText={(value) => setApplicationForm((current) => ({ ...current, dob: value }))} placeholder="YYYY-MM-DD" style={{ backgroundColor: "#0E162A", color: COLORS.white }} />
+          <Text style={{ color: "#FF6F82", marginBottom: SPACING.md }}>Application will be rejected if you upload invalid ID#</Text>
+
+          {[
+            { key: "idFrontUrl", title: "Click to upload national ID image", label: "National ID image" },
+            { key: "holdingIdUrl", title: "Upload a photo of yourself holding your ID card", label: "Holding ID photo" },
+            { key: "selfieUrl", title: "Upload self-taken photo", label: "Selfie" },
+          ].map((item) => {
+            const value = documents[item.key as keyof typeof documents];
+            return (
+              <TouchableOpacity key={item.key} onPress={() => void pickAndUploadImage(item.key as "idFrontUrl" | "holdingIdUrl" | "selfieUrl")} style={{ borderWidth: 1.5, borderStyle: "dashed", borderColor: "rgba(255,255,255,0.3)", borderRadius: RADIUS.lg, minHeight: 180, marginBottom: SPACING.md, alignItems: "center", justifyContent: "center", overflow: "hidden", backgroundColor: "#F7F7F8" }}>
+                {value ? (
+                  <Image source={{ uri: value }} style={{ width: "100%", height: 220 }} resizeMode="cover" />
+                ) : (
+                  <View style={{ alignItems: "center", paddingHorizontal: SPACING.md }}>
+                    <Text style={{ color: "#E63595", fontSize: 46, fontWeight: "200" }}>+</Text>
+                    <Text style={{ color: "#E63595", fontSize: 16, textDecorationLine: "underline", textAlign: "center", marginTop: 6 }}>{item.title}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+
+          <Text style={{ fontSize: 20, fontWeight: "700", color: COLORS.white, marginBottom: SPACING.md }}>Choose how you want to be paid</Text>
+          <Text style={{ color: COLORS.white, fontSize: 16, marginBottom: 8 }}>* Select Payment Receival Type :</Text>
+          <View style={{ flexDirection: "row", gap: SPACING.md, marginBottom: SPACING.md }}>
+            {[
+              { key: "self", label: "Self" },
+              { key: "agency", label: "Via Agency" },
+              { key: "third", label: "Trusted 3rd Party" },
+            ].map((option) => (
+              <TouchableOpacity key={option.key} onPress={() => setApplicationForm((current) => ({ ...current, agencyId: option.key === "agency" ? current.agencyId : "" }))} style={{ flexDirection: "row", alignItems: "center" }}>
+                <View style={{ width: 26, height: 26, borderRadius: 13, borderWidth: 2, borderColor: "#62DEFF", alignItems: "center", justifyContent: "center", marginRight: 8 }}>
+                  {option.key === "self" ? <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: "#62DEFF" }} /> : null}
+                </View>
+                <Text style={{ color: COLORS.white }}>{option.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={{ color: COLORS.white, fontSize: 16, marginBottom: 8 }}>* Enter Agency ID</Text>
+          <Input label="I want to join a SK Lite agency" value={applicationForm.agencyId} onChangeText={(value) => setApplicationForm((current) => ({ ...current, agencyId: value }))} placeholder="Agency ID" style={{ backgroundColor: "#0E162A", color: COLORS.white }} />
+          <Button title={submitApplication.isPending ? "Applying..." : "Apply"} onPress={handleSubmitApplication} disabled={submitApplication.isPending} />
+        </Card>
+      ) : null}
+
       <Card style={{ marginBottom: SPACING.md, backgroundColor: COLORS.primary, borderRadius: RADIUS.xl }}>
         <View style={{ alignItems: "center", paddingVertical: SPACING.md }}>
           <Text style={{ fontSize: 18, fontWeight: "700", color: COLORS.white }}>Creator Level</Text>

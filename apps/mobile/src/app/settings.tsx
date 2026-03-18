@@ -1,23 +1,35 @@
 import { useClerk } from "@clerk/clerk-expo";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
-import React, { useState } from "react";
-import { Alert, ScrollView, Switch, Text, TouchableOpacity, View } from "react-native";
+import React from "react";
+import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AnimatedSnow } from "@/components/AnimatedSnow";
 import { BackgroundCollage } from "@/components/BackgroundCollage";
-import { Screen, Card, Button } from "@/components/ui";
-import { supportedLocales, useI18n } from "@/i18n";
-import { COLORS, SPACING, RADIUS } from "@/theme";
+import { Button } from "@/components/ui";
+import { useI18n } from "@/i18n";
+import { COLORS, SPACING } from "@/theme";
 import { trpc } from "@/lib/trpc";
 import { useAuthStore } from "@/store";
 
-type SettingRow = { label: string; type: "toggle" | "link" | "action"; value?: boolean; onPress?: () => void; onToggle?: (v: boolean) => void; danger?: boolean };
+const APP_VERSION = "1.0.0";
+
+function SettingsRow({ label, value, highlight, onPress }: { label: string; value?: string; highlight?: boolean; onPress?: () => void }) {
+  return (
+    <TouchableOpacity onPress={onPress} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.08)" }}>
+      <Text style={{ color: COLORS.white, fontSize: 19, flex: 1 }}>{label}</Text>
+      {highlight ? <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: "#FF3333", marginRight: 12 }} /> : null}
+      {value ? <Text style={{ color: "rgba(255,255,255,0.46)", fontSize: 16, marginRight: 12 }}>{value}</Text> : null}
+      <MaterialCommunityIcons color="rgba(255,255,255,0.52)" name="chevron-right" size={24} />
+    </TouchableOpacity>
+  );
+}
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const { t, locale, setLocale, isRTL } = useI18n();
+  const { t } = useI18n();
   const { signOut } = useClerk();
   const authMode = useAuthStore((state) => state.authMode);
   const isAuthenticated = authMode === "authenticated";
@@ -40,84 +52,8 @@ export default function SettingsScreen() {
     },
     onError: (error: unknown) => Alert.alert("Request failed", getErrorMessage(error)),
   });
-  const [pushNotifications, setPushNotifications] = useState(true);
-  const [callNotifications, setCallNotifications] = useState(true);
-  const [messageNotifications, setMessageNotifications] = useState(true);
-  const [showOnlineStatus, setShowOnlineStatus] = useState(true);
-  const [allowStrangerDM, setAllowStrangerDM] = useState(false);
-  const [autoPlayVideo, setAutoPlayVideo] = useState(true);
   const latestDataExport = dataExports.data?.[0];
   const currentDeletionRequest = deletionRequest.data;
-
-  const sections: { title: string; rows: SettingRow[] }[] = [
-    {
-      title: "Account",
-      rows: [
-        { label: "Edit Profile", type: "link", onPress: () => {} },
-        { label: "Change Password", type: "link", onPress: () => {} },
-        { label: "Linked Accounts", type: "link", onPress: () => {} },
-        { label: "Blocked Users", type: "link", onPress: () => {} },
-      ],
-    },
-    {
-      title: "Notifications",
-      rows: [
-        { label: "Push Notifications", type: "toggle", value: pushNotifications, onToggle: setPushNotifications },
-        { label: "Call Notifications", type: "toggle", value: callNotifications, onToggle: setCallNotifications },
-        { label: "Message Notifications", type: "toggle", value: messageNotifications, onToggle: setMessageNotifications },
-      ],
-    },
-    {
-      title: "Privacy",
-      rows: [
-        { label: "Show Online Status", type: "toggle", value: showOnlineStatus, onToggle: setShowOnlineStatus },
-        { label: "Allow DMs from Strangers", type: "toggle", value: allowStrangerDM, onToggle: setAllowStrangerDM },
-        {
-          label: `Request Data Export${latestDataExport ? ` (${latestDataExport.status})` : ""}`,
-          type: "action",
-          onPress: () => requestDataExport.mutate(),
-        },
-        {
-          label: `Deletion Status${currentDeletionRequest ? ` (${currentDeletionRequest.status})` : ""}`,
-          type: "action",
-          onPress: () => Alert.alert(
-            "Deletion status",
-            currentDeletionRequest
-              ? `Current status: ${currentDeletionRequest.status}`
-              : "No account deletion request found.",
-          ),
-        },
-      ],
-    },
-    {
-      title: "Media",
-      rows: [
-        { label: "Auto-play Videos", type: "toggle", value: autoPlayVideo, onToggle: setAutoPlayVideo },
-        { label: "Clear Cache", type: "action", onPress: () => Alert.alert("Cache Cleared", "Local cache has been cleared.") },
-      ],
-    },
-    {
-      title: "About",
-      rows: [
-        { label: "Terms of Service", type: "link", onPress: () => {} },
-        { label: "Privacy Policy", type: "link", onPress: () => {} },
-        { label: "Version", type: "link" },
-      ],
-    },
-    {
-      title: "Danger Zone",
-      rows: [
-        { label: "Sign Out", type: "action", danger: true, onPress: () => { void signOut().then(() => router.replace("/(auth)/login")); } },
-        {
-          label: "Delete Account", type: "action", danger: true,
-          onPress: () => Alert.alert("Delete Account", "Are you sure? This cannot be undone.", [
-            { text: "Cancel", style: "cancel" },
-            { text: "Delete", style: "destructive", onPress: () => requestDeletion.mutate({ reason: "Requested from mobile settings" }) },
-          ]),
-        },
-      ],
-    },
-  ];
 
   return (
     <View style={{ flex: 1, backgroundColor: "#0C1345" }}>
@@ -126,88 +62,58 @@ export default function SettingsScreen() {
       <LinearGradient colors={["rgba(17,23,70,0.18)", "rgba(10,18,60,0.72)", "rgba(8,14,47,0.97)"]} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />
       <AnimatedSnow density={10} />
 
-      <Screen style={{ backgroundColor: "transparent" }}>
-        <ScrollView contentContainerStyle={{ padding: SPACING.md, paddingBottom: 40, paddingTop: insets.top + 6 }}>
-          <Text style={{ fontSize: 24, fontWeight: "800", color: COLORS.white, marginBottom: SPACING.lg, textAlign: isRTL ? "right" : "left" }}>
-            {t("settings.title")}
-          </Text>
+      <ScrollView contentContainerStyle={{ padding: SPACING.md, paddingBottom: 140, paddingTop: insets.top + 6 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: SPACING.lg }}>
+          <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", marginRight: 14 }}>
+            <MaterialCommunityIcons color={COLORS.white} name="chevron-left" size={28} />
+          </TouchableOpacity>
+          <Text style={{ fontSize: 24, fontWeight: "900", color: COLORS.white }}>{t("settings.title")}</Text>
+        </View>
 
-          {!isAuthenticated ? (
-            <Card style={{ backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
-              <Text style={{ color: COLORS.white, fontSize: 18, fontWeight: "700" }}>Sign in required</Text>
-              <Text style={{ color: "rgba(255,255,255,0.72)", marginTop: 8, lineHeight: 20 }}>Compliance requests and account settings are only available for signed-in users.</Text>
-              <Button title="Go to Login" onPress={() => router.replace("/(auth)/login")} style={{ marginTop: 14 }} />
-            </Card>
-          ) : null}
-
-          <View style={{ marginBottom: SPACING.lg }}>
-            <Text style={{ fontSize: 14, fontWeight: "600", color: "rgba(255,255,255,0.68)", marginBottom: SPACING.sm, textTransform: "uppercase", letterSpacing: 0.5 }}>
-            {t("settings.languageSection")}
-            </Text>
-            <Card style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: SPACING.sm, backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
-              {supportedLocales.map((option) => (
-                <Button
-                  key={option.code}
-                  title={
-                    option.code === "en"
-                      ? t("common.english")
-                      : option.code === "ar"
-                        ? t("common.arabic")
-                        : t("common.hindi")
-                  }
-                  onPress={() => setLocale(option.code)}
-                  variant={locale === option.code ? "primary" : "secondary"}
-                  style={{ flex: 1, backgroundColor: locale === option.code ? undefined : "rgba(255,255,255,0.08)" }}
-                />
-              ))}
-            </Card>
+        {!isAuthenticated ? (
+          <View style={{ backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", borderRadius: 24, padding: 20 }}>
+            <Text style={{ color: COLORS.white, fontSize: 18, fontWeight: "700" }}>Sign in required</Text>
+            <Text style={{ color: "rgba(255,255,255,0.72)", marginTop: 8, lineHeight: 20 }}>Compliance requests and account settings are only available for signed-in users.</Text>
+            <Button title="Go to Login" onPress={() => router.replace("/(auth)/login")} style={{ marginTop: 14 }} />
           </View>
+        ) : null}
 
-          {isAuthenticated ? sections.map((section) => (
-          <View key={section.title} style={{ marginBottom: SPACING.lg }}>
-            <Text style={{ fontSize: 14, fontWeight: "600", color: "rgba(255,255,255,0.68)", marginBottom: SPACING.sm, textTransform: "uppercase", letterSpacing: 0.5 }}>
-              {section.title}
-            </Text>
-            <Card style={{ backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
-              {section.rows.map((row, i) => (
-                <TouchableOpacity
-                  key={row.label}
-                  onPress={row.type === "toggle" ? undefined : row.onPress}
-                  activeOpacity={row.type === "toggle" ? 1 : 0.7}
-                  style={{
-                    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-                    paddingVertical: 14, paddingHorizontal: 16,
-                    borderBottomWidth: i < section.rows.length - 1 ? 1 : 0,
-                    borderBottomColor: "rgba(255,255,255,0.1)",
-                  }}
-                >
-                  <Text style={{ fontSize: 15, color: row.danger ? COLORS.danger : COLORS.white, fontWeight: row.danger ? "600" : "500" }}>
-                    {row.label}
-                  </Text>
-
-                  {row.type === "toggle" && (
-                    <Switch
-                      value={row.value}
-                      onValueChange={row.onToggle}
-                      trackColor={{ false: COLORS.border, true: COLORS.primaryLight }}
-                      thumbColor={row.value ? COLORS.primary : COLORS.textSecondary}
-                    />
-                  )}
-
-                  {row.type === "link" && row.label === "Version" && (
-                    <Text style={{ fontSize: 14, color: "rgba(255,255,255,0.62)" }}>1.0.0</Text>
-                  )}
-
-                  {row.type === "link" && row.label !== "Version" && (
-                    <Text style={{ fontSize: 18, color: "rgba(255,255,255,0.52)" }}>›</Text>
-                  )}
-                </TouchableOpacity>
-              ))}
-            </Card>
+        {isAuthenticated ? (
+          <View style={{ backgroundColor: "rgba(8,13,33,0.86)", borderRadius: 12, overflow: "hidden" }}>
+            <SettingsRow label="Linked Accounts" onPress={() => router.push("/settings/linked-accounts")} />
+            <SettingsRow label="Privacy" highlight onPress={() => router.push("/settings/privacy")} />
+            <SettingsRow label="Effect" onPress={() => router.push("/settings/effects")} />
+            <SettingsRow label="Inbox" onPress={() => router.push("/messages/settings")} />
+            <SettingsRow label="Language" onPress={() => router.push("/settings/language")} />
+            <SettingsRow label="App Alerts" onPress={() => router.push("/settings/app-alerts")} />
+            <SettingsRow label="Clear Cache" value="184 M" onPress={() => Alert.alert("Cache cleared", "Local mobile cache has been cleared.")} />
+            <SettingsRow label="Review us!" onPress={() => router.push("/settings/article/review")} />
+            <SettingsRow label="Facebook" onPress={() => router.push("/settings/article/facebook")} />
+            <SettingsRow label="FAQ" onPress={() => router.push("/settings/article/faq")} />
+            <SettingsRow label="Check for update" value={`Current version:${APP_VERSION}`} onPress={() => router.push("/settings/article/check-update")} />
+            <SettingsRow label="Connect With Us" highlight onPress={() => router.push("/settings/article/connect")} />
+            <SettingsRow label="About" onPress={() => router.push("/settings/article/about")} />
+            <SettingsRow label="Privacy Policy" onPress={() => router.push("/settings/article/privacy-policy")} />
+            <SettingsRow label="EULA" onPress={() => router.push("/settings/article/eula")} />
+            <SettingsRow label="Child Safety" onPress={() => router.push("/settings/article/child-safety")} />
+            <SettingsRow label="Refund Policy" onPress={() => router.push("/settings/article/refund-policy")} />
           </View>
-          )) : null}
-        </ScrollView>
-      </Screen>
+        ) : null}
+
+        {isAuthenticated ? (
+          <View style={{ marginTop: 24, gap: 12 }}>
+            <Button title={`Request Data Export${latestDataExport ? ` (${latestDataExport.status})` : ""}`} variant="outline" onPress={() => requestDataExport.mutate()} style={{ borderColor: "rgba(255,255,255,0.24)", backgroundColor: "rgba(255,255,255,0.06)" }} />
+            <Button title={`Delete Account${currentDeletionRequest ? ` (${currentDeletionRequest.status})` : ""}`} variant="outline" onPress={() => Alert.alert("Delete Account", "Are you sure? This cannot be undone.", [
+              { text: "Cancel", style: "cancel" },
+              { text: "Delete", style: "destructive", onPress: () => requestDeletion.mutate({ reason: "Requested from mobile settings" }) },
+            ])} style={{ borderColor: "rgba(255,130,130,0.4)", backgroundColor: "rgba(120,20,20,0.16)" }} />
+          </View>
+        ) : null}
+
+        <TouchableOpacity onPress={() => { void signOut().then(() => router.replace("/(auth)/login")); }} style={{ marginTop: 28, alignItems: "center", paddingVertical: 16, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.08)" }}>
+          <Text style={{ color: COLORS.white, fontSize: 18, fontWeight: "500" }}>Log Out</Text>
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 }

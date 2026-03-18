@@ -92,9 +92,16 @@ export class PayoutsService {
     const audioEarnings = Number((audioMinutesPaid * audioRateUsd).toFixed(2));
     const videoEarnings = Number((videoMinutesPaid * videoRateUsd).toFixed(2));
     const totalPayoutAmount = Number((audioEarnings + videoEarnings).toFixed(2));
+    const now = new Date();
 
-    await db.transaction(async (tx) => {
-      await tx.insert(payoutRecords).values({
+    const [existingPayout] = await db
+      .select()
+      .from(payoutRecords)
+      .where(eq(payoutRecords.withdrawRequestId, request.id))
+      .limit(1);
+
+    if (!existingPayout) {
+      await db.insert(payoutRecords).values({
         modelUserId: request.modelUserId,
         withdrawRequestId: request.id,
         audioMinutesPaid,
@@ -109,37 +116,37 @@ export class PayoutsService {
         payoutMethod: request.payoutMethod,
         status: "COMPLETED" as any,
         approvedByAdminId: adminId,
-        processedAt: new Date(),
+        processedAt: now,
       } as any);
+    }
 
-      await tx
-        .update(modelCallStats)
-        .set({
-          audioMinutesPaid: (stats.audioMinutesPaid ?? 0) + audioMinutesPaid,
-          videoMinutesPaid: (stats.videoMinutesPaid ?? 0) + videoMinutesPaid,
-          audioMinutesPending: 0,
-          videoMinutesPending: 0,
-          updatedAt: new Date(),
-        })
-        .where(eq(modelCallStats.id, stats.id));
+    await db
+      .update(modelCallStats)
+      .set({
+        audioMinutesPaid: (stats.audioMinutesPaid ?? 0) + audioMinutesPaid,
+        videoMinutesPaid: (stats.videoMinutesPaid ?? 0) + videoMinutesPaid,
+        audioMinutesPending: 0,
+        videoMinutesPending: 0,
+        updatedAt: now,
+      })
+      .where(eq(modelCallStats.id, stats.id));
 
-      await tx
-        .update(withdrawRequests)
-        .set({
-          status: "COMPLETED" as any,
-          approvedByAdminId: adminId,
-          approvedAt: new Date(),
-          completedAt: new Date(),
-          audioMinutesSnapshot: audioMinutesPaid,
-          videoMinutesSnapshot: videoMinutesPaid,
-          audioRateSnapshot: String(audioRateUsd.toFixed(4)),
-          videoRateSnapshot: String(videoRateUsd.toFixed(4)),
-          callEarningsSnapshot: String(totalPayoutAmount.toFixed(2)),
-          totalPayoutAmount: String(totalPayoutAmount.toFixed(2)),
-          updatedAt: new Date(),
-        })
-        .where(eq(withdrawRequests.id, request.id));
-    });
+    await db
+      .update(withdrawRequests)
+      .set({
+        status: "COMPLETED" as any,
+        approvedByAdminId: adminId,
+        approvedAt: now,
+        completedAt: now,
+        audioMinutesSnapshot: audioMinutesPaid,
+        videoMinutesSnapshot: videoMinutesPaid,
+        audioRateSnapshot: String(audioRateUsd.toFixed(4)),
+        videoRateSnapshot: String(videoRateUsd.toFixed(4)),
+        callEarningsSnapshot: String(totalPayoutAmount.toFixed(2)),
+        totalPayoutAmount: String(totalPayoutAmount.toFixed(2)),
+        updatedAt: now,
+      })
+      .where(eq(withdrawRequests.id, request.id));
 
     return {
       withdrawRequestId,

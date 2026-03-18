@@ -118,6 +118,18 @@ export const pushTokens = pgTable("push_tokens", {
   index("push_tokens_status_refresh_idx").on(t.tokenStatus, t.lastRefreshedAt),
 ]);
 
+// ─── user_inbox_preferences ───
+export const userInboxPreferences = pgTable("user_inbox_preferences", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  dmPrivacyRule: text("dm_privacy_rule").default("ALL_USERS").notNull(),
+  allowLiveStreamLinks: boolean("allow_live_stream_links").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("user_inbox_preferences_user_idx").on(t.userId),
+]);
+
 // ─── account_deletion_requests ───
 export const accountDeletionRequests = pgTable("account_deletion_requests", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -137,6 +149,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   referredBy: one(users, { fields: [users.referredByUserId], references: [users.id], relationName: "referral" }),
   referrals: many(users, { relationName: "referral" }),
   pushTokens: many(pushTokens),
+  inboxPreferences: many(userInboxPreferences),
   emailVerifications: many(emailVerifications),
 }));
 
@@ -147,4 +160,8 @@ export const profilesRelations = relations(profiles, ({ one }) => ({
 export const followersRelations = relations(followers, ({ one }) => ({
   follower: one(users, { fields: [followers.followerUserId], references: [users.id], relationName: "follower" }),
   followed: one(users, { fields: [followers.followedUserId], references: [users.id], relationName: "followed" }),
+}));
+
+export const userInboxPreferencesRelations = relations(userInboxPreferences, ({ one }) => ({
+  user: one(users, { fields: [userInboxPreferences.userId], references: [users.id] }),
 }));

@@ -1,14 +1,15 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import React, { useMemo, useState } from "react";
 import { router } from "expo-router";
-import { ActivityIndicator, Alert, Platform, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AnimatedSnow } from "@/components/AnimatedSnow";
 import { BackgroundCollage } from "@/components/BackgroundCollage";
 import { trpc } from "@/lib/trpc";
-import { Screen, Card, CoinDisplay, DiamondDisplay, Button, SectionHeader, Input, Badge } from "@/components/ui";
-import { COLORS, SPACING, RADIUS } from "@/theme";
+import { Button } from "@/components/ui";
+import { COLORS, RADIUS, SPACING } from "@/theme";
 import { useAuthStore, useWalletStore } from "@/store";
 import { getMobileRuntimeScope } from "@/lib/runtime-config";
 
@@ -16,6 +17,82 @@ type PayoutMethod = "PAYPAL" | "BANK_TRANSFER" | "PAYONEER" | "CRYPTO";
 
 function formatUsd(value: number) {
   return `$${value.toFixed(2)}`;
+}
+
+function formatCompact(value: number) {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+  return value.toString();
+}
+
+function formatDate(value: unknown) {
+  return new Date(String(value ?? "")).toLocaleDateString();
+}
+
+function WalletAction({ icon, label, onPress }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>["name"]; label: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={{
+        flex: 1,
+        borderRadius: 22,
+        paddingVertical: 16,
+        paddingHorizontal: 10,
+        backgroundColor: "rgba(255,255,255,0.08)",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.08)",
+        alignItems: "center",
+        gap: 8,
+      }}
+    >
+      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,214,102,0.16)", alignItems: "center", justifyContent: "center" }}>
+        <MaterialCommunityIcons color="#FFD666" name={icon} size={22} />
+      </View>
+      <Text style={{ color: COLORS.white, fontSize: 13, fontWeight: "700", textAlign: "center" }}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function PackageChip({ pkg, onPress }: { pkg: any; onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={{
+        width: 148,
+        marginRight: 12,
+        borderRadius: 24,
+        padding: 16,
+        backgroundColor: "rgba(255,255,255,0.08)",
+        borderWidth: 1,
+        borderColor: pkg.isFeatured || pkg.popular ? "rgba(255,214,102,0.62)" : "rgba(255,255,255,0.08)",
+      }}
+    >
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+        <Text style={{ color: "#FFD666", fontSize: 14, fontWeight: "800" }}>{pkg.isFeatured || pkg.popular ? "HOT" : "TOP UP"}</Text>
+        <MaterialCommunityIcons color="#FFD666" name="wallet-plus" size={20} />
+      </View>
+      <Text style={{ color: COLORS.white, fontSize: 28, fontWeight: "900", marginTop: 18 }}>{formatCompact(Number(pkg.coins ?? pkg.amount ?? 0))}</Text>
+      <Text style={{ color: "rgba(255,255,255,0.62)", marginTop: 4 }}>coins</Text>
+      <Text style={{ color: "#9ED6FF", fontSize: 16, fontWeight: "800", marginTop: 16 }}>{String(pkg.priceDisplay ?? pkg.price ?? "-")}</Text>
+      {Number(pkg.bonusCoins ?? 0) > 0 ? <Text style={{ color: "#8BFFB7", marginTop: 6, fontSize: 12 }}>+{Number(pkg.bonusCoins).toLocaleString()} bonus</Text> : null}
+    </TouchableOpacity>
+  );
+}
+
+function HistoryRow({ item }: { item: any }) {
+  const amount = Number(item.amount ?? 0);
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.08)" }}>
+      <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center", marginRight: 12 }}>
+        <MaterialCommunityIcons color={item.ledger === "DIAMOND" ? "#78E4FF" : "#FFD666"} name={item.ledger === "DIAMOND" ? "diamond-stone" : "cash-plus"} size={20} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: COLORS.white, fontSize: 14, fontWeight: "700" }}>{String(item.description ?? item.transactionType ?? "Wallet activity")}</Text>
+        <Text style={{ color: "rgba(255,255,255,0.58)", marginTop: 4, fontSize: 12 }}>{formatDate(item.createdAt)}</Text>
+      </View>
+      <Text style={{ color: amount >= 0 ? "#90F0A8" : "#FF9D95", fontWeight: "800", fontSize: 15 }}>{amount >= 0 ? "+" : ""}{amount}</Text>
+    </View>
+  );
 }
 
 export default function WalletScreen() {
@@ -26,6 +103,7 @@ export default function WalletScreen() {
   const diamonds = useWalletStore((s) => s.diamondBalance);
   const wallet = trpc.wallet.getBalance.useQuery(undefined, { retry: false, enabled: isAuthenticated });
   const packages = trpc.wallet.getCoinPackages.useQuery(undefined, { retry: false, enabled: isAuthenticated });
+  const topUps = trpc.wallet.getTopUpHistory.useQuery(undefined, { retry: false, enabled: isAuthenticated });
   const creatorEconomy = trpc.config.getCreatorEconomy.useQuery(getMobileRuntimeScope(), { retry: false, enabled: isAuthenticated });
   const paymentIntent = trpc.payment.createPaymentIntent.useMutation();
   const requestWithdrawal = trpc.wallet.requestWithdrawal.useMutation({
@@ -102,209 +180,201 @@ export default function WalletScreen() {
     <View style={{ flex: 1, backgroundColor: "#0C1345" }}>
       <StatusBar style="light" />
       <BackgroundCollage variant="home" />
-      <LinearGradient colors={["rgba(17,23,70,0.18)", "rgba(10,18,60,0.72)", "rgba(8,14,47,0.97)"]} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />
+      <LinearGradient colors={["rgba(12,19,69,0.22)", "rgba(20,20,56,0.78)", "rgba(8,14,47,0.98)"]} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />
       <AnimatedSnow density={12} />
 
-      <Screen scroll style={{ backgroundColor: "transparent" }}>
-        <View style={{ paddingTop: insets.top + 6 }}>
-          <Text style={{ color: COLORS.white, fontSize: 28, fontWeight: "800", marginBottom: SPACING.sm }}>Wallet</Text>
-          <Text style={{ color: "rgba(255,255,255,0.72)", marginBottom: SPACING.lg }}>Coins, diamonds, purchases, and withdrawals stay connected to backend pricing and payout policy.</Text>
+      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 10, paddingHorizontal: SPACING.md, paddingBottom: 40 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 18 }}>
+          <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/me" as never))} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center", marginRight: 12 }}>
+            <MaterialCommunityIcons color={COLORS.white} name="chevron-left" size={26} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: COLORS.white, fontSize: 30, fontWeight: "900" }}>Wallet Center</Text>
+            <Text style={{ color: "rgba(255,255,255,0.64)", marginTop: 4 }}>Top up, review records, manage balance, and unlock VIP perks.</Text>
+          </View>
+        </View>
 
-          {!isAuthenticated ? (
-            <Card style={{ backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
-              <Text style={{ color: COLORS.white, fontSize: 18, fontWeight: "700" }}>Sign in required</Text>
-              <Text style={{ color: "rgba(255,255,255,0.72)", marginTop: 8, lineHeight: 20 }}>Wallet balances, purchases, and payout requests are protected account features.</Text>
-              <Button title="Go to Login" onPress={() => router.replace("/(auth)/login")} style={{ marginTop: 14 }} />
-            </Card>
-          ) : (
-            <>
-              <View style={{ flexDirection: "row", gap: SPACING.sm, marginBottom: SPACING.lg }}>
-                <Card style={{ flex: 1, alignItems: "center", backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
-                  <Text style={{ fontSize: 14, color: "rgba(255,255,255,0.72)", marginBottom: 8 }}>Coins</Text>
-                  <CoinDisplay amount={wallet.data?.coinBalance ?? coins} size="lg" />
-                </Card>
-                <Card style={{ flex: 1, alignItems: "center", backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
-                  <Text style={{ fontSize: 14, color: "rgba(255,255,255,0.72)", marginBottom: 8 }}>Diamonds</Text>
-                  <DiamondDisplay amount={wallet.data?.diamondBalance ?? diamonds} size="lg" />
-                </Card>
+        {!isAuthenticated ? (
+          <View style={{ borderRadius: 28, padding: 24, backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
+            <Text style={{ color: COLORS.white, fontSize: 18, fontWeight: "700" }}>Sign in required</Text>
+            <Text style={{ color: "rgba(255,255,255,0.72)", marginTop: 8, lineHeight: 20 }}>Wallet balances, top-up records, and VIP activation are protected account features.</Text>
+            <Button title="Go to Login" onPress={() => router.replace("/(auth)/login")} style={{ marginTop: 14 }} />
+          </View>
+        ) : (
+          <>
+            <LinearGradient colors={["#FFB457", "#FF8A59", "#E76E90"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 30, padding: 22, marginBottom: 18 }}>
+              <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
+                <View style={{ flex: 1, paddingRight: 12 }}>
+                  <Text style={{ color: "rgba(63,18,0,0.72)", fontSize: 13, fontWeight: "800", letterSpacing: 0.3 }}>AVAILABLE BALANCE</Text>
+                  <Text style={{ color: "#2E1500", fontSize: 34, fontWeight: "900", marginTop: 10 }}>{Number(wallet.data?.coinBalance ?? coins ?? 0).toLocaleString()}</Text>
+                  <Text style={{ color: "rgba(63,18,0,0.72)", marginTop: 2 }}>coins ready for gifts, VIP, and store unlocks</Text>
+                </View>
+                <View style={{ width: 88, height: 88, borderRadius: 28, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" }}>
+                  <MaterialCommunityIcons color="#2E1500" name="wallet-membership" size={42} />
+                </View>
               </View>
 
-              <View style={{ flexDirection: "row", gap: SPACING.sm, marginBottom: SPACING.md }}>
-                <Button title="Coin Purchase Screen" variant="outline" onPress={() => router.push("/wallet/purchase")} style={{ flex: 1, borderColor: "rgba(255,255,255,0.3)", backgroundColor: "rgba(255,255,255,0.08)" }} />
-                <Button title="Transaction History" variant="secondary" onPress={() => router.push("/wallet/history")} style={{ flex: 1 }} />
+              <View style={{ flexDirection: "row", gap: 12, marginTop: 20 }}>
+                <View style={{ flex: 1, borderRadius: 22, padding: 16, backgroundColor: "rgba(255,255,255,0.2)" }}>
+                  <Text style={{ color: "rgba(63,18,0,0.72)", fontSize: 12, fontWeight: "700" }}>Coins</Text>
+                  <Text style={{ color: "#2E1500", fontSize: 22, fontWeight: "900", marginTop: 6 }}>{Number(wallet.data?.coinBalance ?? coins ?? 0).toLocaleString()}</Text>
+                </View>
+                <View style={{ flex: 1, borderRadius: 22, padding: 16, backgroundColor: "rgba(255,255,255,0.2)" }}>
+                  <Text style={{ color: "rgba(63,18,0,0.72)", fontSize: 12, fontWeight: "700" }}>Diamonds</Text>
+                  <Text style={{ color: "#2E1500", fontSize: 22, fontWeight: "900", marginTop: 6 }}>{currentDiamondBalance.toLocaleString()}</Text>
+                </View>
               </View>
 
-              <SectionHeader title="Creator Economy" />
-              <Card style={{ backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
-                {creatorEconomy.isLoading ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : creatorEconomyPolicy ? (
-                  <>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: SPACING.sm }}>
-                      <Text style={{ color: COLORS.white, fontSize: 15, fontWeight: "700" }}>Policy Snapshot</Text>
-                      <Badge text={`${creatorEconomyPolicy.commission.platformCommissionPercent}% platform`} color={COLORS.primary} />
-                    </View>
-                    <Text style={{ color: "rgba(255,255,255,0.72)", marginBottom: 6 }}>
-                      Coin price: {formatUsd(creatorEconomyPolicy.coinPriceUsd)} per coin
-                    </Text>
-                    <Text style={{ color: "rgba(255,255,255,0.72)", marginBottom: 6 }}>
-                      Gift conversion: {creatorEconomyPolicy.diamondConversion.coins} coins to {creatorEconomyPolicy.diamondConversion.diamonds} diamonds
-                    </Text>
-                    <Text style={{ color: "rgba(255,255,255,0.72)", marginBottom: 6 }}>
-                      Diamond payout: 100 diamonds = {formatUsd(creatorEconomyPolicy.diamondValueUsdPer100)}
-                    </Text>
-                    <Text style={{ color: "rgba(255,255,255,0.72)" }}>
-                      Withdrawal window: {formatUsd(creatorEconomyPolicy.withdrawLimits.minUsd)} min
-                      {creatorEconomyPolicy.withdrawLimits.maxUsd != null ? ` / ${formatUsd(creatorEconomyPolicy.withdrawLimits.maxUsd)} max` : ""}
-                    </Text>
-                  </>
-                ) : (
-                  <Text style={{ color: "rgba(255,255,255,0.72)" }}>Creator economy settings are unavailable right now.</Text>
-                )}
-              </Card>
+              <View style={{ flexDirection: "row", gap: 12, marginTop: 16 }}>
+                <TouchableOpacity onPress={() => router.push("/wallet/purchase" as never)} style={{ flex: 1, borderRadius: 18, paddingVertical: 14, backgroundColor: "#2E1500", alignItems: "center" }}>
+                  <Text style={{ color: COLORS.white, fontSize: 15, fontWeight: "800" }}>Top up</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push("/wallet/history" as never)} style={{ flex: 1, borderRadius: 18, paddingVertical: 14, backgroundColor: "rgba(255,255,255,0.26)", alignItems: "center" }}>
+                  <Text style={{ color: "#2E1500", fontSize: 15, fontWeight: "800" }}>Top-up Record</Text>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
 
-              <SectionHeader title="Buy Coins" />
-              {packages.isLoading ? (
-                <ActivityIndicator color="#FFFFFF" style={{ marginVertical: SPACING.lg }} />
-              ) : coinPackages.length === 0 ? (
-                <Card style={{ backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
-                  <Text style={{ color: "rgba(255,255,255,0.72)", fontSize: 14, textAlign: "center" }}>
-                    Coin packages are loaded from backend configuration. No active package is available right now.
+            <View style={{ flexDirection: "row", gap: 12, marginBottom: 18 }}>
+              <WalletAction icon="wallet-plus-outline" label="Top up" onPress={() => router.push("/wallet/purchase" as never)} />
+              <WalletAction icon="history" label="Top-up Record" onPress={() => router.push({ pathname: "/wallet/history" as never, params: { tab: "topups" } } as never)} />
+              <WalletAction icon="crown-outline" label="VIP Center" onPress={() => router.push("/vip" as never)} />
+              <WalletAction icon="cash-refund" label="Balance" onPress={() => router.push({ pathname: "/wallet/history" as never, params: { tab: "wallet" } } as never)} />
+            </View>
+
+            <LinearGradient colors={["rgba(255,215,102,0.18)", "rgba(255,153,85,0.16)"]} style={{ borderRadius: 28, padding: 20, marginBottom: 18, borderWidth: 1, borderColor: "rgba(255,215,102,0.18)" }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <View style={{ flex: 1, paddingRight: 12 }}>
+                  <Text style={{ color: COLORS.white, fontSize: 20, fontWeight: "900" }}>Lucky bonus zone</Text>
+                  <Text style={{ color: "rgba(255,255,255,0.68)", lineHeight: 20, marginTop: 6 }}>
+                    Featured packages and VIP subscriptions use live backend pricing. Bonus coins and active tiers update automatically from admin configuration.
                   </Text>
-                </Card>
-              ) : (
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: SPACING.sm }}>
-                  {(coinPackages as any[]).map((pkg: any) => (
-                    <TouchableOpacity
-                      key={pkg.id}
-                      onPress={() => handlePurchase(pkg)}
-                      style={{
-                        width: "31%",
-                        backgroundColor: "rgba(255,255,255,0.1)",
-                        borderRadius: RADIUS.lg,
-                        padding: SPACING.md,
-                        alignItems: "center",
-                        borderWidth: pkg.popular ? 2 : 1,
-                        borderColor: pkg.popular ? "#9BC9FF" : "rgba(255,255,255,0.1)",
-                        position: "relative",
-                      }}
-                    >
-                      {pkg.popular ? (
-                        <View style={{ position: "absolute", top: -10, backgroundColor: COLORS.primary, paddingHorizontal: 8, paddingVertical: 2, borderRadius: RADIUS.full }}>
-                          <Text style={{ color: COLORS.white, fontSize: 10, fontWeight: "600" }}>POPULAR</Text>
-                        </View>
-                      ) : null}
-                      {pkg.bestValue || pkg.best ? (
-                        <View style={{ position: "absolute", top: -10, backgroundColor: COLORS.gold, paddingHorizontal: 8, paddingVertical: 2, borderRadius: RADIUS.full }}>
-                          <Text style={{ color: COLORS.text, fontSize: 10, fontWeight: "600" }}>BEST VALUE</Text>
-                        </View>
-                      ) : null}
-                      <Text style={{ fontSize: 24, marginBottom: 4 }}>🪙</Text>
-                      <Text style={{ fontSize: 18, fontWeight: "700", color: COLORS.white }}>
-                        {(pkg.coins ?? pkg.amount ?? 0).toLocaleString()}
-                      </Text>
-                      <Text style={{ fontSize: 14, fontWeight: "600", color: "#9BC9FF", marginTop: 4 }}>
-                        {pkg.priceDisplay ?? pkg.price}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
                 </View>
-              )}
+                <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: "rgba(255,214,102,0.18)", alignItems: "center", justifyContent: "center" }}>
+                  <MaterialCommunityIcons color="#FFD666" name="gift-open-outline" size={28} />
+                </View>
+              </View>
+            </LinearGradient>
 
-              <SectionHeader title="Withdraw Diamonds" />
-              <Card style={{ backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
-                <Text style={{ color: "rgba(255,255,255,0.72)", marginBottom: SPACING.sm }}>
-                  Convert creator diamonds into withdrawable cash using the same limits enforced by the API.
-                </Text>
-                <View style={{ marginBottom: SPACING.sm }}>
-                  <DiamondDisplay amount={currentDiamondBalance} size="md" />
-                </View>
-                <Input
-                  label="Diamonds to withdraw"
-                  value={withdrawalDiamonds}
-                  onChangeText={setWithdrawalDiamonds}
-                  keyboardType="numeric"
-                  placeholder="900"
-                  style={{ backgroundColor: "rgba(8,12,32,0.36)", color: COLORS.white }}
-                />
-                <Input
-                  label="Payout account"
-                  value={payoutAccount}
-                  onChangeText={setPayoutAccount}
-                  placeholder={payoutMethod === "PAYPAL" ? "name@example.com" : payoutMethod === "CRYPTO" ? "Wallet address" : "Account or beneficiary"}
-                  style={{ backgroundColor: "rgba(8,12,32,0.36)", color: COLORS.white }}
-                />
-                <Text style={{ color: "rgba(255,255,255,0.72)", marginBottom: SPACING.sm }}>
-                  Estimated payout: {formatUsd(withdrawUsdEstimate)}
-                </Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: SPACING.xs, marginBottom: SPACING.md }}>
-                  {(["PAYPAL", "BANK_TRANSFER", "PAYONEER", "CRYPTO"] as PayoutMethod[]).map((method) => (
-                    <Button
-                      key={method}
-                      title={method.replace("_", " ")}
-                      size="sm"
-                      variant={payoutMethod === method ? "primary" : "outline"}
-                      onPress={() => setPayoutMethod(method)}
-                      style={{ minWidth: 120, borderColor: payoutMethod === method ? undefined : "rgba(255,255,255,0.3)", backgroundColor: payoutMethod === method ? undefined : "rgba(255,255,255,0.08)" }}
-                    />
-                  ))}
-                </View>
-                <Button
-                  title="Request Withdrawal"
-                  onPress={submitWithdrawal}
-                  loading={requestWithdrawal.isPending}
-                  disabled={withdrawDiamondAmount <= 0 || withdrawDiamondAmount > currentDiamondBalance}
-                />
-              </Card>
+            <View style={{ marginBottom: 10, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ color: COLORS.white, fontSize: 22, fontWeight: "900" }}>Top up</Text>
+              <TouchableOpacity onPress={() => router.push("/wallet/purchase" as never)}>
+                <Text style={{ color: "#FFD666", fontWeight: "800" }}>See all</Text>
+              </TouchableOpacity>
+            </View>
+            {packages.isLoading ? (
+              <ActivityIndicator color="#FFFFFF" style={{ marginVertical: SPACING.lg }} />
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 6, paddingRight: 4, marginBottom: 18 }}>
+                {coinPackages.slice(0, 6).map((pkg) => (
+                  <PackageChip key={String(pkg.id)} pkg={pkg} onPress={() => handlePurchase(pkg)} />
+                ))}
+              </ScrollView>
+            )}
 
-              <SectionHeader title="Recent Transactions" action="See All" onAction={() => router.push("/wallet/history")} />
+            <View style={{ borderRadius: 28, backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", padding: 20, marginBottom: 18 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <Text style={{ color: COLORS.white, fontSize: 22, fontWeight: "900" }}>Balance</Text>
+                <Text style={{ color: "#FFD666", fontWeight: "800" }}>Cash out</Text>
+              </View>
+              <Text style={{ color: "rgba(255,255,255,0.68)", lineHeight: 20, marginBottom: 18 }}>
+                Diamonds earned from gifts convert using the same creator-economy policy enforced by the API. Review the estimate before submitting a payout request.
+              </Text>
+
+              <View style={{ flexDirection: "row", gap: 12, marginBottom: 16 }}>
+                <View style={{ flex: 1, borderRadius: 20, padding: 16, backgroundColor: "rgba(10,16,42,0.56)" }}>
+                  <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }}>Diamonds</Text>
+                  <Text style={{ color: COLORS.white, fontSize: 24, fontWeight: "900", marginTop: 6 }}>{currentDiamondBalance.toLocaleString()}</Text>
+                </View>
+                <View style={{ flex: 1, borderRadius: 20, padding: 16, backgroundColor: "rgba(10,16,42,0.56)" }}>
+                  <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }}>Estimated payout</Text>
+                  <Text style={{ color: "#8BFFB7", fontSize: 24, fontWeight: "900", marginTop: 6 }}>{formatUsd(withdrawUsdEstimate)}</Text>
+                </View>
+              </View>
+
+              <TextInput
+                value={withdrawalDiamonds}
+                onChangeText={setWithdrawalDiamonds}
+                keyboardType="numeric"
+                placeholder="Diamonds to withdraw"
+                placeholderTextColor="rgba(255,255,255,0.34)"
+                style={{ borderRadius: 18, backgroundColor: "rgba(10,16,42,0.56)", color: COLORS.white, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, marginBottom: 12 }}
+              />
+              <TextInput
+                value={payoutAccount}
+                onChangeText={setPayoutAccount}
+                placeholder={payoutMethod === "PAYPAL" ? "PayPal account" : payoutMethod === "CRYPTO" ? "Wallet address" : "Beneficiary or account"}
+                placeholderTextColor="rgba(255,255,255,0.34)"
+                style={{ borderRadius: 18, backgroundColor: "rgba(10,16,42,0.56)", color: COLORS.white, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, marginBottom: 12 }}
+              />
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 2, marginBottom: 12 }}>
+                {(["PAYPAL", "BANK_TRANSFER", "PAYONEER", "CRYPTO"] as PayoutMethod[]).map((method) => (
+                  <TouchableOpacity key={method} onPress={() => setPayoutMethod(method)} style={{ paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, backgroundColor: payoutMethod === method ? "#FFD666" : "rgba(255,255,255,0.08)" }}>
+                    <Text style={{ color: payoutMethod === method ? "#2E1500" : COLORS.white, fontSize: 12, fontWeight: "800" }}>{method.replace("_", " ")}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {creatorEconomyPolicy ? (
+                <Text style={{ color: "rgba(255,255,255,0.58)", marginBottom: 14, fontSize: 12 }}>
+                  100 diamonds = {formatUsd(creatorEconomyPolicy.diamondValueUsdPer100)}. Minimum withdrawal {formatUsd(creatorEconomyPolicy.withdrawLimits.minUsd)}.
+                </Text>
+              ) : null}
+
+              <Button
+                title="Request Withdrawal"
+                onPress={submitWithdrawal}
+                loading={requestWithdrawal.isPending}
+                disabled={withdrawDiamondAmount <= 0 || withdrawDiamondAmount > currentDiamondBalance}
+              />
+            </View>
+
+            <View style={{ borderRadius: 28, backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", padding: 20, marginBottom: 18 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <Text style={{ color: COLORS.white, fontSize: 22, fontWeight: "900" }}>Recent activity</Text>
+                <TouchableOpacity onPress={() => router.push({ pathname: "/wallet/history" as never, params: { tab: "wallet" } } as never)}>
+                  <Text style={{ color: "#FFD666", fontWeight: "800" }}>Open record</Text>
+                </TouchableOpacity>
+              </View>
               {wallet.isLoading ? (
                 <ActivityIndicator color="#FFFFFF" />
+              ) : ((wallet.data as any)?.recentTransactions?.length ?? 0) > 0 ? (
+                (wallet.data as any).recentTransactions.slice(0, 4).map((item: any) => <HistoryRow key={String(item.id)} item={item} />)
               ) : (
-                <Card style={{ backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
-                  {(wallet.data as any)?.recentTransactions?.length ? (
-                    (wallet.data as any).recentTransactions.slice(0, 10).map((tx: any, i: number) => (
-                      <View
-                        key={tx.id ?? i}
-                        style={{
-                          flexDirection: "row",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          paddingVertical: 10,
-                          borderBottomWidth: i < Math.min((wallet.data as any).recentTransactions.length, 10) - 1 ? 1 : 0,
-                          borderBottomColor: "rgba(255,255,255,0.1)",
-                        }}
-                      >
-                        <View>
-                          <Text style={{ fontSize: 14, fontWeight: "500", color: COLORS.white }}>
-                            {tx.description ?? tx.type}
-                          </Text>
-                          <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.62)" }}>
-                            {new Date(tx.createdAt).toLocaleDateString()}
-                          </Text>
-                        </View>
-                        <Text
-                          style={{
-                            fontSize: 14,
-                            fontWeight: "600",
-                            color: (tx.amount ?? 0) >= 0 ? COLORS.success : COLORS.danger,
-                          }}
-                        >
-                          {(tx.amount ?? 0) >= 0 ? "+" : ""}{tx.amount}
-                        </Text>
-                      </View>
-                    ))
-                  ) : (
-                    <Text style={{ color: "rgba(255,255,255,0.72)", fontSize: 14, textAlign: "center", paddingVertical: SPACING.md }}>
-                      No transactions yet
-                    </Text>
-                  )}
-                </Card>
+                <Text style={{ color: "rgba(255,255,255,0.62)" }}>No wallet activity yet.</Text>
               )}
-            </>
-          )}
-        </View>
-      </Screen>
+            </View>
+
+            <View style={{ borderRadius: 28, backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", padding: 20 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <Text style={{ color: COLORS.white, fontSize: 22, fontWeight: "900" }}>Latest top-ups</Text>
+                <TouchableOpacity onPress={() => router.push({ pathname: "/wallet/history" as never, params: { tab: "topups" } } as never)}>
+                  <Text style={{ color: "#FFD666", fontWeight: "800" }}>All records</Text>
+                </TouchableOpacity>
+              </View>
+              {topUps.isLoading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (topUps.data?.length ?? 0) > 0 ? (
+                topUps.data?.slice(0, 3).map((entry: any) => (
+                  <View key={String(entry.id)} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.08)" }}>
+                    <View style={{ flex: 1, paddingRight: 12 }}>
+                      <Text style={{ color: COLORS.white, fontSize: 14, fontWeight: "800" }}>{String(entry.packageName)}</Text>
+                      <Text style={{ color: "rgba(255,255,255,0.58)", fontSize: 12, marginTop: 4 }}>{formatDate(entry.createdAt)} • {String(entry.provider).replace(/_/g, " ")}</Text>
+                    </View>
+                    <View style={{ alignItems: "flex-end" }}>
+                      <Text style={{ color: "#FFD666", fontWeight: "800" }}>{formatUsd(Number(entry.amountUsd ?? 0))}</Text>
+                      <Text style={{ color: "rgba(255,255,255,0.58)", fontSize: 12, marginTop: 4 }}>{String(entry.status)}</Text>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <Text style={{ color: "rgba(255,255,255,0.62)" }}>No top-up records yet.</Text>
+              )}
+            </View>
+          </>
+        )}
+      </ScrollView>
     </View>
   );
 }

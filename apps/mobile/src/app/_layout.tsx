@@ -165,17 +165,40 @@ function GuardedStack() {
       <Stack.Screen name="party/[id]" options={{ title: t("navigation.partyRoom") }} />
       <Stack.Screen name="group-audio/[id]" options={{ title: t("navigation.audioRoom") }} />
       <Stack.Screen name="profile/[id]" options={{ title: t("navigation.profile") }} />
+      <Stack.Screen name="profile/edit" options={{ headerShown: false }} />
       <Stack.Screen name="chat/[id]" options={{ title: t("navigation.chat") }} />
-      <Stack.Screen name="wallet" options={{ title: t("navigation.wallet") }} />
+      <Stack.Screen name="settings/linked-accounts" options={{ headerShown: false }} />
+      <Stack.Screen name="settings/privacy" options={{ headerShown: false }} />
+      <Stack.Screen name="settings/effects" options={{ headerShown: false }} />
+      <Stack.Screen name="settings/app-alerts" options={{ headerShown: false }} />
+      <Stack.Screen name="settings/language" options={{ headerShown: false }} />
+      <Stack.Screen name="settings/article/[slug]" options={{ headerShown: false }} />
+      <Stack.Screen name="messages/friends" options={{ headerShown: false }} />
+      <Stack.Screen name="messages/settings" options={{ headerShown: false }} />
+      <Stack.Screen name="wallet" options={{ headerShown: false }} />
+      <Stack.Screen name="wallet/purchase" options={{ headerShown: false }} />
+      <Stack.Screen name="wallet/history" options={{ headerShown: false }} />
+      <Stack.Screen name="store" options={{ headerShown: false }} />
+      <Stack.Screen name="bag" options={{ headerShown: false }} />
+      <Stack.Screen name="tasks" options={{ headerShown: false }} />
+      <Stack.Screen name="badges" options={{ headerShown: false }} />
+      <Stack.Screen name="people" options={{ headerShown: false }} />
+      <Stack.Screen name="room-management" options={{ headerShown: false }} />
+      <Stack.Screen name="room-blacklist" options={{ headerShown: false }} />
+      <Stack.Screen name="feedback" options={{ headerShown: false }} />
+      <Stack.Screen name="market" options={{ headerShown: false }} />
+      <Stack.Screen name="moments" options={{ headerShown: false }} />
+      <Stack.Screen name="status" options={{ headerShown: false }} />
       <Stack.Screen name="gifts" options={{ title: t("navigation.gifts") }} />
       <Stack.Screen name="notifications" options={{ title: t("navigation.notifications") }} />
       <Stack.Screen name="creator-dashboard" options={{ title: t("navigation.creatorDashboard") }} />
       <Stack.Screen name="events" options={{ title: t("navigation.events") }} />
-      <Stack.Screen name="games" options={{ title: t("navigation.games") }} />
-      <Stack.Screen name="vip" options={{ title: t("navigation.vip") }} />
-      <Stack.Screen name="settings" options={{ title: t("navigation.settings") }} />
+      <Stack.Screen name="games" options={{ headerShown: false }} />
+      <Stack.Screen name="vip" options={{ headerShown: false }} />
+      <Stack.Screen name="settings" options={{ headerShown: false }} />
       <Stack.Screen name="referrals" options={{ title: t("navigation.referrals") }} />
       <Stack.Screen name="leaderboards" options={{ headerShown: false }} />
+      <Stack.Screen name="leaderboards/[boardKey]" options={{ headerShown: false }} />
       <Stack.Screen name="pk/battle" options={{ title: "PK Battle" }} />
       <Stack.Screen name="pk/results" options={{ title: "PK Results" }} />
       <Stack.Screen name="agency/dashboard" options={{ title: "Agency Dashboard" }} />

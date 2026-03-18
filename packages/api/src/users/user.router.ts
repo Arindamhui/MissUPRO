@@ -24,6 +24,19 @@ const updateMyProfileSchema = z.object({
   locationDisplay: z.string().max(160).optional().nullable(),
 });
 
+const updateInboxPreferencesSchema = z.object({
+  dmPrivacyRule: z.enum(["ALL_USERS", "FOLLOWED_USERS", "HIGHER_LEVEL_USERS"]).optional(),
+  allowLiveStreamLinks: z.boolean().optional(),
+}).refine((value) => value.dmPrivacyRule !== undefined || value.allowLiveStreamLinks !== undefined, {
+  message: "At least one inbox preference must be updated",
+});
+
+const registerPushTokenSchema = z.object({
+  token: z.string().min(1).max(4096),
+  platform: z.enum(["IOS", "ANDROID", "WEB"]),
+  deviceId: z.string().min(1).max(255),
+});
+
 @Injectable()
 export class UserRouter {
   constructor(
@@ -51,6 +64,17 @@ export class UserRouter {
       updateMyProfile: this.trpc.protectedProcedure
         .input(updateMyProfileSchema)
         .mutation(async ({ ctx, input }) => this.userService.updateMyProfile(ctx.userId, input)),
+
+      getInboxPreferences: this.trpc.protectedProcedure
+        .query(async ({ ctx }) => this.userService.getInboxPreferences(ctx.userId)),
+
+      updateInboxPreferences: this.trpc.protectedProcedure
+        .input(updateInboxPreferencesSchema)
+        .mutation(async ({ ctx, input }) => this.userService.updateInboxPreferences(ctx.userId, input)),
+
+      registerPushToken: this.trpc.protectedProcedure
+        .input(registerPushTokenSchema)
+        .mutation(async ({ ctx, input }) => this.userService.registerPushToken(ctx.userId, input.token, input.platform, input.deviceId)),
 
       followUser: this.trpc.protectedProcedure
         .input(z.object({ targetUserId: z.string().uuid() }))

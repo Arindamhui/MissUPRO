@@ -11,6 +11,9 @@ const STRIPE_WEBHOOK_SECRET = process.env["STRIPE_WEBHOOK_SECRET"] ?? "";
 const RAZORPAY_WEBHOOK_SECRET = process.env["RAZORPAY_WEBHOOK_SECRET"] ?? "";
 
 const redis = new Redis(redisUrl, { maxRetriesPerRequest: 3, lazyConnect: true });
+let loggedRedisUnavailable = false;
+
+redis.on("error", () => undefined);
 
 let webhooksReceived = 0;
 let webhooksVerified = 0;
@@ -122,7 +125,14 @@ async function enqueueRefund(data: { userId: string; paymentId: string; amount: 
   return { refundId };
 }
 
-void redis.connect().catch((e) => console.error(`[${service}] Redis connect error`, e));
+void redis.connect().catch(() => {
+  if (loggedRedisUnavailable) {
+    return;
+  }
+
+  loggedRedisUnavailable = true;
+  console.warn(`[${service}] Redis unavailable at ${redisUrl}; continuing in degraded mode.`);
+});
 
 const server = createServer((req, res) => {
   const url = req.url ?? "/";

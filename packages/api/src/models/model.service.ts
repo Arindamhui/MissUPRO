@@ -2,9 +2,9 @@ import { Injectable } from "@nestjs/common";
 import { db } from "@missu/db";
 import {
   models, modelApplications, modelAvailability,
-  modelDemoVideos, modelLevelRules, modelStats, modelLevelHistory, modelReviews,
+  modelDemoVideos, modelLevelRules, modelStats, modelLevelHistory, modelReviews, profiles,
 } from "@missu/db/schema";
-import { eq, and, desc, count, ne } from "drizzle-orm";
+import { eq, and, desc, count, ne, sql } from "drizzle-orm";
 
 type AvailabilityRow = {
   dayOfWeek: string;
@@ -15,6 +15,34 @@ type AvailabilityRow = {
 };
 
 const DAY_ORDER = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"] as const;
+
+function normalizeLegacyDayOfWeek(value: unknown) {
+  if (typeof value === "string" && DAY_ORDER.includes(value as (typeof DAY_ORDER)[number])) {
+    return value as AvailabilityRow["dayOfWeek"];
+  }
+
+  const dayNumber = Number(value);
+  if (Number.isInteger(dayNumber)) {
+    if (dayNumber >= 0 && dayNumber <= 6) {
+      return DAY_ORDER[dayNumber] ?? "SUN";
+    }
+    if (dayNumber >= 1 && dayNumber <= 7) {
+      return DAY_ORDER[dayNumber % 7] ?? "SUN";
+    }
+  }
+
+  return "SUN";
+}
+
+function normalizeLegacyAvailabilityRow(row: Record<string, unknown>): AvailabilityRow {
+  return {
+    dayOfWeek: normalizeLegacyDayOfWeek(row.dayOfWeek),
+    startTime: String(row.startTime ?? "00:00"),
+    endTime: String(row.endTime ?? "00:00"),
+    timezone: String(row.timezone ?? "UTC"),
+    isActive: Boolean(row.isActive ?? true),
+  };
+}
 
 function timeToMinutes(input: string) {
   const [hours = "0", minutes = "0"] = input.split(":");
@@ -42,6 +70,65 @@ function getZonedClock(timezone: string, date = new Date()) {
 
 @Injectable()
 export class ModelService {
+  private modelSchemaModePromise: Promise<"modern" | "legacy"> | null = null;
+  private modelStatsSchemaModePromise: Promise<"modern" | "legacy"> | null = null;
+  private modelDemoSchemaModePromise: Promise<"modern" | "legacy"> | null = null;
+
+  private async getModelSchemaMode() {
+    if (!this.modelSchemaModePromise) {
+      this.modelSchemaModePromise = db.execute(sql`
+        select exists (
+          select 1
+          from information_schema.tables
+          where table_schema = 'public'
+            and table_name = 'models'
+        ) as has_models
+      `).then((result) => {
+        const value = result.rows[0] as { has_models?: boolean | string | number } | undefined;
+        return value?.has_models ? "modern" : "legacy";
+      });
+    }
+
+    return this.modelSchemaModePromise;
+  }
+
+  private async getModelStatsSchemaMode() {
+    if (!this.modelStatsSchemaModePromise) {
+      this.modelStatsSchemaModePromise = db.execute(sql`
+        select exists (
+          select 1
+          from information_schema.tables
+          where table_schema = 'public'
+            and table_name = 'model_stats'
+        ) as has_model_stats
+      `).then((result) => {
+        const value = result.rows[0] as { has_model_stats?: boolean | string | number } | undefined;
+        return value?.has_model_stats ? "modern" : "legacy";
+      });
+    }
+
+    return this.modelStatsSchemaModePromise;
+  }
+
+  private async getModelDemoSchemaMode() {
+    if (!this.modelDemoSchemaModePromise) {
+      this.modelDemoSchemaModePromise = db.execute(sql`
+        select exists (
+          select 1
+          from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'model_demo_videos'
+            and column_name = 'status'
+        ) as has_status
+      `).then((result) => {
+        const value = result.rows[0] as { has_status?: boolean | string | number } | undefined;
+        return value?.has_status ? "modern" : "legacy";
+      });
+    }
+
+    return this.modelDemoSchemaModePromise;
+  }
+
   async submitApplication(userId: string, data: {
     legalName: string; displayName: string; talentDescription: string;
     talentCategories: string[]; languages: string[];
@@ -127,6 +214,24 @@ export class ModelService {
   }
 
   async getAvailabilitySummary(modelUserId: string) {
+    if (await this.getModelSchemaMode() === "legacy") {
+      const scheduleResult = await db.execute(sql`
+        select
+          day_of_week as "dayOfWeek",
+          start_time as "startTime",
+          end_time as "endTime",
+          timezone,
+          true as "isActive"
+        from model_availability
+        where user_id = ${modelUserId}::uuid
+        order by created_at asc
+      `);
+      return this.buildAvailabilitySummary(
+        (scheduleResult.rows as Array<Record<string, unknown>>).map((row) => normalizeLegacyAvailabilityRow(row)),
+        false,
+      );
+    }
+
     const [model] = await db.select().from(models).where(eq(models.userId, modelUserId)).limit(1);
     const schedule = await db.select().from(modelAvailability).where(eq(modelAvailability.modelUserId, modelUserId));
     return this.buildAvailabilitySummary(schedule as AvailabilityRow[], Boolean(model?.isOnline));
@@ -139,6 +244,24 @@ export class ModelService {
   async updateAvailability(userId: string, schedule: Array<{
     day: string; startTime: string; endTime: string; timezone: string;
   }>) {
+    if (await this.getModelSchemaMode() === "legacy") {
+      await db.execute(sql`delete from model_availability where user_id = ${userId}::uuid`);
+      for (const slot of schedule) {
+        const dayOfWeek = DAY_ORDER.indexOf((slot.day ?? "").toUpperCase() as (typeof DAY_ORDER)[number]);
+        await db.execute(sql`
+          insert into model_availability (user_id, day_of_week, start_time, end_time, timezone)
+          values (
+            ${userId}::uuid,
+            ${dayOfWeek >= 0 ? dayOfWeek : 0},
+            ${slot.startTime},
+            ${slot.endTime},
+            ${slot.timezone}
+          )
+        `);
+      }
+      return { success: true };
+    }
+
     await db.delete(modelAvailability).where(eq(modelAvailability.modelUserId, userId));
     if (schedule.length > 0) {
       await db.insert(modelAvailability).values(
@@ -155,6 +278,15 @@ export class ModelService {
   }
 
   async setOnlineOverride(userId: string, isOnline: boolean) {
+    if (await this.getModelSchemaMode() === "legacy") {
+      const summary = await this.getAvailabilitySummary(userId);
+      return {
+        ...summary,
+        isOnlineOverride: isOnline,
+        availabilityStatus: isOnline ? "AVAILABLE_NOW" : summary.availabilityStatus,
+      };
+    }
+
     await db.update(models).set({
       isOnline,
       lastOnlineAt: isOnline ? new Date() : undefined,
@@ -164,6 +296,14 @@ export class ModelService {
   }
 
   private async syncDemoVideoCount(modelUserId: string) {
+    if (await this.getModelSchemaMode() === "legacy") {
+      return;
+    }
+
+    if (await this.getModelDemoSchemaMode() === "legacy") {
+      return;
+    }
+
     const [totals] = await db
       .select({ count: count() })
       .from(modelDemoVideos)
@@ -176,6 +316,33 @@ export class ModelService {
   }
 
   async getDemoVideos(modelUserId: string, status?: "PENDING_REVIEW" | "APPROVED" | "REJECTED" | "ARCHIVED") {
+    if (await this.getModelDemoSchemaMode() === "legacy") {
+      if (status && status !== "APPROVED" && status !== "ARCHIVED") {
+        return [];
+      }
+
+      const results = await db.execute(sql`
+        select
+          id,
+          user_id as "modelUserId",
+          video_url as "videoUrl",
+          thumbnail_url as "thumbnailUrl",
+          duration_seconds as "durationSeconds",
+          case when is_active then 'APPROVED' else 'ARCHIVED' end as status,
+          0 as "displayOrder",
+          null::text as title,
+          created_at as "createdAt",
+          created_at as "updatedAt"
+        from model_demo_videos
+        where user_id = ${modelUserId}::uuid
+          ${status === "APPROVED" ? sql`and is_active = true` : sql``}
+          ${status === "ARCHIVED" ? sql`and is_active = false` : sql``}
+        order by created_at desc
+      `);
+
+      return results.rows;
+    }
+
     return db
       .select()
       .from(modelDemoVideos)
@@ -195,6 +362,32 @@ export class ModelService {
     durationSeconds: number;
     displayOrder?: number;
   }) {
+    if (await this.getModelDemoSchemaMode() === "legacy") {
+      const results = await db.execute(sql`
+        insert into model_demo_videos (user_id, video_url, thumbnail_url, duration_seconds, is_active)
+        values (
+          ${modelUserId}::uuid,
+          ${input.videoUrl},
+          ${input.thumbnailUrl},
+          ${input.durationSeconds},
+          false
+        )
+        returning
+          id,
+          user_id as "modelUserId",
+          video_url as "videoUrl",
+          thumbnail_url as "thumbnailUrl",
+          duration_seconds as "durationSeconds",
+          'ARCHIVED'::text as status,
+          0 as "displayOrder",
+          null::text as title,
+          created_at as "createdAt",
+          created_at as "updatedAt"
+      `);
+
+      return results.rows[0] ?? null;
+    }
+
     const [video] = await db
       .insert(modelDemoVideos)
       .values({
@@ -213,6 +406,37 @@ export class ModelService {
   }
 
   async getMyStats(modelUserId: string) {
+    if ((await this.getModelSchemaMode()) === "legacy" || (await this.getModelStatsSchemaMode()) === "legacy") {
+      const [callStatsResult, profileResult, demoVideos] = await Promise.all([
+        db.execute(sql`select * from model_call_stats where model_user_id = ${modelUserId}::uuid limit 1`),
+        db.execute(sql`select level, updated_at as "updatedAt" from profiles where user_id = ${modelUserId}::uuid limit 1`),
+        db.execute(sql`
+          select count(*)::int as count
+          from model_demo_videos
+          where user_id = ${modelUserId}::uuid
+            and is_active = true
+        `),
+      ]);
+
+      const stats = callStatsResult.rows[0] as Record<string, unknown> | undefined;
+      const profile = profileResult.rows[0] as { level?: number | string; updatedAt?: Date | string | null } | undefined;
+      const demoCount = Number((demoVideos.rows[0] as { count?: number | string } | undefined)?.count ?? 0);
+
+      return {
+        currentLevel: Number(profile?.level ?? 1),
+        totalDiamonds: 0,
+        totalVideoMinutes: Number(stats?.videoMinutesTotal ?? stats?.video_minutes_total ?? 0),
+        totalAudioMinutes: Number(stats?.audioMinutesTotal ?? stats?.audio_minutes_total ?? 0),
+        totalCallsCompleted: 0,
+        totalGiftsReceived: 0,
+        audioPrice: 0,
+        videoPrice: 0,
+        demoVideoCount: demoCount,
+        isOnline: false,
+        updatedAt: (stats?.updatedAt as Date | string | null | undefined) ?? profile?.updatedAt ?? null,
+      };
+    }
+
     const [stats] = await db
       .select()
       .from(modelStats)
@@ -246,6 +470,30 @@ export class ModelService {
     adminId: string,
     rejectionReason?: string,
   ) {
+    if (await this.getModelDemoSchemaMode() === "legacy") {
+      const result = await db.execute(sql`
+        update model_demo_videos
+        set is_active = ${status === "APPROVED"}
+        where id = ${demoVideoId}::uuid
+        returning
+          id,
+          user_id as "modelUserId",
+          video_url as "videoUrl",
+          thumbnail_url as "thumbnailUrl",
+          duration_seconds as "durationSeconds",
+          case when is_active then 'APPROVED' else 'ARCHIVED' end as status,
+          0 as "displayOrder",
+          null::text as title,
+          created_at as "createdAt",
+          created_at as "updatedAt"
+      `);
+      const updated = result.rows[0];
+      if (!updated) {
+        throw new Error("Demo video not found");
+      }
+      return updated;
+    }
+
     const [existing] = await db.select().from(modelDemoVideos).where(eq(modelDemoVideos.id, demoVideoId)).limit(1);
     if (!existing) {
       throw new Error("Demo video not found");
@@ -267,6 +515,12 @@ export class ModelService {
   }
 
   async getModelLevel(userId: string) {
+    if (await this.getModelStatsSchemaMode() === "legacy") {
+      const result = await db.execute(sql`select level from profiles where user_id = ${userId}::uuid limit 1`);
+      const profile = result.rows[0] as { level?: number | string } | undefined;
+      return { level: Number(profile?.level ?? 0), stats: null };
+    }
+
     const [stats] = await db.select().from(modelStats)
       .where(eq(modelStats.modelUserId, userId)).limit(1);
     if (!stats) return { level: 0, stats: null };

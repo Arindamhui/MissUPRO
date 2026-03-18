@@ -74,7 +74,7 @@ const SQUAD_LABELS: Array<{ key: SquadMode; label: string }> = [
 ];
 
 function toHashtag(value: string) {
-  return `#${value.replace(/[^a-zA-Z0-9]+/g, "").slice(0, 14) || "MissUPRO"}`;
+  return `#${value.replace(/[^a-zA-Z0-9]+/g, "").slice(0, 14) || "MissUPro"}`;
 }
 
 function HeaderTabs({ value, onChange }: { value: HubMode; onChange: (value: HubMode) => void }) {
@@ -341,7 +341,7 @@ export default function DiscoverScreen() {
     const bannerCards = banners.map((banner, index) => ({
       id: `banner-${banner.id ?? index}`,
       title: String(banner.title ?? "Featured Short"),
-      subtitle: String(banner.subtitle ?? banner.title ?? "MissUPRO"),
+      subtitle: String(banner.subtitle ?? banner.title ?? "MissU Pro"),
       caption: index % 2 === 0 ? "EP 01/61" : `EP 0${(index % 7) + 1}/48`,
       imageUrl: banner.imageUrl ?? null,
       route: String(banner.linkTarget ?? "/leaderboards").startsWith("/") ? String(banner.linkTarget) : "/leaderboards",

@@ -3,8 +3,15 @@
   "version": "1.0.0",
   "private": true,
   "main": "expo-router/entry",
+  "expo": {
+    "autolinking": {
+      "searchPaths": [
+        "../../node_modules"
+      ]
+    }
+  },
   "scripts": {
-    "dev": "expo start",
+    "dev": "node ./scripts/run-dev.js",
     "android": "node ./scripts/run-android.js emulator",
     "android:device": "node ./scripts/run-android.js device",
     "android:all": "expo run:android",
@@ -26,6 +33,7 @@
     "expo-clipboard": "~55.0.8",
     "expo-haptics": "~55.0.8",
     "expo-image": "~55.0.6",
+    "expo-image-picker": "~55.0.13",
     "expo-linear-gradient": "~55.0.8",
     "expo-linking": "~55.0.7",
     "expo-notifications": "~55.0.12",

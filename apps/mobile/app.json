@@ -1,12 +1,14 @@
 {
   "expo": {
-    "name": "MissUPRO",
+    "name": "MissU Pro",
     "slug": "missu-pro",
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "missupro",
+    "icon": "./assets/branding/missu-pro-app-logo.png",
     "userInterfaceStyle": "light",
     "splash": {
+      "image": "./assets/branding/missu-pro-app-logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#6C5CE7"
     },
@@ -14,13 +16,15 @@
     "ios": {
       "bundleIdentifier": "com.missupro.app",
       "supportsTablet": false,
+      "icon": "./assets/branding/missu-pro-app-logo.png",
       "infoPlist": {
-        "NSCameraUsageDescription": "MissUPRO uses your camera so you can broadcast live video.",
-        "NSMicrophoneUsageDescription": "MissUPRO uses your microphone so your live audience can hear you."
+        "NSCameraUsageDescription": "MissU Pro uses your camera so you can broadcast live video.",
+        "NSMicrophoneUsageDescription": "MissU Pro uses your microphone so your live audience can hear you."
       }
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/branding/missu-pro-app-logo.png",
         "backgroundColor": "#6C5CE7"
       },
       "package": "com.missupro.app",

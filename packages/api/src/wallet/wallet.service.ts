@@ -16,21 +16,124 @@ export class WalletService {
     private readonly configService: ConfigService,
   ) {}
 
+  private async selectWallet(userId: string) {
+    const [wallet] = await db
+      .select({
+        id: wallets.id,
+        userId: wallets.userId,
+        coinBalance: wallets.coinBalance,
+        diamondBalance: wallets.diamondBalance,
+        version: wallets.version,
+        createdAt: wallets.createdAt,
+        updatedAt: wallets.updatedAt,
+      })
+      .from(wallets)
+      .where(eq(wallets.userId, userId))
+      .limit(1);
+
+    return wallet ?? null;
+  }
+
+  private async insertCoinLedgerEntry(
+    userId: string,
+    walletId: string,
+    amount: number,
+    balanceAfter: number,
+    reason: string,
+    referenceId: string,
+    description: string,
+    idempotencyKey: string,
+  ) {
+    await db.execute(sql`
+      insert into coin_transactions (
+        user_id,
+        wallet_id,
+        amount,
+        direction,
+        balance_after,
+        reason,
+        reference_id,
+        metadata,
+        created_at
+      )
+      values (
+        ${userId}::uuid,
+        ${walletId}::uuid,
+        ${amount},
+        ${amount >= 0 ? "CREDIT" : "DEBIT"},
+        ${balanceAfter},
+        ${reason},
+        ${referenceId}::uuid,
+        ${JSON.stringify({ description, idempotencyKey })}::jsonb,
+        now()
+      )
+    `);
+  }
+
+  private async insertDiamondLedgerEntry(
+    userId: string,
+    walletId: string,
+    amount: number,
+    balanceAfter: number,
+    reason: string,
+    referenceId: string,
+    description: string,
+    idempotencyKey: string,
+  ) {
+    await db.execute(sql`
+      insert into diamond_transactions (
+        user_id,
+        wallet_id,
+        amount,
+        direction,
+        balance_after,
+        reason,
+        reference_id,
+        metadata,
+        created_at
+      )
+      values (
+        ${userId}::uuid,
+        ${walletId}::uuid,
+        ${amount},
+        ${amount >= 0 ? "CREDIT" : "DEBIT"},
+        ${balanceAfter},
+        ${reason},
+        ${referenceId}::uuid,
+        ${JSON.stringify({ description, idempotencyKey })}::jsonb,
+        now()
+      )
+    `);
+  }
+
   async getOrCreateWallet(userId: string) {
-    const [existing] = await db.select().from(wallets).where(eq(wallets.userId, userId)).limit(1);
+    const existing = await this.selectWallet(userId);
     if (existing) return existing;
 
-    const [wallet] = await db
-      .insert(wallets)
-      .values({ userId, coinBalance: 0, diamondBalance: 0 })
-      .onConflictDoNothing()
-      .returning();
+    await db.execute(sql`
+      insert into wallets (
+        id,
+        user_id,
+        coin_balance,
+        diamond_balance,
+        version,
+        updated_at,
+        created_at
+      )
+      values (
+        gen_random_uuid(),
+        ${userId}::uuid,
+        0,
+        0,
+        1,
+        now(),
+        now()
+      )
+      on conflict (user_id) do nothing
+    `);
 
-    if (!wallet) {
-      const [retry] = await db.select().from(wallets).where(eq(wallets.userId, userId)).limit(1);
-      return retry!;
-    }
-    return wallet;
+    const wallet = await this.selectWallet(userId);
+    return wallet!;
   }
 
   async debitCoins(
@@ -59,26 +162,24 @@ export class WalletService {
             throw new TRPCError({ code: "BAD_REQUEST", message: "Insufficient balance" });
           }
 
-          await db.transaction(async (tx) => {
-            await tx
-              .update(wallets)
-              .set({
-                coinBalance: sql`${wallets.coinBalance} - ${amount}`,
-                lifetimeCoinsSpent: sql`${wallets.lifetimeCoinsSpent} + ${amount}`,
-                updatedAt: new Date(),
-              })
-              .where(eq(wallets.userId, userId));
+          await db
+            .update(wallets)
+            .set({
+              coinBalance: sql`${wallets.coinBalance} - ${amount}`,
+              updatedAt: new Date(),
+            })
+            .where(eq(wallets.userId, userId));
 
-            await tx.insert(coinTransactions).values({
-              userId,
-              transactionType: type as any,
-              amount: -amount,
-              balanceAfter: wallet.coinBalance - amount,
-              referenceId,
-              description,
-              idempotencyKey: idemKey,
-            });
-          });
+          await this.insertCoinLedgerEntry(
+            userId,
+            wallet.id,
+            -amount,
+            wallet.coinBalance - amount,
+            type,
+            referenceId,
+            description,
+            idemKey,
+          );
 
           return { success: true, newBalance: wallet.coinBalance - amount };
         } finally {
@@ -111,26 +212,24 @@ export class WalletService {
         try {
           const wallet = await this.getOrCreateWallet(userId);
 
-          await db.transaction(async (tx) => {
-            await tx
-              .update(wallets)
-              .set({
-                coinBalance: sql`${wallets.coinBalance} + ${amount}`,
-                lifetimeCoinsPurchased: sql`${wallets.lifetimeCoinsPurchased} + ${amount}`,
-                updatedAt: new Date(),
-              })
-              .where(eq(wallets.userId, userId));
+          await db
+            .update(wallets)
+            .set({
+              coinBalance: sql`${wallets.coinBalance} + ${amount}`,
+              updatedAt: new Date(),
+            })
+            .where(eq(wallets.userId, userId));
 
-            await tx.insert(coinTransactions).values({
-              userId,
-              transactionType: type as any,
-              amount,
-              balanceAfter: wallet.coinBalance + amount,
-              referenceId,
-              description,
-              idempotencyKey: idemKey,
-            });
-          });
+          await this.insertCoinLedgerEntry(
+            userId,
+            wallet.id,
+            amount,
+            wallet.coinBalance + amount,
+            type,
+            referenceId,
+            description,
+            idemKey,
+          );
 
           return { success: true, newBalance: wallet.coinBalance + amount };
         } finally {
@@ -160,26 +259,24 @@ export class WalletService {
       async () => {
         const wallet = await this.getOrCreateWallet(userId);
 
-        await db.transaction(async (tx) => {
-          await tx
-            .update(wallets)
-            .set({
-              diamondBalance: sql`${wallets.diamondBalance} + ${amount}`,
-              lifetimeDiamondsEarned: sql`${wallets.lifetimeDiamondsEarned} + ${amount}`,
-              updatedAt: new Date(),
-            })
-            .where(eq(wallets.userId, userId));
+        await db
+          .update(wallets)
+          .set({
+            diamondBalance: sql`${wallets.diamondBalance} + ${amount}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(wallets.userId, userId));
 
-          await tx.insert(diamondTransactions).values({
-            userId,
-            transactionType: type as any,
-            amount,
-            balanceAfter: wallet.diamondBalance + amount,
-            referenceId,
-            description,
-            idempotencyKey: idemKey,
-          });
-        });
+        await this.insertDiamondLedgerEntry(
+          userId,
+          wallet.id,
+          amount,
+          wallet.diamondBalance + amount,
+          type,
+          referenceId,
+          description,
+          idemKey,
+        );
 
         return { success: true, newBalance: wallet.diamondBalance + amount };
       },
@@ -213,25 +310,24 @@ export class WalletService {
             throw new TRPCError({ code: "BAD_REQUEST", message: "Insufficient diamond balance" });
           }
 
-          await db.transaction(async (tx) => {
-            await tx
-              .update(wallets)
-              .set({
-                diamondBalance: sql`${wallets.diamondBalance} - ${amount}`,
-                updatedAt: new Date(),
-              })
-              .where(eq(wallets.userId, userId));
+          await db
+            .update(wallets)
+            .set({
+              diamondBalance: sql`${wallets.diamondBalance} - ${amount}`,
+              updatedAt: new Date(),
+            })
+            .where(eq(wallets.userId, userId));
 
-            await tx.insert(diamondTransactions).values({
-              userId,
-              transactionType: type as any,
-              amount: -amount,
-              balanceAfter: wallet.diamondBalance - amount,
-              referenceId,
-              description,
-              idempotencyKey: idemKey,
-            });
-          });
+          await this.insertDiamondLedgerEntry(
+            userId,
+            wallet.id,
+            -amount,
+            wallet.diamondBalance - amount,
+            type,
+            referenceId,
+            description,
+            idemKey,
+          );
 
           return { success: true, newBalance: wallet.diamondBalance - amount };
         } finally {
@@ -261,15 +357,47 @@ export class WalletService {
   async getBalance(userId: string) {
     const wallet = await this.getOrCreateWallet(userId);
     const [recentCoinTransactions, recentDiamondTransactions] = await Promise.all([
-      db.select().from(coinTransactions).where(eq(coinTransactions.userId, userId)).orderBy(desc(coinTransactions.createdAt)).limit(10),
-      db.select().from(diamondTransactions).where(eq(diamondTransactions.userId, userId)).orderBy(desc(diamondTransactions.createdAt)).limit(10),
+      db.execute(sql`
+        select
+          id,
+          user_id as "userId",
+          amount,
+          balance_after as "balanceAfter",
+          reason as "transactionType",
+          reference_id as "referenceId",
+          metadata,
+          created_at as "createdAt"
+        from coin_transactions
+        where user_id = ${userId}::uuid
+        order by created_at desc
+        limit 10
+      `),
+      db.execute(sql`
+        select
+          id,
+          user_id as "userId",
+          amount,
+          balance_after as "balanceAfter",
+          reason as "transactionType",
+          reference_id as "referenceId",
+          metadata,
+          created_at as "createdAt"
+        from diamond_transactions
+        where user_id = ${userId}::uuid
+        order by created_at desc
+        limit 10
+      `),
     ]);
 
-    const recentTransactions = [
-      ...recentCoinTransactions.map((transaction) => ({ ...transaction, ledger: "COIN" as const })),
-      ...recentDiamondTransactions.map((transaction) => ({ ...transaction, ledger: "DIAMOND" as const })),
+    const normalizedCoinTransactions = recentCoinTransactions.rows as Array<Record<string, unknown>>;
+    const normalizedDiamondTransactions = recentDiamondTransactions.rows as Array<Record<string, unknown>>;
+    const getTransactionTimestamp = (transaction: Record<string, unknown>) => new Date(String(transaction.createdAt ?? 0)).getTime();
+
+    const recentTransactions: Array<Record<string, unknown> & { ledger: "COIN" | "DIAMOND" }> = [
+      ...normalizedCoinTransactions.map((transaction) => ({ ...transaction, ledger: "COIN" as const })),
+      ...normalizedDiamondTransactions.map((transaction) => ({ ...transaction, ledger: "DIAMOND" as const })),
     ]
-      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+      .sort((left, right) => getTransactionTimestamp(right as Record<string, unknown>) - getTransactionTimestamp(left as Record<string, unknown>))
       .slice(0, 10);
 
     return {
@@ -279,6 +407,42 @@ export class WalletService {
       diamondBalance: wallet.diamondBalance,
       recentTransactions,
     };
+  }
+
+  async getTopUpHistory(userId: string) {
+    const result = await db.execute(sql`
+      select
+        p.id,
+        p.status,
+        p.provider,
+        p.amount_usd as "amountUsd",
+        p.coins_credited as "coinsCredited",
+        p.failure_reason as "failureReason",
+        p.created_at as "createdAt",
+        p.updated_at as "updatedAt",
+        cp.name as "packageName",
+        cp.coin_amount as "baseCoins",
+        cp.bonus_coins as "bonusCoins"
+      from payments p
+      inner join coin_packages cp on cp.id = p.coin_package_id
+      where p.user_id = ${userId}::uuid
+      order by p.created_at desc
+      limit 30
+    `);
+
+    return result.rows.map((row) => ({
+      id: String(row.id),
+      status: String(row.status ?? "PENDING"),
+      provider: String(row.provider ?? "UNKNOWN"),
+      amountUsd: Number(row.amountUsd ?? 0),
+      coinsCredited: Number(row.coinsCredited ?? 0),
+      failureReason: row.failureReason ? String(row.failureReason) : null,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      packageName: String(row.packageName ?? "Top up package"),
+      baseCoins: Number(row.baseCoins ?? 0),
+      bonusCoins: Number(row.bonusCoins ?? 0),
+    }));
   }
 
   async requestWithdrawal(
@@ -316,52 +480,50 @@ export class WalletService {
       const withdrawRequestId = randomUUID();
       const withdrawIdempotencyKey = generateIdempotencyKey(userId, "withdraw_request", withdrawRequestId);
 
-      const [request] = await db.transaction(async (tx) => {
-        await tx
-          .update(wallets)
-          .set({
-            diamondBalance: sql`${wallets.diamondBalance} - ${amountDiamonds}`,
-            updatedAt: new Date(),
-          })
-          .where(eq(wallets.userId, userId));
+      await db
+        .update(wallets)
+        .set({
+          diamondBalance: sql`${wallets.diamondBalance} - ${amountDiamonds}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(wallets.userId, userId));
 
-        await tx.insert(diamondTransactions).values({
-          userId,
-          transactionType: "WITHDRAWAL_DEBIT" as any,
-          amount: -amountDiamonds,
-          balanceAfter: wallet.diamondBalance - amountDiamonds,
-          referenceType: "withdraw_request",
-          referenceId: withdrawRequestId,
-          description: `Withdrawal requested: ${amountDiamonds} diamonds`,
-          idempotencyKey: withdrawIdempotencyKey,
-        });
+      await this.insertDiamondLedgerEntry(
+        userId,
+        wallet.id,
+        -amountDiamonds,
+        wallet.diamondBalance - amountDiamonds,
+        "WITHDRAWAL_DEBIT",
+        withdrawRequestId,
+        `Withdrawal requested: ${amountDiamonds} diamonds`,
+        withdrawIdempotencyKey,
+      );
 
-        return tx
-          .insert(withdrawRequests)
-          .values({
-            id: withdrawRequestId,
-            modelUserId: userId,
-            audioMinutesSnapshot: 0,
-            videoMinutesSnapshot: 0,
-            audioRateSnapshot: "0",
-            videoRateSnapshot: "0",
-            callEarningsSnapshot: "0",
-            diamondBalanceSnapshot: amountDiamonds,
-            diamondEarningsSnapshot: amountUsd.toFixed(2),
-            totalPayoutAmount: amountUsd.toFixed(2),
-            currency: "USD",
-            payoutMethod: payoutMethod as any,
-            payoutDetailsJson: {
-              ...payoutDetails,
-              creatorEconomySnapshot: {
-                diamondValueUsdPer100: policy.diamondValueUsdPer100,
-                minWithdrawalUsd: policy.withdrawLimits.minUsd,
-                maxWithdrawalUsd: policy.withdrawLimits.maxUsd,
-              },
+      const [request] = await db
+        .insert(withdrawRequests)
+        .values({
+          id: withdrawRequestId,
+          modelUserId: userId,
+          audioMinutesSnapshot: 0,
+          videoMinutesSnapshot: 0,
+          audioRateSnapshot: "0",
+          videoRateSnapshot: "0",
+          callEarningsSnapshot: "0",
+          diamondBalanceSnapshot: amountDiamonds,
+          diamondEarningsSnapshot: amountUsd.toFixed(2),
+          totalPayoutAmount: amountUsd.toFixed(2),
+          currency: "USD",
+          payoutMethod: payoutMethod as any,
+          payoutDetailsJson: {
+            ...payoutDetails,
+            creatorEconomySnapshot: {
+              diamondValueUsdPer100: policy.diamondValueUsdPer100,
+              minWithdrawalUsd: policy.withdrawLimits.minUsd,
+              maxWithdrawalUsd: policy.withdrawLimits.maxUsd,
             },
-          } as any)
-          .returning();
-      });
+          },
+        } as any)
+        .returning();
 
       return request!;
     } finally {
@@ -395,7 +557,14 @@ export class WalletService {
 
   /** Admin: list wallets where coin balance does not match sum of coin_transactions. */
   async listLedgerMismatches(limit = 100) {
-    const allWallets = await db.select().from(wallets).limit(limit * 2);
+    const allWallets = await db
+      .select({
+        id: wallets.id,
+        userId: wallets.userId,
+        coinBalance: wallets.coinBalance,
+      })
+      .from(wallets)
+      .limit(limit * 2);
     const mismatches: Array<{ userId: string; walletId: string; currentBalance: number; ledgerBalance: number }> = [];
     for (const w of allWallets) {
       const [coinSum] = await db

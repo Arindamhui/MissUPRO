@@ -177,7 +177,7 @@ export default function SignupScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={{ alignItems: "center", marginBottom: SPACING.xl, marginTop: SPACING.xxl }}>
           <Text style={{ fontSize: FONT.sizes.hero, fontWeight: "700", color: COLORS.primary }}>
-            MissU
+            MissU Pro
           </Text>
           <Text style={{ fontSize: FONT.sizes.xl, fontWeight: "600", color: COLORS.text }}>
             Create Account

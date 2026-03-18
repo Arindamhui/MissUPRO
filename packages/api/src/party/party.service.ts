@@ -2,28 +2,79 @@ import { Injectable } from "@nestjs/common";
 import { db } from "@missu/db";
 import {
   partyRooms, partySeats, partyMembers, partyActivities,
-  partyActivityParticipants, partyThemes, users, wallets, coinTransactions,
+  partyActivityParticipants, partyThemes, partyThemeOwnerships, users, wallets, coinTransactions,
 } from "@missu/db/schema";
 import { eq, and, desc, asc, sql, count, or } from "drizzle-orm";
 import { DEFAULTS } from "@missu/config";
-import { decodeCursor, encodeCursor, generateIdempotencyKey, acquireLock, releaseLock } from "@missu/utils";
+import { decodeCursor, encodeCursor, acquireLock, releaseLock } from "@missu/utils";
 import bcrypt from "bcryptjs";
 
 @Injectable()
 export class PartyService {
-  async createRoom(hostUserId: string, data: { roomName: string; roomType: string; themeId?: string; maxSeats?: number; password?: string }) {
+  private async getThemeById(themeId: string) {
+    const [theme] = await db.select().from(partyThemes).where(eq(partyThemes.id, themeId)).limit(1);
+    if (!theme) throw new Error("Theme not found");
+    return theme;
+  }
+
+  private async hasThemeOwnership(userId: string, themeId: string) {
+    const [ownership] = await db
+      .select({ id: partyThemeOwnerships.id })
+      .from(partyThemeOwnerships)
+      .where(and(eq(partyThemeOwnerships.userId, userId), eq(partyThemeOwnerships.themeId, themeId)))
+      .limit(1);
+
+    return Boolean(ownership?.id);
+  }
+
+  private async ensureThemeAccess(userId: string, themeId: string) {
+    const theme = await this.getThemeById(themeId);
+    if (!theme.isPremium || !theme.coinPrice || theme.coinPrice <= 0) {
+      return theme;
+    }
+
+    const owned = await this.hasThemeOwnership(userId, themeId);
+    if (!owned) {
+      throw new Error("Theme is not unlocked");
+    }
+
+    return theme;
+  }
+
+  async createRoom(hostUserId: string, data: {
+    roomName: string;
+    description?: string;
+    roomType: string;
+    themeId?: string;
+    maxSeats?: number;
+    maxAudience?: number;
+    seatLayoutType?: string;
+    entryFeeCoins?: number;
+    eventId?: string;
+    isPersistent?: boolean;
+    password?: string;
+  }) {
     const maxSeats = data.maxSeats ?? DEFAULTS.PARTY.DEFAULT_SEATS;
+    if (data.themeId) {
+      await this.ensureThemeAccess(hostUserId, data.themeId);
+    }
 
     const [room] = await db
       .insert(partyRooms)
       .values({
         hostUserId,
         roomName: data.roomName,
+        description: data.description,
         roomType: data.roomType as any,
         themeId: data.themeId,
         maxSeats,
+        maxAudience: data.maxAudience,
+        seatLayoutType: data.seatLayoutType as any,
+        entryFeeCoins: data.entryFeeCoins,
+        eventId: data.eventId,
+        isPersistent: Boolean(data.isPersistent),
         passwordHash: data.password ? await this.hashPassword(data.password) : null,
-        status: "OPEN" as any,
+        status: "ACTIVE" as any,
         startedAt: new Date(),
       } as any)
       .returning();
@@ -126,8 +177,8 @@ export class PartyService {
         userId: partyMembers.userId,
         role: partyMembers.role,
         joinedAt: partyMembers.joinedAt,
-        displayName: users.displayName,
-        avatarUrl: users.avatarUrl,
+        displayName: users.username,
+        avatarUrl: sql<string | null>`null`,
       })
       .from(partyMembers)
       .innerJoin(users, eq(users.id, partyMembers.userId))
@@ -165,12 +216,12 @@ export class PartyService {
         hostUserId: partyRooms.hostUserId,
         maxSeats: partyRooms.maxSeats,
         hasPassword: sql<boolean>`${partyRooms.passwordHash} IS NOT NULL`,
-        hostName: users.displayName,
-        hostAvatar: users.avatarUrl,
+        hostName: users.username,
+        hostAvatar: sql<string | null>`null`,
       })
       .from(partyRooms)
       .innerJoin(users, eq(users.id, partyRooms.hostUserId))
-      .where(eq(partyRooms.status, "ACTIVE" as any))
+      .where(or(eq(partyRooms.status, "ACTIVE" as any), eq(partyRooms.status, "OPEN" as any)))
       .orderBy(desc(partyRooms.createdAt))
       .limit(limit + 1)
       .offset(offset);
@@ -246,6 +297,7 @@ export class PartyService {
   // ─── Theme ───
   async updateTheme(roomId: string, hostUserId: string, themeId: string) {
     await this.verifyHost(roomId, hostUserId);
+    await this.ensureThemeAccess(hostUserId, themeId);
     const [updated] = await db.update(partyRooms).set({ themeId }).where(eq(partyRooms.id, roomId)).returning();
     return updated;
   }
@@ -254,28 +306,93 @@ export class PartyService {
     return db.select().from(partyThemes).where(eq(partyThemes.status, "ACTIVE" as any)).orderBy(asc(partyThemes.themeName));
   }
 
+  async listOwnedThemes(userId: string) {
+    return db
+      .select({
+        ownershipId: partyThemeOwnerships.id,
+        acquiredAt: partyThemeOwnerships.acquiredAt,
+        purchasePriceCoins: partyThemeOwnerships.purchasePriceCoins,
+        themeId: partyThemes.id,
+        themeName: partyThemes.themeName,
+        description: partyThemes.description,
+        backgroundAssetUrl: partyThemes.backgroundAssetUrl,
+        seatFrameAssetUrl: partyThemes.seatFrameAssetUrl,
+        ambientSoundUrl: partyThemes.ambientSoundUrl,
+        colorSchemeJson: partyThemes.colorSchemeJson,
+        isPremium: partyThemes.isPremium,
+        coinPrice: partyThemes.coinPrice,
+        seasonTag: partyThemes.seasonTag,
+      })
+      .from(partyThemeOwnerships)
+      .innerJoin(partyThemes, eq(partyThemes.id, partyThemeOwnerships.themeId))
+      .where(eq(partyThemeOwnerships.userId, userId))
+      .orderBy(desc(partyThemeOwnerships.acquiredAt), asc(partyThemes.themeName));
+  }
+
   async purchaseTheme(userId: string, themeId: string) {
-    const [theme] = await db.select().from(partyThemes).where(eq(partyThemes.id, themeId)).limit(1);
-    if (!theme) throw new Error("Theme not found");
-    if (!theme.coinPrice || theme.coinPrice === 0) return { success: true, theme };
+    const theme = await this.getThemeById(themeId);
+    const existingOwnership = await this.hasThemeOwnership(userId, themeId);
+    if (existingOwnership || !theme.coinPrice || theme.coinPrice === 0) {
+      if (!existingOwnership && (!theme.coinPrice || theme.coinPrice === 0)) {
+        await db.insert(partyThemeOwnerships).values({
+          userId,
+          themeId,
+          purchasePriceCoins: 0,
+        } as any).onConflictDoNothing();
+      }
+      return { success: true, theme, alreadyOwned: existingOwnership };
+    }
 
     const lock = await acquireLock(`wallet:${userId}`, 5000);
     if (!lock) throw new Error("Could not acquire wallet lock");
 
     try {
-      const [wallet] = await db.select().from(wallets).where(eq(wallets.userId, userId)).limit(1);
+      const stillOwned = await this.hasThemeOwnership(userId, themeId);
+      if (stillOwned) {
+        return { success: true, theme, alreadyOwned: true };
+      }
+
+      const [wallet] = await db
+        .select({
+          id: wallets.id,
+          coinBalance: wallets.coinBalance,
+        })
+        .from(wallets)
+        .where(eq(wallets.userId, userId))
+        .limit(1);
       if (!wallet || wallet.coinBalance < theme.coinPrice) throw new Error("Insufficient coins");
 
       const newBalance = wallet.coinBalance - theme.coinPrice;
       await db.update(wallets).set({ coinBalance: newBalance, updatedAt: new Date() }).where(eq(wallets.id, wallet.id));
-      await db.insert(coinTransactions).values({
+      await db.execute(sql`
+        insert into coin_transactions (
+          user_id,
+          wallet_id,
+          amount,
+          direction,
+          balance_after,
+          reason,
+          reference_id,
+          metadata,
+          created_at
+        )
+        values (
+          ${userId}::uuid,
+          ${wallet.id}::uuid,
+          ${-theme.coinPrice},
+          'DEBIT',
+          ${newBalance},
+          'THEME_PURCHASE',
+          ${themeId}::uuid,
+          ${JSON.stringify({ themeName: theme.themeName })}::jsonb,
+          now()
+        )
+      `);
+      await db.insert(partyThemeOwnerships).values({
         userId,
-        amount: -theme.coinPrice,
-        transactionType: "THEME_PURCHASE" as any,
-        description: `Party theme: ${theme.themeName}`,
-        balanceAfter: newBalance,
-        idempotencyKey: generateIdempotencyKey(userId, "theme", themeId),
-      });
+        themeId,
+        purchasePriceCoins: theme.coinPrice,
+      } as any).onConflictDoNothing();
 
       return { success: true, theme };
     } finally {
@@ -326,8 +443,8 @@ export class PartyService {
       .select({
         userId: partyActivityParticipants.userId,
         coinsContributed: partyActivityParticipants.coinsContributed,
-        displayName: users.displayName,
-        avatarUrl: users.avatarUrl,
+        displayName: users.username,
+        avatarUrl: sql<string | null>`null`,
       })
       .from(partyActivityParticipants)
       .innerJoin(users, eq(users.id, partyActivityParticipants.userId))

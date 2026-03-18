@@ -211,7 +211,7 @@ export default function LoginScreen() {
         <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
           <View style={{ paddingHorizontal: SPACING.lg, paddingTop: insets.top + 72, paddingBottom: Math.max(insets.bottom, 16) + 22, flexGrow: 1, justifyContent: "space-between" }}>
             <View style={{ alignItems: "center", marginTop: 24 }}>
-              <BrandLogo size={92} subtitle="Jashn Har Din, Party Har Waqt!" />
+              <BrandLogo size={124} />
             </View>
 
             <View style={{ borderRadius: 36, paddingHorizontal: 18, paddingVertical: 22, backgroundColor: "rgba(17,20,71,0.42)", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", shadowColor: "#040A29", shadowOpacity: 0.28, shadowRadius: 26, shadowOffset: { width: 0, height: 18 } }}>

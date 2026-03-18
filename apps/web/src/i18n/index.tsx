@@ -32,7 +32,7 @@ const messages: Record<LocaleCode, DictionaryValue> = {
       },
       hero: {
         title: "Connect, Create, Earn",
-        body: "MissUPRO is the live streaming creator economy platform where creators connect with fans through video calls, live streams, parties, and more.",
+        body: "MissU Pro is the live streaming creator economy platform where creators connect with fans through video calls, live streams, parties, and more.",
         ios: "Download for iOS",
         android: "Download for Android",
       },
@@ -41,7 +41,7 @@ const messages: Record<LocaleCode, DictionaryValue> = {
         creatorsTitle: "Built for Creators",
         creatorsBody: "Monetize your talent with multiple revenue streams. Set your own rates, track earnings in real-time, and withdraw anytime.",
         ctaTitle: "Ready to Get Started?",
-        ctaBody: "Join thousands of creators and fans on MissUPRO today.",
+        ctaBody: "Join thousands of creators and fans on MissU Pro today.",
         ctaButton: "Download Now",
       },
       featureCards: {
@@ -99,7 +99,7 @@ const messages: Record<LocaleCode, DictionaryValue> = {
       },
       hero: {
         title: "تواصل، أنشئ، واربح",
-        body: "MissUPRO هي منصة اقتصاد المبدعين للبث المباشر حيث يتواصل صناع المحتوى مع المعجبين عبر المكالمات والبث المباشر والحفلات والمزيد.",
+        body: "MissU Pro هي منصة اقتصاد المبدعين للبث المباشر حيث يتواصل صناع المحتوى مع المعجبين عبر المكالمات والبث المباشر والحفلات والمزيد.",
         ios: "حمّل على iOS",
         android: "حمّل على Android",
       },
@@ -108,7 +108,7 @@ const messages: Record<LocaleCode, DictionaryValue> = {
         creatorsTitle: "مصممة لصناع المحتوى",
         creatorsBody: "حوّل موهبتك إلى دخل من خلال مصادر ربح متعددة. حدّد أسعارك وتابع أرباحك لحظيًا واسحبها في أي وقت.",
         ctaTitle: "هل أنت مستعد للبدء؟",
-        ctaBody: "انضم إلى آلاف المبدعين والمعجبين على MissUPRO اليوم.",
+        ctaBody: "انضم إلى آلاف المبدعين والمعجبين على MissU Pro اليوم.",
         ctaButton: "حمّل الآن",
       },
       featureCards: {
@@ -166,7 +166,7 @@ const messages: Record<LocaleCode, DictionaryValue> = {
       },
       hero: {
         title: "जुड़ें, बनाएं, कमाएं",
-        body: "MissUPRO एक लाइव-स्ट्रीमिंग क्रिएटर इकॉनमी प्लेटफ़ॉर्म है जहाँ क्रिएटर्स वीडियो कॉल, लाइव स्ट्रीम, पार्टी और बहुत कुछ के ज़रिए फैन्स से जुड़ते हैं।",
+        body: "MissU Pro एक लाइव-स्ट्रीमिंग क्रिएटर इकॉनमी प्लेटफ़ॉर्म है जहाँ क्रिएटर्स वीडियो कॉल, लाइव स्ट्रीम, पार्टी और बहुत कुछ के ज़रिए फैन्स से जुड़ते हैं।",
         ios: "iOS के लिए डाउनलोड करें",
         android: "Android के लिए डाउनलोड करें",
       },
@@ -175,7 +175,7 @@ const messages: Record<LocaleCode, DictionaryValue> = {
         creatorsTitle: "क्रिएटर्स के लिए बनाया गया",
         creatorsBody: "कई रेवेन्यू स्ट्रीम्स के साथ अपनी प्रतिभा को कमाई में बदलें। अपनी दरें तय करें, कमाई रियल-टाइम में ट्रैक करें और कभी भी निकालें।",
         ctaTitle: "शुरू करने के लिए तैयार हैं?",
-        ctaBody: "आज ही MissUPRO पर हज़ारों क्रिएटर्स और फैन्स से जुड़ें।",
+        ctaBody: "आज ही MissU Pro पर हज़ारों क्रिएटर्स और फैन्स से जुड़ें।",
         ctaButton: "अभी डाउनलोड करें",
       },
       featureCards: {

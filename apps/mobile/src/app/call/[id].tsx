@@ -23,7 +23,7 @@ type AcceptCallAck = {
 };
 
 export default function CallScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, game, sessionId } = useLocalSearchParams<{ id: string; game?: string; sessionId?: string }>();
   const userId = useAuthStore((s) => s.userId);
   const coinBalance = useWalletStore((s) => s.coinBalance);
   const {
@@ -54,6 +54,10 @@ export default function CallScreen() {
     { callSessionId: id! },
     { retry: false, enabled: !!id, refetchInterval: isInCall ? 15000 : false },
   );
+  const gameState = trpc.game.getGameState.useQuery(
+    { sessionId: sessionId! },
+    { retry: false, enabled: Boolean(sessionId) },
+  );
 
   const rtcCredentials = useMemo(() => (
     agoraChannel && agoraToken && agoraAppId
@@ -76,6 +80,20 @@ export default function CallScreen() {
   } | null;
 
   const primaryRemoteUid = rtc.remoteUids[0];
+  const selectedGame = useMemo(() => {
+    switch (String(game ?? "").toLowerCase()) {
+      case "ludo":
+        return { icon: "🎲", title: "Ludo Challenge", subtitle: "Take turns and track moves together on the call." };
+      case "chess":
+        return { icon: "♟️", title: "Chess Match", subtitle: "Use the call to narrate moves and keep score live." };
+      case "carrom":
+        return { icon: "🎯", title: "Carrom Duel", subtitle: "Race through trick shots and call your winning rounds." };
+      case "sudoku":
+        return { icon: "🔢", title: "Sudoku Sprint", subtitle: "Solve grids together and compare timings in real time." };
+      default:
+        return null;
+    }
+  }, [game]);
   const localCanvas = useMemo(() => ({
     uid: 0,
     renderMode: RenderModeType.RenderModeHidden,
@@ -318,6 +336,35 @@ export default function CallScreen() {
             </Text>
           ) : null}
         </View>
+        {selectedGame ? (
+          <View style={{ marginTop: 18, width: width * 0.82, borderRadius: 22, padding: 16, backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <View style={{ flexDirection: "row", alignItems: "center", flex: 1, paddingRight: 10 }}>
+                <Text style={{ fontSize: 30, marginRight: 10 }}>{selectedGame.icon}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: COLORS.white, fontSize: 17, fontWeight: "800" }}>{selectedGame.title}</Text>
+                  <Text style={{ color: "rgba(255,255,255,0.68)", fontSize: 12, marginTop: 4, lineHeight: 18 }}>{selectedGame.subtitle}</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => router.push("/games" as never)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.1)" }}>
+                <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: "700" }}>Change</Text>
+              </TouchableOpacity>
+            </View>
+            {sessionId ? (
+              <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.08)" }}>
+                <Text style={{ color: "rgba(255,255,255,0.72)", fontSize: 12 }}>
+                  Session: {sessionId}
+                </Text>
+                <Text style={{ color: "rgba(255,255,255,0.72)", fontSize: 12, marginTop: 4 }}>
+                  Players: {Number(gameState.data?.players?.length ?? 0)} • Moves: {Number(gameState.data?.moves?.length ?? 0)}
+                </Text>
+                <Text style={{ color: "rgba(255,255,255,0.72)", fontSize: 12, marginTop: 4 }}>
+                  Status: {String(gameState.data?.session?.status ?? "created").toLowerCase()}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
       </View>
 
       {/* Controls */}

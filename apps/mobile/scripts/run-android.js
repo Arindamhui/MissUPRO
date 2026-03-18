@@ -102,8 +102,8 @@ function uninstallExistingApp(adb, serial) {
 
 function installApp(adb, serial, apkPath) {
   const args = serial
-    ? ["-s", serial, "install", "-r", "-d", "--user", "0", apkPath]
-    : ["install", "-r", "-d", "--user", "0", apkPath];
+    ? ["-s", serial, "install", "-r", "-d", apkPath]
+    : ["install", "-r", "-d", apkPath];
   const result = run(adb, args);
 
   if (result.error) {

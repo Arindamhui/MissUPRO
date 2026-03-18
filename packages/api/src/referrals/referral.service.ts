@@ -10,7 +10,7 @@ import {
   fraudSignals,
   fraudFlags,
 } from "@missu/db/schema";
-import { and, count, desc, eq, inArray, or } from "drizzle-orm";
+import { and, count, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { DEFAULTS } from "@missu/config";
 import { generateIdempotencyKey } from "@missu/utils";
 import { createHash } from "node:crypto";
@@ -39,6 +39,47 @@ type ReferralRuleConfig = {
 @Injectable()
 export class ReferralService {
   constructor(private readonly walletService: WalletService) {}
+
+  private referralSchemaModePromise?: Promise<"modern" | "legacy">;
+  private userSchemaModePromise?: Promise<"modern" | "legacy">;
+
+  private async getReferralSchemaMode() {
+    if (!this.referralSchemaModePromise) {
+      this.referralSchemaModePromise = db.execute(sql`
+        select exists (
+          select 1
+          from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'referrals'
+            and column_name = 'inviter_user_id'
+        ) as has_modern_referral_columns
+      `).then((result) => {
+        const value = result.rows[0] as { has_modern_referral_columns?: boolean | string | number } | undefined;
+        return value?.has_modern_referral_columns ? "modern" : "legacy";
+      }).catch(() => "modern" as const);
+    }
+
+    return this.referralSchemaModePromise;
+  }
+
+  private async getUserSchemaMode() {
+    if (!this.userSchemaModePromise) {
+      this.userSchemaModePromise = db.execute(sql`
+        select exists (
+          select 1
+          from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'users'
+            and column_name = 'display_name'
+        ) as has_display_name
+      `).then((result) => {
+        const value = result.rows[0] as { has_display_name?: boolean | string | number } | undefined;
+        return value?.has_display_name ? "modern" : "legacy";
+      }).catch(() => "modern" as const);
+    }
+
+    return this.userSchemaModePromise;
+  }
 
   private normalizeInviteCode(code: string) {
     return code.trim().toUpperCase();
@@ -83,6 +124,27 @@ export class ReferralService {
   }
 
   private async ensureInviteCode(userId: string) {
+    if (await this.getUserSchemaMode() === "legacy") {
+      const result = await db.execute(sql`
+        select id, email, username, role, is_suspended as "isSuspended", is_banned as "isBanned",
+               email_verified_at as "emailVerifiedAt", password_hash as "passwordHash",
+               clerk_user_id as "clerkUserId", created_at as "createdAt", updated_at as "updatedAt"
+        from users
+        where id = ${userId}::uuid
+        limit 1
+      `);
+      const user = result.rows[0] as Record<string, unknown> | undefined;
+      if (!user) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+      }
+
+      return {
+        ...(user as object),
+        id: String(user.id),
+        referralCode: this.buildFallbackInviteCode(String(user.id)),
+      } as typeof users.$inferSelect;
+    }
+
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
     if (!user) {
       throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
@@ -480,6 +542,61 @@ export class ReferralService {
 
   async applyReferralCode(userId: string, inviteCode: string) {
     const normalizedCode = this.normalizeInviteCode(inviteCode);
+
+    if (await this.getReferralSchemaMode() === "legacy") {
+      const invitee = await this.ensureInviteCode(userId);
+      const userRows = await db.execute(sql`
+        select id, email, username, role, is_suspended as "isSuspended", is_banned as "isBanned",
+               email_verified_at as "emailVerifiedAt", password_hash as "passwordHash",
+               clerk_user_id as "clerkUserId", created_at as "createdAt", updated_at as "updatedAt"
+        from users
+      `);
+      const inviterRecord = userRows.rows
+        .map((row) => ({ ...row, id: String(row.id) }))
+        .find((row) => this.buildFallbackInviteCode(row.id) === normalizedCode);
+
+      if (!inviterRecord) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Invalid referral code" });
+      }
+
+      if (inviterRecord.id === invitee.id) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot refer yourself" });
+      }
+
+      const existingResult = await db.execute(sql`
+        select id
+        from referrals
+        where referred_user_id = ${invitee.id}::uuid
+        limit 1
+      `);
+      if (existingResult.rows[0]) {
+        throw new TRPCError({ code: "CONFLICT", message: "Referral code already applied" });
+      }
+
+      const inserted = await db.execute(sql`
+        insert into referrals (
+          referrer_user_id,
+          referred_user_id,
+          invite_code,
+          status,
+          created_at
+        ) values (
+          ${inviterRecord.id}::uuid,
+          ${invitee.id}::uuid,
+          ${normalizedCode},
+          'PENDING',
+          now()
+        )
+        returning id, referrer_user_id as "inviterUserId", referred_user_id as "inviteeUserId",
+                  invite_code as "referralCode", status, created_at as "createdAt"
+      `);
+
+      return {
+        success: true,
+        referral: inserted.rows[0] ?? null,
+      };
+    }
+
     const [invitee, inviter, existingReferral] = await Promise.all([
       this.ensureInviteCode(userId),
       db.select().from(users).where(eq(users.referralCode, normalizedCode)).limit(1),
@@ -528,6 +645,66 @@ export class ReferralService {
   }
 
   async getReferralProgress(userId: string) {
+    if (await this.getReferralSchemaMode() === "legacy") {
+      const user = await this.ensureInviteCode(userId);
+      const [totalsResult, rewardsResult, referralsResult] = await Promise.all([
+        db.execute(sql`
+          select count(*)::int as "totalInvited"
+          from referrals
+          where referrer_user_id = ${userId}::uuid
+        `),
+        db.execute(sql`
+          select
+            id,
+            referral_id as "referralId",
+            user_id as "inviterUserId",
+            reward_type as "rewardType",
+            reward_value as "rewardValue",
+            reward_value as "rewardValueJson",
+            granted_at as "createdAt",
+            granted_at as "approvedAt",
+            'GRANTED' as status
+          from referral_rewards
+          where user_id = ${userId}::uuid
+          order by granted_at desc
+          limit 25
+        `),
+        db.execute(sql`
+          select
+            r.id,
+            r.referred_user_id as "inviteeUserId",
+            r.status,
+            r.created_at as "createdAt",
+            null::timestamptz as "qualifiedAt",
+            coalesce(p.display_name, u.username) as "inviteeDisplayName",
+            p.avatar_url as "inviteeAvatarUrl"
+          from referrals r
+          inner join users u on u.id = r.referred_user_id
+          left join profiles p on p.user_id = u.id
+          where r.referrer_user_id = ${userId}::uuid
+          order by r.created_at desc
+          limit 25
+        `),
+      ]);
+
+      const totalInvited = Number((totalsResult.rows[0] as { totalInvited?: number | string } | undefined)?.totalInvited ?? 0);
+      const myReferrals = referralsResult.rows as Array<Record<string, unknown>>;
+      const totalQualified = myReferrals.filter((referral) => referral.status === "QUALIFIED" || referral.status === "REWARDED").length;
+      const totalRewarded = myReferrals.filter((referral) => referral.status === "REWARDED").length;
+
+      return {
+        inviteCode: user.referralCode,
+        referralCode: user.referralCode,
+        totalInvited,
+        totalReferrals: totalInvited,
+        totalQualified,
+        completedReferrals: totalRewarded,
+        totalRewarded,
+        rewards: rewardsResult.rows,
+        referrals: myReferrals,
+      };
+    }
+
     await this.refreshOutstandingReferralsForUser(userId);
     const user = await this.ensureInviteCode(userId);
 
@@ -583,6 +760,72 @@ export class ReferralService {
   }
 
   async getReferralOverview(limit = 25) {
+    if (await this.getReferralSchemaMode() === "legacy") {
+      const [statusCountsResult, recentReferralsResult, recentRewardsResult, openFlags] = await Promise.all([
+        db.execute(sql`
+          select status, count(*)::int as total
+          from referrals
+          group by status
+        `),
+        db.execute(sql`
+          select
+            r.id,
+            r.invite_code as "referralCode",
+            r.status,
+            r.created_at as "createdAt",
+            null::timestamptz as "qualifiedAt",
+            r.referrer_user_id as "inviterUserId",
+            r.referred_user_id as "inviteeUserId",
+            coalesce(p.display_name, u.username) as "inviterDisplayName",
+            p.avatar_url as "inviterAvatarUrl"
+          from referrals r
+          inner join users u on u.id = r.referrer_user_id
+          left join profiles p on p.user_id = u.id
+          order by r.created_at desc
+          limit ${limit}
+        `),
+        db.execute(sql`
+          select
+            id,
+            referral_id as "referralId",
+            user_id as "inviterUserId",
+            reward_type as "rewardType",
+            reward_value as "rewardValue",
+            reward_value as "rewardValueJson",
+            granted_at as "createdAt",
+            granted_at as "approvedAt",
+            'GRANTED' as status
+          from referral_rewards
+          order by granted_at desc
+          limit ${limit}
+        `),
+        db
+          .select({ count: count() })
+          .from(fraudFlags)
+          .where(and(eq(fraudFlags.entityType, "REFERRAL" as any), eq(fraudFlags.status, "OPEN" as any)))
+          .catch(() => [{ count: 0 }] as Array<{ count: number }>),
+      ]);
+
+      const statusCounts = statusCountsResult.rows as Array<{ status?: string; total?: number | string }>;
+      const counts = statusCounts.reduce<Record<string, number>>((acc, row) => {
+        acc[String(row.status)] = Number(row.total ?? 0);
+        return acc;
+      }, {});
+
+      return {
+        summary: {
+          total: statusCounts.reduce((sum, row) => sum + Number(row.total ?? 0), 0),
+          pending: counts.PENDING ?? 0,
+          qualified: counts.QUALIFIED ?? 0,
+          rewarded: counts.REWARDED ?? 0,
+          rejected: counts.REJECTED ?? 0,
+          openFraudFlags: Number(openFlags[0]?.count ?? 0),
+        },
+        recentReferrals: recentReferralsResult.rows,
+        recentRewards: recentRewardsResult.rows,
+      };
+    }
+
     const pending = await db
       .select({ id: referrals.id })
       .from(referrals)

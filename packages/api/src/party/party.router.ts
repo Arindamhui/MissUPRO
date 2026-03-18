@@ -85,6 +85,9 @@ export class PartyRouter {
       listAvailableThemes: this.trpc.protectedProcedure
         .query(async () => this.partyService.listAvailableThemes()),
 
+      listOwnedThemes: this.trpc.protectedProcedure
+        .query(async ({ ctx }) => this.partyService.listOwnedThemes(ctx.userId)),
+
       purchaseTheme: this.trpc.protectedProcedure
         .input(z.object({ themeId: z.string().uuid() }))
         .mutation(async ({ ctx, input }) => this.partyService.purchaseTheme(ctx.userId, input.themeId)),
