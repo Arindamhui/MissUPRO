@@ -3,7 +3,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 import React, { useEffect, useRef } from "react";
-import { Animated, View } from "react-native";
+import { ActivityIndicator, Animated, View } from "react-native";
 import { AnimatedSnow } from "@/components/AnimatedSnow";
 import { BackgroundCollage } from "@/components/BackgroundCollage";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -23,7 +23,6 @@ export default function SplashScreen() {
   }, [opacity, translateY]);
 
   useEffect(() => {
-    if (!isLoaded) return;
     const timeout = setTimeout(() => {
       if (isSignedIn || authMode === "guest") {
         router.replace("/(tabs)");
@@ -33,7 +32,7 @@ export default function SplashScreen() {
     }, 2400);
 
     return () => clearTimeout(timeout);
-  }, [authMode, isLoaded, isSignedIn]);
+  }, [authMode, isSignedIn]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -50,6 +49,11 @@ export default function SplashScreen() {
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}>
         <Animated.View style={{ alignItems: "center", opacity, transform: [{ translateY }] }}>
           <BrandLogo size={152} />
+          {!isLoaded ? (
+            <View style={{ marginTop: 18 }}>
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            </View>
+          ) : null}
         </Animated.View>
       </View>
     </View>

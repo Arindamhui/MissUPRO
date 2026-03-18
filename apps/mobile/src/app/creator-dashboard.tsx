@@ -332,7 +332,7 @@ export default function CreatorDashboardScreen() {
           </View>
 
           <Text style={{ color: COLORS.white, fontSize: 16, marginBottom: 8 }}>* Enter Agency ID</Text>
-          <Input label="I want to join a SK Lite agency" value={applicationForm.agencyId} onChangeText={(value) => setApplicationForm((current) => ({ ...current, agencyId: value }))} placeholder="Agency ID" style={{ backgroundColor: "#0E162A", color: COLORS.white }} />
+          <Input label="I want to join a MissUPro agency" value={applicationForm.agencyId} onChangeText={(value) => setApplicationForm((current) => ({ ...current, agencyId: value }))} placeholder="Agency ID" style={{ backgroundColor: "#0E162A", color: COLORS.white }} />
           <Button title={submitApplication.isPending ? "Applying..." : "Apply"} onPress={handleSubmitApplication} disabled={submitApplication.isPending} />
         </Card>
       ) : null}

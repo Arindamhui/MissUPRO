@@ -41,7 +41,7 @@ export default function StoreScreen() {
   }))), [luckyOffers.data]);
 
   return (
-    <WinterScreen title="SK Lite" rightLabel="Close" onRightPress={() => router.back()}>
+    <WinterScreen title="MissUPro" rightLabel="Close" onRightPress={() => router.back()}>
       <HeaderTabs items={[{ key: "garage", label: "Garage" }, { key: "lucky", label: "Lucky ID#" }]} activeKey={tab} onChange={setTab} />
       <SegmentedPill items={tab === "garage" ? [{ key: "purchasable", label: "Purchasable" }, { key: "special", label: "Special" }] : [{ key: "purchasable", label: "Lucky IDs" }, { key: "special", label: "Premium IDs" }]} activeKey={segment} onChange={setSegment} />
 

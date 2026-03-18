@@ -1,5 +1,6 @@
 import "reflect-metadata";
 import { randomUUID } from "node:crypto";
+import { createServer } from "node:net";
 import * as Sentry from "@sentry/node";
 import { NestFactory } from "@nestjs/core";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
@@ -29,6 +30,51 @@ function structuredLog(level: string, message: string, fields: Record<string, un
   });
   if (level === "error") process.stderr.write(line + "\n");
   else process.stdout.write(line + "\n");
+}
+
+function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const probe = createServer();
+
+    probe.once("error", () => {
+      resolve(false);
+    });
+
+    probe.once("listening", () => {
+      probe.close(() => resolve(true));
+    });
+
+    probe.listen(port, "0.0.0.0");
+  });
+}
+
+async function resolveApiPort() {
+  const explicitPort = process.env["PORT"];
+  const defaultPort = 4000;
+
+  if (explicitPort) {
+    return Number(explicitPort);
+  }
+
+  if (process.env["NODE_ENV"] === "production") {
+    return defaultPort;
+  }
+
+  for (let candidate = defaultPort; candidate < defaultPort + 20; candidate += 1) {
+    // In local dev, avoid hard failure when a stale process still owns 4000.
+    // We only auto-shift when PORT is not explicitly configured.
+    if (await isPortAvailable(candidate)) {
+      if (candidate !== defaultPort) {
+        structuredLog("warn", "Default API port is busy; using fallback port", {
+          requestedPort: defaultPort,
+          fallbackPort: candidate,
+        });
+      }
+      return candidate;
+    }
+  }
+
+  return defaultPort;
 }
 
 async function bootstrap() {
@@ -130,7 +176,7 @@ async function bootstrap() {
     Sentry.setupExpressErrorHandler(expressApp);
   }
 
-  const port = process.env["PORT"] || 4000;
+  const port = await resolveApiPort();
   await app.listen(port);
   structuredLog("info", "API server listening", { port: Number(port) });
 }

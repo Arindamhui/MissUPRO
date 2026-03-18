@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { View, Text, Share, Alert } from "react-native";
+import { Stack } from "expo-router";
 import { GradientButton, GlassPanel, HeaderTabs, WinterScreen } from "@/components/me-winter";
 import { trpc } from "@/lib/trpc";
 import { COLORS } from "@/theme";
@@ -27,7 +28,7 @@ export default function ReferralsScreen() {
     }
     try {
       await Share.share({
-        message: `Join me on SK Lite with invite code ${data.referralCode}.`,
+        message: `Join me on MissUPro with invite code ${data.referralCode}.`,
       });
     } catch (error) {
       Alert.alert("Error", getErrorMessage(error, "Unable to share right now."));
@@ -37,7 +38,9 @@ export default function ReferralsScreen() {
   const invitees = useMemo(() => (data.referrals ?? []) as Array<{ inviteeUserId?: string; inviteeDisplayName?: string; status?: string }>, [data.referrals]);
 
   return (
-    <WinterScreen title="SK Lite" rightLabel="Close" onRightPress={() => undefined}>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <WinterScreen title="MissUPro" rightLabel="Close" onRightPress={() => undefined}>
       <HeaderTabs items={[{ key: "invite", label: "Invite a Friend" }, { key: "invitees", label: "My Invitees" }]} activeKey={tab} onChange={setTab} />
 
       {tab === "invite" ? (
@@ -86,6 +89,7 @@ export default function ReferralsScreen() {
           </View>
         </GlassPanel>
       )}
-    </WinterScreen>
+      </WinterScreen>
+    </>
   );
 }

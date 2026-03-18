@@ -42,7 +42,7 @@ export default function LevelsScreen() {
   }, [current?.unlockedRewards, currentLevel]);
 
   return (
-    <WinterScreen title="SK Lite" rightLabel="Close" onRightPress={() => undefined}>
+    <WinterScreen title="MissUPro" rightLabel="Close" onRightPress={() => undefined}>
       <GlassPanel style={{ backgroundColor: "rgba(132,67,255,0.85)", paddingTop: 28, paddingBottom: 18, alignItems: "center" }}>
         <Text style={{ fontSize: 84 }}>⭐</Text>
         <Text style={{ color: COLORS.white, fontSize: 18, fontWeight: "700", marginTop: 6 }}>level</Text>

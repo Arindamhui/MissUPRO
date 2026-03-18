@@ -150,6 +150,7 @@ function GuardedStack() {
   return (
     <Stack
       screenOptions={{
+        headerShown: false,
         headerStyle: { backgroundColor: COLORS.background },
         headerTintColor: COLORS.text,
         headerTitleStyle: { fontWeight: "600" },
@@ -196,7 +197,7 @@ function GuardedStack() {
       <Stack.Screen name="games" options={{ headerShown: false }} />
       <Stack.Screen name="vip" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ headerShown: false }} />
-      <Stack.Screen name="referrals" options={{ title: t("navigation.referrals") }} />
+      <Stack.Screen name="referrals" options={{ headerShown: false }} />
       <Stack.Screen name="leaderboards" options={{ headerShown: false }} />
       <Stack.Screen name="leaderboards/[boardKey]" options={{ headerShown: false }} />
       <Stack.Screen name="pk/battle" options={{ title: "PK Battle" }} />

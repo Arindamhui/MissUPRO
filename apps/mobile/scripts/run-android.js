@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { spawn, spawnSync } = require("node:child_process");
 const fs = require("node:fs");
+const http = require("node:http");
 const net = require("node:net");
 const path = require("node:path");
 
 const APP_ID = process.env.MOBILE_ANDROID_APPLICATION_ID || "com.missupro.app";
-const METRO_PORT = Number(process.env.MOBILE_ANDROID_METRO_PORT || 8081);
+const DEFAULT_METRO_PORT = Number(process.env.MOBILE_ANDROID_METRO_PORT || 8081);
 const mode = process.argv[2] || "emulator";
 const extraArgs = process.argv.slice(3);
 
@@ -140,21 +141,22 @@ function launchApp(adb, serial) {
   }
 }
 
-function reverseMetroPort(adb, serial) {
-  if (!serial || serial.startsWith("emulator-")) {
+function reverseMetroPort(adb, serial, metroPort) {
+  if (!serial) {
     return;
   }
 
-  const result = run(adb, ["-s", serial, "reverse", `tcp:${METRO_PORT}`, `tcp:${METRO_PORT}`]);
+  const result = run(adb, ["-s", serial, "reverse", `tcp:${metroPort}`, `tcp:${metroPort}`]);
   if (result.error || result.status !== 0) {
     const output = `${result.stdout || ""}${result.stderr || ""}`.trim();
-    console.warn(`[android] Could not reverse tcp:${METRO_PORT}: ${output || result.error?.message || result.status}`);
+    console.warn(`[android] Could not reverse tcp:${metroPort}: ${output || result.error?.message || result.status}`);
   }
 }
 
-function buildApp(env) {
+function buildApp(env, metroPort) {
   const gradleArgs = [
     "app:assembleDebug",
+    `-PreactNativeDevServerPort=${metroPort}`,
     "-PreactNativeArchitectures=" + env.ORG_GRADLE_PROJECT_reactNativeArchitectures,
   ];
   const result = process.platform === "win32"
@@ -186,12 +188,25 @@ function buildApp(env) {
 }
 
 function startMetro(env) {
+  const metroPort = Number(env.MOBILE_ANDROID_METRO_PORT || DEFAULT_METRO_PORT);
+  const metroEnv = {
+    ...env,
+    CI: env.CI || "1",
+  };
+
   const child = spawn(
     process.execPath,
-    [getExpoCliPath(), "start", "--dev-client", "--port", String(METRO_PORT), ...extraArgs],
+    [
+      getExpoCliPath(),
+      "start",
+      "--dev-client",
+      "--port",
+      String(metroPort),
+      ...extraArgs,
+    ],
     {
       cwd: path.resolve(__dirname, ".."),
-      env,
+      env: metroEnv,
       stdio: "ignore",
       detached: true,
       windowsHide: true,
@@ -200,6 +215,73 @@ function startMetro(env) {
 
   child.unref();
   return child;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function isMetroRunningOnPort(port) {
+  return new Promise((resolve) => {
+    const request = http.get(`http://127.0.0.1:${port}/status`, (response) => {
+      let body = "";
+
+      response.on("data", (chunk) => {
+        body += chunk.toString();
+      });
+
+      response.on("end", () => {
+        resolve(response.statusCode === 200 && body.includes("packager-status:running"));
+      });
+    });
+
+    request.on("error", () => resolve(false));
+    request.setTimeout(2_500, () => {
+      request.destroy();
+      resolve(false);
+    });
+  });
+}
+
+async function waitForMetroReady(port, timeoutMs = 60_000) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    if (await isMetroRunningOnPort(port)) {
+      return true;
+    }
+
+    await sleep(1_000);
+  }
+
+  return false;
+}
+
+async function startMetroOnAvailablePort(baseEnv, preferredPort) {
+  for (let candidate = preferredPort; candidate < preferredPort + 20; candidate += 1) {
+    if (await isPortBusy(candidate)) {
+      continue;
+    }
+
+    const envForCandidate = {
+      ...baseEnv,
+      ORG_GRADLE_PROJECT_reactNativeDevServerPort: String(candidate),
+      MOBILE_ANDROID_METRO_PORT: String(candidate),
+    };
+
+    console.log(`[android] Starting dedicated Metro server on ${candidate}.`);
+    startMetro(envForCandidate);
+
+    if (await waitForMetroReady(candidate, 45_000)) {
+      return { metroPort: candidate, env: envForCandidate };
+    }
+
+    console.warn(`[android] Metro failed to become ready on ${candidate}; trying another port.`);
+  }
+
+  throw new Error(`Unable to start Metro on any available port from ${preferredPort} to ${preferredPort + 19}.`);
 }
 
 function isPortBusy(port) {
@@ -222,13 +304,68 @@ function isPortBusy(port) {
   });
 }
 
+function isMetroCompatible(port) {
+  return new Promise((resolve) => {
+    const query = [
+      "platform=android",
+      "dev=true",
+      "lazy=true",
+      "minify=false",
+      `app=${encodeURIComponent(APP_ID)}`,
+      "modulesOnly=false",
+      "runModule=true",
+      "excludeSource=true",
+      "sourcePaths=url-server",
+    ].join("&");
+
+    const request = http.get(
+      `http://127.0.0.1:${port}/.expo/.virtual-metro-entry.bundle?${query}`,
+      (response) => {
+        let body = "";
+
+        response.on("data", (chunk) => {
+          if (body.length < 5000) {
+            body += chunk.toString();
+          }
+        });
+
+        response.on("end", () => {
+          resolve(response.statusCode === 200 && !body.includes("\"type\":\"InternalError\""));
+        });
+      }
+    );
+
+    request.on("error", () => resolve(false));
+    request.setTimeout(8_000, () => {
+      request.destroy();
+      resolve(false);
+    });
+  });
+}
+
+async function findFreePort(startPort, attempts = 20) {
+  for (let offset = 0; offset < attempts; offset += 1) {
+    const candidate = startPort + offset;
+    if (!(await isPortBusy(candidate))) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 async function main() {
   const adb = getAdbCommand();
+  let metroPort = DEFAULT_METRO_PORT;
+  const forceFreshMetro = extraArgs.includes("--clear");
+
   const env = {
     ...process.env,
     NODE_ENV: process.env.NODE_ENV || "development",
     ORG_GRADLE_PROJECT_reactNativeArchitectures:
       mode === "device" ? "arm64-v8a,armeabi-v7a" : "x86_64",
+    ORG_GRADLE_PROJECT_reactNativeDevServerPort: String(metroPort),
+    MOBILE_ANDROID_METRO_PORT: String(metroPort),
   };
 
   const serial = getTargetDevice(adb);
@@ -240,21 +377,38 @@ async function main() {
     );
   }
 
-  const metroAlreadyRunning = await isPortBusy(METRO_PORT);
-  if (metroAlreadyRunning) {
-    console.log(`[android] Port ${METRO_PORT} is already in use. Reusing the existing Metro server.`);
+  const metroAlreadyRunning = await isPortBusy(metroPort);
+  if (forceFreshMetro) {
+    console.log(`[android] --clear detected. Starting a fresh Metro server instead of reusing existing ports.`);
+    const startedMetro = await startMetroOnAvailablePort(env, metroPort + (metroAlreadyRunning ? 1 : 0));
+    metroPort = startedMetro.metroPort;
+    Object.assign(env, startedMetro.env);
+  } else if (metroAlreadyRunning) {
+    const compatibleMetro = await isMetroCompatible(metroPort);
+    if (compatibleMetro) {
+      console.log(`[android] Port ${metroPort} is already in use. Reusing the existing Metro server.`);
+    } else {
+      console.warn(
+        `[android] Port ${DEFAULT_METRO_PORT} is in use by an incompatible Metro server. Selecting a healthy dedicated Metro port.`
+      );
+
+      const startedMetro = await startMetroOnAvailablePort(env, metroPort + 1);
+      metroPort = startedMetro.metroPort;
+      Object.assign(env, startedMetro.env);
+    }
   } else {
-    console.log(`[android] Starting Metro on port ${METRO_PORT}.`);
-    startMetro(env);
+    const startedMetro = await startMetroOnAvailablePort(env, metroPort);
+    metroPort = startedMetro.metroPort;
+    Object.assign(env, startedMetro.env);
   }
 
   console.log(`[android] Building debug APK for ${serial}.`);
-  const apkPath = buildApp(env);
+  const apkPath = buildApp(env, metroPort);
 
   console.log(`[android] Removing existing ${APP_ID} from ${serial} before install.`);
   uninstallExistingApp(adb, serial);
 
-  reverseMetroPort(adb, serial);
+  reverseMetroPort(adb, serial, metroPort);
 
   console.log(`[android] Installing ${path.basename(apkPath)} on ${serial}.`);
   installApp(adb, serial, apkPath);
