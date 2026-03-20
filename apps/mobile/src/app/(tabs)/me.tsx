@@ -57,6 +57,7 @@ export default function MeScreen() {
   const followers = trpc.user.listFollowers.useQuery({ limit: 100 }, { retry: false, enabled: isAuthenticated });
   const following = trpc.user.listFollowing.useQuery({ limit: 100 }, { retry: false, enabled: isAuthenticated });
   const wallet = trpc.wallet.getBalance.useQuery(undefined, { retry: false, enabled: isAuthenticated });
+  const missuWorkspace = trpc.missu.getMyWorkspace.useQuery(undefined, { retry: false, enabled: isAuthenticated });
 
   const followerIds = useMemo(() => new Set((followers.data?.items ?? []).map((item: any) => String(item.userId ?? "")).filter(Boolean)), [followers.data?.items]);
   const followingList = (following.data?.items ?? []) as any[];
@@ -70,6 +71,9 @@ export default function MeScreen() {
   const profileId = String(me.data?.id ?? userId ?? "");
   const vipLabel = String(vip.data?.tierDetails?.name ?? vip.data?.tier ?? "VVIP");
   const roomManagementRoute = ["ADMIN", "HOST", "MODEL"].includes(String(me.data?.role ?? "")) ? "/agency/dashboard" : "/(tabs)/live";
+  const publicUserId = String(missuWorkspace.data?.user?.publicUserId ?? profileId ?? "-");
+  const hostId = String(missuWorkspace.data?.host?.hostId ?? "");
+  const hostStatus = String(missuWorkspace.data?.host?.status ?? missuWorkspace.data?.latestHostApplication?.status ?? "NOT_STARTED");
   const avatarUri = String(
     profile.data?.avatarUrl
       ?? (profile.data as any)?.profileImage
@@ -100,7 +104,7 @@ export default function MeScreen() {
           <View style={{ alignItems: "center", paddingVertical: SPACING.sm }}>
             <Avatar uri={avatarUri} size={112} />
             <Text style={{ fontSize: 28, fontWeight: "800", color: COLORS.white, marginTop: SPACING.md }}>{displayName}</Text>
-            <Text style={{ color: "rgba(255,255,255,0.62)", marginTop: 10, fontSize: 16 }}>ID:{profileId || "-"}    {region}</Text>
+            <Text style={{ color: "rgba(255,255,255,0.62)", marginTop: 10, fontSize: 16 }}>ID:{publicUserId}    {region}</Text>
             <View style={{ flexDirection: "row", gap: SPACING.sm, marginTop: SPACING.sm }}>
               <View style={{ backgroundColor: "#2AAE3D", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
                 <Text style={{ color: COLORS.white, fontSize: 13, fontWeight: "700" }}>Lv {Number(level.data?.level ?? 1)}</Text>
@@ -108,8 +112,23 @@ export default function MeScreen() {
               <View style={{ backgroundColor: "#FFD84C", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
                 <Text style={{ color: "#9C2C73", fontSize: 13, fontWeight: "700" }}>0</Text>
               </View>
+              <View style={{ backgroundColor: "rgba(79,227,255,0.2)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
+                <Text style={{ color: "#92EFFF", fontSize: 13, fontWeight: "700" }}>{hostId ? `${hostId}` : hostStatus}</Text>
+              </View>
             </View>
           </View>
+
+          <TouchableOpacity onPress={() => router.push("/host" as never)} style={{ marginBottom: 18, borderRadius: 24, overflow: "hidden", borderWidth: 1, borderColor: "rgba(79,227,255,0.4)" }}>
+            <LinearGradient colors={["rgba(79,227,255,0.25)", "rgba(39,70,160,0.25)"]} style={{ paddingHorizontal: 18, paddingVertical: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <View style={{ flex: 1, paddingRight: 16 }}>
+                <Text style={{ color: COLORS.white, fontSize: 20, fontWeight: "900" }}>{hostId ? "Host Center" : "Become a Host"}</Text>
+                <Text style={{ color: "rgba(255,255,255,0.74)", marginTop: 6, lineHeight: 20 }}>
+                  {hostId ? `Current status: ${hostStatus}` : "Submit verification, choose platform or agency, and get your official MissU Host ID."}
+                </Text>
+              </View>
+              <MaterialCommunityIcons color="#92EFFF" name="chevron-right" size={30} />
+            </LinearGradient>
+          </TouchableOpacity>
 
           <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 16, marginBottom: 18 }}>
             {[

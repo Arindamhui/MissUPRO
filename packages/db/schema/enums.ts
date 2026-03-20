@@ -2,13 +2,17 @@ import { pgEnum } from "drizzle-orm/pg-core";
 
 // === User ===
 export const userRoleEnum = pgEnum("user_role", ["USER", "HOST", "MODEL", "ADMIN"]);
+export const platformRoleEnum = pgEnum("platform_role", ["USER", "MODEL_INDEPENDENT", "MODEL_AGENCY", "AGENCY", "ADMIN"]);
 export const userStatusEnum = pgEnum("user_status", ["ACTIVE", "SUSPENDED", "BANNED", "PENDING_VERIFICATION", "DELETED"]);
 export const genderEnum = pgEnum("gender", ["MALE", "FEMALE", "OTHER", "PREFER_NOT_TO_SAY"]);
 
 // === Auth ===
+export const authRoleEnum = pgEnum("auth_role", ["admin", "agency"]);
+export const authProviderEnum = pgEnum("auth_provider", ["EMAIL", "GOOGLE", "FACEBOOK", "PHONE_OTP", "WHATSAPP_OTP", "CUSTOM_OTP", "UNKNOWN"]);
 export const sessionStatusEnum = pgEnum("session_status", ["ACTIVE", "REVOKED", "EXPIRED", "STEP_UP_REQUIRED"]);
 export const verificationTypeEnum = pgEnum("verification_type", ["SIGNUP", "EMAIL_CHANGE", "PASSWORD_RESET"]);
 export const verificationStatusEnum = pgEnum("verification_status", ["PENDING", "VERIFIED", "EXPIRED", "USED"]);
+export const accessRecordStatusEnum = pgEnum("access_record_status", ["PENDING", "ACTIVE", "REJECTED", "SUSPENDED"]);
 
 // === Security ===
 export const securityEventTypeEnum = pgEnum("security_event_type", [
@@ -76,7 +80,11 @@ export const gameResultTypeEnum = pgEnum("game_result_type", ["WIN", "LOSS", "DR
 
 // === Models ===
 export const modelApplicationStatusEnum = pgEnum("model_application_status", ["PENDING", "APPROVED", "REJECTED"]);
+export const modelProfileTypeEnum = pgEnum("model_profile_type", ["INDEPENDENT", "AGENCY"]);
 export const demoVideoStatusEnum = pgEnum("demo_video_status", ["PENDING_REVIEW", "APPROVED", "REJECTED", "ARCHIVED"]);
+export const hostTypeEnum = pgEnum("host_type", ["PLATFORM", "AGENCY"]);
+export const hostLifecycleStatusEnum = pgEnum("host_lifecycle_status", ["PENDING", "APPROVED", "REJECTED", "SUSPENDED"]);
+export const hostApplicationStatusEnum = pgEnum("host_application_status", ["PENDING", "APPROVED", "REJECTED"]);
 export const dayOfWeekEnum = pgEnum("day_of_week", ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]);
 export const levelTrackEnum = pgEnum("level_track", ["USER", "MODEL"]);
 export const levelStatusEnum = pgEnum("level_status", ["ACTIVE", "INACTIVE"]);

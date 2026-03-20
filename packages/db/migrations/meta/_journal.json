@@ -99,6 +99,27 @@
       "when": 1774041600000,
       "tag": "0013_user_inbox_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1774045200000,
+      "tag": "0014_clerk_auth_roles",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1774048800000,
+      "tag": "0015_saas_access_control",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1774052400000,
+      "tag": "0016_pk_session_schema_compat",
+      "breakpoints": true
     }
   ]
 }

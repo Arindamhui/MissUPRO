@@ -4,6 +4,7 @@ import {
 import { relations } from "drizzle-orm";
 import {
   userRoleEnum, userStatusEnum, genderEnum,
+  authRoleEnum, authProviderEnum, platformRoleEnum,
   verificationTypeEnum, verificationStatusEnum,
   pushPlatformEnum, pushTokenStatusEnum,
   accountDeletionStatusEnum,
@@ -12,6 +13,8 @@ import {
 // ─── users ───
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
+  publicUserId: text("public_user_id"),
+  clerkId: text("clerk_id"),
   email: text("email").notNull(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   phone: text("phone"),
@@ -21,6 +24,11 @@ export const users = pgTable("users", {
   username: text("username").notNull(),
   avatarUrl: text("avatar_url"),
   role: userRoleEnum("role").default("USER").notNull(),
+  platformRole: platformRoleEnum("platform_role").default("USER").notNull(),
+  authRole: authRoleEnum("auth_role"),
+  authProvider: authProviderEnum("auth_provider").default("UNKNOWN").notNull(),
+  authMetadataJson: jsonb("auth_metadata_json"),
+  profileDataJson: jsonb("profile_data_json"),
   status: userStatusEnum("status").default("ACTIVE").notNull(),
   country: text("country").notNull(),
   city: text("city"),
@@ -32,15 +40,22 @@ export const users = pgTable("users", {
   referralCode: text("referral_code").notNull(),
   referredByUserId: uuid("referred_by_user_id"),
   lastActiveAt: timestamp("last_active_at"),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
+  uniqueIndex("users_public_user_id_idx").on(t.publicUserId),
+  uniqueIndex("users_clerk_id_idx").on(t.clerkId),
   uniqueIndex("users_email_idx").on(t.email),
   uniqueIndex("users_username_idx").on(t.username),
   uniqueIndex("users_phone_idx").on(t.phone),
   uniqueIndex("users_referral_code_idx").on(t.referralCode),
+  index("users_auth_role_idx").on(t.authRole),
+  index("users_platform_role_idx").on(t.platformRole),
+  index("users_auth_provider_idx").on(t.authProvider),
   index("users_role_status_country_idx").on(t.role, t.status, t.country),
   index("users_last_active_at_idx").on(t.lastActiveAt),
+  index("users_deleted_at_idx").on(t.deletedAt),
 ]);
 
 // ─── profiles ───

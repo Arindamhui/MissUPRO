@@ -551,7 +551,7 @@ export class ReferralService {
                clerk_user_id as "clerkUserId", created_at as "createdAt", updated_at as "updatedAt"
         from users
       `);
-      const inviterRecord = userRows.rows
+      const inviterRecord = (userRows.rows as Array<Record<string, unknown>>)
         .map((row) => ({ ...row, id: String(row.id) }))
         .find((row) => this.buildFallbackInviteCode(row.id) === normalizedCode);
 

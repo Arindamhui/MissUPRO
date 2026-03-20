@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { db } from "@missu/db";
 import {
@@ -11,11 +11,27 @@ import {
 import { eq, and, desc, asc, sql, between } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { decodeCursor, encodeCursor } from "@missu/utils";
+import { isDatabaseConnectionRefusedError } from "../common/database-errors";
 
 @Injectable()
 export class LeaderboardsService {
+  private readonly logger = new Logger(LeaderboardsService.name);
   private userSchemaModePromise: Promise<"modern" | "legacy"> | null = null;
   private leaderboardSchemaModePromise: Promise<"modern" | "legacy"> | null = null;
+  private hasWarnedAboutDatabase = false;
+
+  private markDatabaseAvailable() {
+    this.hasWarnedAboutDatabase = false;
+  }
+
+  private warnDatabaseUnavailable(message: string) {
+    if (this.hasWarnedAboutDatabase) {
+      return;
+    }
+
+    this.hasWarnedAboutDatabase = true;
+    this.logger.warn(message);
+  }
 
   private async getUserSchemaMode() {
     if (!this.userSchemaModePromise) {
@@ -394,20 +410,42 @@ export class LeaderboardsService {
 
   @Cron("*/5 * * * *")
   async refreshDueLeaderboards() {
-    if (await this.getLeaderboardSchemaMode() === "legacy") {
-      const result = await db.execute(sql`
-        select
-          id,
-          created_at as "updatedAt",
-          refresh_interval_seconds as "refreshIntervalSeconds"
-        from leaderboards
-        where is_active = true
-      `);
-      const boards = result.rows as Array<{ id: string; updatedAt?: Date | string | null; refreshIntervalSeconds?: number | string | null }>;
+    try {
+      if (await this.getLeaderboardSchemaMode() === "legacy") {
+        const result = await db.execute(sql`
+          select
+            id,
+            created_at as "updatedAt",
+            refresh_interval_seconds as "refreshIntervalSeconds"
+          from leaderboards
+          where is_active = true
+        `);
+        const boards = result.rows as Array<{ id: string; updatedAt?: Date | string | null; refreshIntervalSeconds?: number | string | null }>;
+        const now = Date.now();
+        for (const board of boards) {
+          const updatedAt = board.updatedAt ? new Date(board.updatedAt).getTime() : 0;
+          const intervalMs = Number(board.refreshIntervalSeconds ?? 300) * 1000;
+          if (now - updatedAt >= intervalMs) {
+            try {
+              await this.refreshLeaderboard(board.id);
+            } catch {
+              // ignore per-board errors
+            }
+          }
+        }
+
+        this.markDatabaseAvailable();
+        return;
+      }
+
+      const boards = await db
+        .select({ id: leaderboards.id, updatedAt: leaderboards.updatedAt, refreshIntervalSeconds: leaderboards.refreshIntervalSeconds })
+        .from(leaderboards)
+        .where(eq(leaderboards.status, "ACTIVE" as any));
       const now = Date.now();
       for (const board of boards) {
         const updatedAt = board.updatedAt ? new Date(board.updatedAt).getTime() : 0;
-        const intervalMs = Number(board.refreshIntervalSeconds ?? 300) * 1000;
+        const intervalMs = (board.refreshIntervalSeconds ?? 300) * 1000;
         if (now - updatedAt >= intervalMs) {
           try {
             await this.refreshLeaderboard(board.id);
@@ -416,24 +454,15 @@ export class LeaderboardsService {
           }
         }
       }
-      return;
-    }
 
-    const boards = await db
-      .select({ id: leaderboards.id, updatedAt: leaderboards.updatedAt, refreshIntervalSeconds: leaderboards.refreshIntervalSeconds })
-      .from(leaderboards)
-      .where(eq(leaderboards.status, "ACTIVE" as any));
-    const now = Date.now();
-    for (const board of boards) {
-      const updatedAt = board.updatedAt ? new Date(board.updatedAt).getTime() : 0;
-      const intervalMs = (board.refreshIntervalSeconds ?? 300) * 1000;
-      if (now - updatedAt >= intervalMs) {
-        try {
-          await this.refreshLeaderboard(board.id);
-        } catch {
-          // ignore per-board errors
-        }
+      this.markDatabaseAvailable();
+    } catch (error) {
+      if (isDatabaseConnectionRefusedError(error)) {
+        this.warnDatabaseUnavailable("Skipping leaderboard refresh because the database is unavailable.");
+        return;
       }
+
+      this.logger.error("Leaderboard refresh job failed", error as Error);
     }
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { db } from "@missu/db";
 import { liveStreams, pkScores, pkSessions, users } from "@missu/db/schema";
@@ -7,6 +7,7 @@ import { eq, and, desc, inArray, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { ConfigService } from "../config/config.service";
 import { WalletService } from "../wallet/wallet.service";
+import { isDatabaseConnectionRefusedError } from "../common/database-errors";
 
 export interface PKConfig {
   enabled: boolean;
@@ -26,10 +27,26 @@ export interface PKConfig {
 
 @Injectable()
 export class PkService {
+  private readonly logger = new Logger(PkService.name);
+  private hasWarnedAboutDatabase = false;
+
   constructor(
     private readonly configService: ConfigService,
     private readonly walletService: WalletService,
   ) {}
+
+  private markDatabaseAvailable() {
+    this.hasWarnedAboutDatabase = false;
+  }
+
+  private warnDatabaseUnavailable(message: string) {
+    if (this.hasWarnedAboutDatabase) {
+      return;
+    }
+
+    this.hasWarnedAboutDatabase = true;
+    this.logger.warn(message);
+  }
 
   async getConfig(): Promise<PKConfig> {
     const env = process.env["NODE_ENV"] === "production" ? "production" : "development";
@@ -453,21 +470,32 @@ export class PkService {
 
   @Cron("*/30 * * * * *")
   async endExpiredBattles() {
-    const active = await db
-      .select({ id: pkSessions.id, startedAt: pkSessions.startedAt, battleDurationSeconds: pkSessions.battleDurationSeconds })
-      .from(pkSessions)
-      .where(eq(pkSessions.status, "ACTIVE" as any));
-    const now = Date.now();
-    for (const row of active) {
-      const started = row.startedAt ? new Date(row.startedAt).getTime() : 0;
-      const endAt = started + (row.battleDurationSeconds ?? 300) * 1000;
-      if (endAt > 0 && now >= endAt) {
-        try {
-          await this.endBattle(row.id);
-        } catch {
-          // ignore per-session errors
+    try {
+      const active = await db
+        .select({ id: pkSessions.id, startedAt: pkSessions.startedAt, battleDurationSeconds: pkSessions.battleDurationSeconds })
+        .from(pkSessions)
+        .where(eq(pkSessions.status, "ACTIVE" as any));
+      const now = Date.now();
+      for (const row of active) {
+        const started = row.startedAt ? new Date(row.startedAt).getTime() : 0;
+        const endAt = started + (row.battleDurationSeconds ?? 300) * 1000;
+        if (endAt > 0 && now >= endAt) {
+          try {
+            await this.endBattle(row.id);
+          } catch {
+            // ignore per-session errors
+          }
         }
       }
+
+      this.markDatabaseAvailable();
+    } catch (error) {
+      if (isDatabaseConnectionRefusedError(error)) {
+        this.warnDatabaseUnavailable("Skipping expired PK battle sweep because the database is unavailable.");
+        return;
+      }
+
+      this.logger.error("Expired PK battle sweep failed", error as Error);
     }
   }
 }

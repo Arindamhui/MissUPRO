@@ -430,7 +430,7 @@ export class WalletService {
       limit 30
     `);
 
-    return result.rows.map((row) => ({
+    return (result.rows as Array<Record<string, unknown>>).map((row) => ({
       id: String(row.id),
       status: String(row.status ?? "PENDING"),
       provider: String(row.provider ?? "UNKNOWN"),

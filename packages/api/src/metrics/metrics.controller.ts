@@ -3,6 +3,7 @@ import { db } from "@missu/db";
 import { sql } from "drizzle-orm";
 import { getRedis } from "@missu/utils";
 import { getRequestMetrics } from "./request-metrics";
+import { canReachRedis } from "../common/redis-availability";
 
 @Controller("metrics")
 export class MetricsController {
@@ -22,7 +23,11 @@ export class MetricsController {
     }
 
     try {
-      await getRedis().ping();
+      if (await canReachRedis(process.env["REDIS_URL"])) {
+        await getRedis().ping();
+      } else {
+        redisUp = 0;
+      }
     } catch {
       redisUp = 0;
     }

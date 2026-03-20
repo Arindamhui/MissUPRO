@@ -35,32 +35,32 @@ export class AgencyRouter {
         .input(z.object({ view: z.enum(["POPULAR", "RANK"]).default("POPULAR"), limit: z.number().int().min(1).max(50).default(20) }).optional())
         .query(async ({ input }) => this.agencyService.listPublicSquads(input?.view ?? "POPULAR", input?.limit ?? 20)),
 
-      getMySquadOverview: this.trpc.protectedProcedure
+      getMySquadOverview: this.trpc.agencyProcedure
         .query(async ({ ctx }) => this.agencyService.getMySquadOverview(ctx.userId)),
 
-      joinSquad: this.trpc.protectedProcedure
+      joinSquad: this.trpc.agencyProcedure
         .input(z.object({ agencyId: z.string().uuid() }))
         .mutation(async ({ ctx, input }) => this.agencyService.joinSquad(ctx.userId, input.agencyId)),
 
-      getAgencyDashboard: this.trpc.protectedProcedure
+      getAgencyDashboard: this.trpc.agencyProcedure
         .query(async ({ ctx }) => this.agencyService.getAgencyDashboard(ctx.userId)),
 
-      inviteHost: this.trpc.protectedProcedure
+      inviteHost: this.trpc.agencyProcedure
         .input(z.object({ hostUserId: z.string().uuid() }))
         .mutation(async ({ ctx, input }) => this.agencyService.inviteHost(ctx.userId, input.hostUserId)),
 
-      acceptInvite: this.trpc.protectedProcedure
+      acceptInvite: this.trpc.agencyProcedure
         .input(z.object({ agencyId: z.string().uuid() }))
         .mutation(async ({ ctx, input }) => this.agencyService.acceptInvite(ctx.userId, input.agencyId)),
 
-      getHostRoster: this.trpc.protectedProcedure
+      getHostRoster: this.trpc.agencyProcedure
         .input(z.object({ cursor: z.string().optional(), limit: z.number().int().min(1).max(50).default(20) }))
         .query(async ({ ctx, input }) => this.agencyService.getHostRoster(ctx.userId, input.cursor, input.limit)),
 
-      getCommissionSummary: this.trpc.protectedProcedure
+      getCommissionSummary: this.trpc.agencyProcedure
         .query(async ({ ctx }) => this.agencyService.getCommissionSummary(ctx.userId)),
 
-      removeHost: this.trpc.protectedProcedure
+      removeHost: this.trpc.agencyProcedure
         .input(z.object({ hostUserId: z.string().uuid() }))
         .mutation(async ({ ctx, input }) => this.agencyService.removeHost(ctx.userId, input.hostUserId)),
 

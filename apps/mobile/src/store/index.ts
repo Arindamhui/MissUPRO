@@ -1,15 +1,20 @@
 import { create } from "zustand";
 
 type AuthMode = "signed_out" | "guest" | "authenticated";
+type MobilePanel = "user" | "model" | "agency_model";
 
 interface AuthState {
   userId: string | null;
   token: string | null;
   authMode: AuthMode;
+  mobilePanel: MobilePanel;
+  agencyId: string | null;
+  agencyName: string | null;
   guestId: string | null;
   guestName: string | null;
   isAuthenticated: boolean;
   setAuth: (userId: string, token: string) => void;
+  setMobilePanel: (panel: MobilePanel, agencyId?: string | null, agencyName?: string | null) => void;
   continueAsGuest: (guestId: string, guestName: string) => void;
   clearAuth: () => void;
 }
@@ -18,6 +23,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   userId: null,
   token: null,
   authMode: "signed_out",
+  mobilePanel: "user",
+  agencyId: null,
+  agencyName: null,
   guestId: null,
   guestName: null,
   isAuthenticated: false,
@@ -28,6 +36,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     guestId: null,
     guestName: null,
     isAuthenticated: true,
+  }),
+  setMobilePanel: (mobilePanel, agencyId, agencyName) => set({
+    mobilePanel,
+    agencyId: agencyId ?? null,
+    agencyName: agencyName ?? null,
   }),
   continueAsGuest: (guestId, guestName) => set({
     userId: guestId,
@@ -41,6 +54,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     userId: null,
     token: null,
     authMode: "signed_out",
+    mobilePanel: "user",
+    agencyId: null,
+    agencyName: null,
     guestId: null,
     guestName: null,
     isAuthenticated: false,

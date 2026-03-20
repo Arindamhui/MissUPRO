@@ -1,6 +1,7 @@
 export * from "./enums";
 export * from "./users";
 export * from "./auth";
+export * from "./audit";
 export * from "./wallets";
 export * from "./payments";
 export * from "./gifts";
@@ -8,6 +9,7 @@ export * from "./live";
 export * from "./calls";
 export * from "./games";
 export * from "./models";
+export * from "./hosts";
 export * from "./levels";
 export * from "./notifications";
 export * from "./admin";

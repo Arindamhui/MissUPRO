@@ -32,11 +32,13 @@ WebBrowser.maybeCompleteAuthSession();
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const continueAsGuest = useAuthStore((s) => s.continueAsGuest);
+  const [loginPanel, setLoginPanel] = useState<"user" | "agency_model">("user");
+  const [agencyId, setAgencyId] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [phoneStatus, setPhoneStatus] = useState<"idle" | "sent">("idle");
   const [phonePanelOpen, setPhonePanelOpen] = useState(false);
-  const [busyAction, setBusyAction] = useState<"google" | "facebook" | "phone-send" | "phone-verify" | "guest" | null>(null);
+  const [busyAction, setBusyAction] = useState<"google" | "facebook" | "phone-send" | "phone-verify" | "guest" | "whatsapp" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [resendIn, setResendIn] = useState(0);
   const { signIn, setActive } = useSignIn();
@@ -55,6 +57,19 @@ export default function LoginScreen() {
   }, [resendIn]);
 
   const isPhoneNumberValid = useMemo(() => /^\+[1-9]\d{7,14}$/.test(phoneNumber.trim()), [phoneNumber]);
+
+  const isAgencyIdValid = useMemo(
+    () => loginPanel === "user" || /^(AG\d{8}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(agencyId.trim()),
+    [agencyId, loginPanel],
+  );
+
+  const validateAgencyId = () => {
+    if (loginPanel === "agency_model" && !isAgencyIdValid) {
+      setError("Enter a valid Agency ID provided by your agency, for example AG56584585.");
+      return false;
+    }
+    return true;
+  };
 
   const openExternalUrl = async (url: string | undefined, missingLabel: string) => {
     if (!url) {
@@ -75,11 +90,16 @@ export default function LoginScreen() {
   };
 
   const handleOAuth = async (strategy: "oauth_google" | "oauth_facebook", action: "google" | "facebook") => {
+    if (!validateAgencyId()) return;
     setError(null);
     setBusyAction(action);
 
     try {
-      const { createdSessionId, setActive } = await startSSOFlow({ strategy });
+      const ssoOptions: Record<string, unknown> = { strategy };
+      if (loginPanel === "agency_model") {
+        ssoOptions.unsafeMetadata = { agencyId: agencyId.trim(), panel: "agency_model" };
+      }
+      const { createdSessionId, setActive } = await startSSOFlow(ssoOptions as any);
 
       if (!createdSessionId || !setActive) {
         setError("The social sign-in flow was cancelled before a session could be created.");
@@ -101,6 +121,7 @@ export default function LoginScreen() {
   };
 
   const handlePhoneSendCode = async () => {
+    if (!validateAgencyId()) return;
     if (!signIn || !setActive) {
       setError("Authentication is still loading. Try again in a moment.");
       return;
@@ -184,6 +205,14 @@ export default function LoginScreen() {
     }
   };
 
+  const handleWhatsAppLogin = async () => {
+    if (!validateAgencyId()) return;
+    // WhatsApp auth uses the phone number verification flow
+    // Opens the phone panel for phone-based OTP (WhatsApp delivery)
+    setPhonePanelOpen(true);
+    setError(null);
+  };
+
   const resetPhoneFlow = () => {
     setPhoneStatus("idle");
     setPhonePanelOpen(false);
@@ -214,7 +243,68 @@ export default function LoginScreen() {
               <BrandLogo size={124} />
             </View>
 
+            {/* Panel selector tabs */}
+            <View style={{ flexDirection: "row", borderRadius: 28, backgroundColor: "rgba(255,255,255,0.1)", padding: 4, marginBottom: 8 }}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => { setLoginPanel("user"); setError(null); }}
+                style={{
+                  flex: 1, paddingVertical: 12, borderRadius: 24, alignItems: "center",
+                  backgroundColor: loginPanel === "user" ? "rgba(255,255,255,0.22)" : "transparent",
+                }}
+              >
+                <Text style={{ color: COLORS.white, fontSize: FONT.sizes.sm, fontWeight: loginPanel === "user" ? "700" : "500" }}>
+                  User / Model
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => { setLoginPanel("agency_model"); setError(null); }}
+                style={{
+                  flex: 1, paddingVertical: 12, borderRadius: 24, alignItems: "center",
+                  backgroundColor: loginPanel === "agency_model" ? "rgba(255,255,255,0.22)" : "transparent",
+                }}
+              >
+                <Text style={{ color: COLORS.white, fontSize: FONT.sizes.sm, fontWeight: loginPanel === "agency_model" ? "700" : "500" }}>
+                  Agency Model
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             <View style={{ borderRadius: 36, paddingHorizontal: 18, paddingVertical: 22, backgroundColor: "rgba(17,20,71,0.42)", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", shadowColor: "#040A29", shadowOpacity: 0.28, shadowRadius: 26, shadowOffset: { width: 0, height: 18 } }}>
+
+              {/* Agency ID field for agency models */}
+              {loginPanel === "agency_model" ? (
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={{ color: "rgba(255,255,255,0.88)", fontSize: FONT.sizes.sm, fontWeight: "700", marginBottom: 8 }}>
+                    Agency ID (required)
+                  </Text>
+                  <TextInput
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    onChangeText={setAgencyId}
+                    placeholder="Enter your Agency ID"
+                    placeholderTextColor="rgba(255,255,255,0.42)"
+                    style={{
+                      borderRadius: 18,
+                      paddingHorizontal: 16,
+                      paddingVertical: 14,
+                      backgroundColor: "rgba(5,8,28,0.26)",
+                      color: COLORS.white,
+                      fontSize: FONT.sizes.md,
+                      borderWidth: 1,
+                      borderColor: agencyId.trim() && !isAgencyIdValid ? "rgba(225,112,85,0.6)" : "rgba(255,255,255,0.12)",
+                    }}
+                    value={agencyId}
+                  />
+                  {agencyId.trim() && !isAgencyIdValid ? (
+                    <Text style={{ color: "#FFC5B7", fontSize: FONT.sizes.xs, marginTop: 4 }}>
+                      Agency ID must be a valid UUID format
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
+
               <View style={{ gap: 16 }}>
                 <SocialButton
                   icon="facebook"
@@ -361,8 +451,16 @@ export default function LoginScreen() {
 
               <AuthDivider label="or" />
 
+              <View style={{ gap: 12, marginBottom: SPACING.md }}>
+                <SocialButton
+                  icon="whatsapp"
+                  onPress={() => void handleWhatsAppLogin()}
+                  title="Log in with WhatsApp"
+                  variant="brand"
+                />
+              </View>
+
               <View style={{ flexDirection: "row", justifyContent: "space-evenly", marginBottom: SPACING.lg }}>
-                <SocialButton icon="whatsapp" onPress={() => void openExternalUrl(whatsappSupportNumber ? `https://wa.me/${whatsappSupportNumber.replace(/\D/g, "")}` : undefined, "WhatsApp support number")} title="WhatsApp" variant="icon" />
                 <SocialButton icon="twitter" onPress={() => void openExternalUrl(xPageUrl, "X page URL")} title="X" variant="icon" />
                 <SocialButton icon="account-circle" loading={busyAction === "guest"} onPress={() => void handleGuestAccess()} title="Guest" variant="icon" />
               </View>
@@ -380,11 +478,19 @@ export default function LoginScreen() {
                   <Text style={{ color: "rgba(255,255,255,0.76)", fontSize: 13 }}>.</Text>
                 </View>
                 <TouchableOpacity onPress={() => router.push("/(auth)/register")}>
-                  <Text style={{ color: "rgba(255,255,255,0.88)", fontSize: FONT.sizes.sm, fontWeight: "700" }}>Need a full account? Register</Text>
+                  <Text style={{ color: "rgba(255,255,255,0.88)", fontSize: FONT.sizes.sm, fontWeight: "700" }}>
+                    {loginPanel === "agency_model" ? "New agency model? Register" : "Need a full account? Register"}
+                  </Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => router.push("/(auth)/otp-verify")}>
-                  <Text style={{ color: "rgba(255,255,255,0.68)", fontSize: FONT.sizes.xs, fontWeight: "600" }}>Preview OTP verification</Text>
-                </TouchableOpacity>
+                {loginPanel === "user" ? (
+                  <TouchableOpacity onPress={() => { setLoginPanel("agency_model"); setError(null); }}>
+                    <Text style={{ color: "rgba(255,255,255,0.68)", fontSize: FONT.sizes.xs, fontWeight: "600" }}>Model through an agency? Switch panel</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity onPress={() => { setLoginPanel("user"); setError(null); }}>
+                    <Text style={{ color: "rgba(255,255,255,0.68)", fontSize: FONT.sizes.xs, fontWeight: "600" }}>User or independent model? Switch panel</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           </View>

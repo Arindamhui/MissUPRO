@@ -21,6 +21,7 @@ import { CallService } from "../calls/call.service";
 import { SocialService } from "../social/social.service";
 import { ModerationService } from "../moderation/moderation.service";
 import { SocketEmitterService } from "../common/socket-emitter.service";
+import { canReachRedis } from "../common/redis-availability";
 
 @WebSocketGateway({
   cors: { origin: "*", credentials: true },
@@ -109,8 +110,15 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
   async afterInit() {
     this.socketEmitterService.registerServer(this.server);
 
-    if (!process.env["REDIS_URL"]) {
+    const redisUrl = process.env["REDIS_URL"];
+
+    if (!redisUrl) {
       this.logger.warn("Realtime Redis adapter disabled: REDIS_URL is not configured");
+      return;
+    }
+
+    if (!(await canReachRedis(redisUrl))) {
+      this.logger.warn("Realtime Redis adapter disabled: local Redis is unavailable");
       return;
     }
 

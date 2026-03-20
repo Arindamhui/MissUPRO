@@ -16,6 +16,13 @@ export class ComplianceRouter {
       getMyDeletionRequest: this.trpc.protectedProcedure
         .query(async ({ ctx }) => this.complianceService.getMyDeletionRequest(ctx.userId)),
 
+      deleteMyAccount: this.trpc.protectedProcedure
+        .input(z.object({ reason: z.string().min(5).max(1000) }))
+        .mutation(async ({ ctx, input }) => this.complianceService.deleteMyAccount(ctx.userId, input.reason)),
+
+      cancelAccountDeletion: this.trpc.protectedProcedure
+        .mutation(async ({ ctx }) => this.complianceService.cancelAccountDeletion(ctx.userId)),
+
       requestDataExport: this.trpc.protectedProcedure
         .mutation(async ({ ctx }) => this.complianceService.requestDataExport(ctx.userId)),
 

@@ -77,11 +77,16 @@ function AuthBootstrap() {
   const token = useAuthStore((s) => s.token);
   const authMode = useAuthStore((s) => s.authMode);
   const setAuth = useAuthStore((s) => s.setAuth);
+  const setMobilePanel = useAuthStore((s) => s.setMobilePanel);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const me = trpc.user.getMe.useQuery(undefined, {
     enabled: isLoaded && isSignedIn,
     retry: 3,
     retryDelay: 1000,
+  });
+  const mobileSession = trpc.auth.getMobileSession.useQuery(undefined, {
+    enabled: isLoaded && isSignedIn,
+    retry: false,
   });
 
   // Set userId immediately so (tabs) gate doesn't block on the API call.
@@ -118,6 +123,15 @@ function AuthBootstrap() {
     }
   }, [authMode, clearAuth, isLoaded, isSignedIn, token]);
 
+  useEffect(() => {
+    if (!mobileSession.data) return;
+    setMobilePanel(
+      mobileSession.data.panel,
+      mobileSession.data.agencyId ?? null,
+      mobileSession.data.agencyName ?? null,
+    );
+  }, [mobileSession.data, setMobilePanel]);
+
   return null;
 }
 
@@ -126,10 +140,23 @@ function GuardedStack() {
   const { isSignedIn } = useAuth();
   const segments = useSegments();
   const me = trpc.user.getMe.useQuery(undefined, { enabled: isSignedIn, retry: false });
+  const mobileSession = trpc.auth.getMobileSession.useQuery(undefined, { enabled: isSignedIn, retry: false });
 
   useEffect(() => {
     const rootSegment = segments[0];
     if (!rootSegment) return;
+
+    const isOnboardingRoute = rootSegment === "onboarding";
+
+    if (isSignedIn && mobileSession.data?.status === "needs_onboarding" && !isOnboardingRoute) {
+      router.replace("/onboarding");
+      return;
+    }
+
+    if (isSignedIn && mobileSession.data && mobileSession.data.status !== "needs_onboarding" && isOnboardingRoute) {
+      router.replace("/(tabs)");
+      return;
+    }
 
     if (rootSegment === "admin") {
       router.replace("/(tabs)");
@@ -145,7 +172,7 @@ function GuardedStack() {
     if (rootSegment === "agency" && isSignedIn && me.data && !["ADMIN", "HOST", "MODEL"].includes(role)) {
       router.replace("/(tabs)");
     }
-  }, [isSignedIn, me.data, segments]);
+  }, [isSignedIn, me.data, mobileSession.data, segments]);
 
   return (
     <Stack
@@ -160,6 +187,7 @@ function GuardedStack() {
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
       <Stack.Screen name="sso-callback" options={{ headerShown: false }} />
       <Stack.Screen name="call/[id]" options={{ headerShown: false, presentation: "fullScreenModal" }} />
       <Stack.Screen name="stream/[id]" options={{ headerShown: false, presentation: "fullScreenModal" }} />

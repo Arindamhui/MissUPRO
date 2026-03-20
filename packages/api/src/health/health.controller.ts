@@ -3,6 +3,7 @@ import { db } from "@missu/db";
 import { sql } from "drizzle-orm";
 import { getRedis } from "@missu/utils";
 import { HEALTH } from "@missu/config";
+import { canReachRedis } from "../common/redis-availability";
 
 @Controller("health")
 export class HealthController {
@@ -30,6 +31,10 @@ export class HealthController {
 
     // Redis check
     try {
+      if (!(await canReachRedis(process.env["REDIS_URL"]))) {
+        throw new Error("Redis unavailable");
+      }
+
       await Promise.race([
         getRedis().ping(),
         new Promise((_, reject) =>

@@ -53,6 +53,7 @@ export default function AgenciesPage() {
             { key: "contactEmail", label: "Email" },
             { key: "country", label: "Country" },
             { key: "status", label: "Status", render: (row) => <StatusBadge status={String(row.status ?? "PENDING")} /> },
+            { key: "approvalStatus", label: "Approval", render: (row) => <StatusBadge status={String(row.approvalStatus ?? row.status ?? "PENDING")} /> },
             {
               key: "createdAt",
               label: "Submitted",
@@ -91,11 +92,13 @@ export default function AgenciesPage() {
           <DataTable
             columns={[
               { key: "agencyName", label: "Agency" },
+              { key: "agencyCode", label: "Agency Code", render: (row) => String(row.agencyCode ?? "-") },
               { key: "contactName", label: "Contact" },
               { key: "contactEmail", label: "Email" },
               { key: "country", label: "Country" },
               { key: "commissionTier", label: "Tier" },
               { key: "status", label: "Status", render: (row) => <StatusBadge status={String(row.status ?? "PENDING")} /> },
+              { key: "approvalStatus", label: "Approval", render: (row) => <StatusBadge status={String(row.approvalStatus ?? row.status ?? "PENDING")} /> },
             ]}
             data={agencies}
           />

@@ -1,7 +1,7 @@
 "use client";
 
-import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import { createContext, useCallback, useContext, useMemo } from "react";
+import { useAuth } from "@clerk/nextjs";
 
 type AuthBridgeValue = {
   clerkAvailable: boolean;
@@ -21,6 +21,10 @@ const defaultValue: AuthBridgeValue = {
 
 const AuthBridgeContext = createContext<AuthBridgeValue>(defaultValue);
 
+/**
+ * Reads Clerk auth state (provided by ClerkProvider in root layout)
+ * and exposes it through the AuthBridge context.
+ */
 function ClerkStateBridge({ children }: { children: React.ReactNode }) {
   const { getToken, isLoaded, isSignedIn, userId } = useAuth();
   const getTokenSafe = useCallback(() => getToken(), [getToken]);
@@ -36,18 +40,12 @@ function ClerkStateBridge({ children }: { children: React.ReactNode }) {
   return <AuthBridgeContext.Provider value={value}>{children}</AuthBridgeContext.Provider>;
 }
 
-export function AuthBridgeProvider({ children }: { children: React.ReactNode }) {
-  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-
-  if (!publishableKey) {
+export function AuthBridgeProvider({ children, clerkEnabled }: { children: React.ReactNode; clerkEnabled: boolean }) {
+  if (!clerkEnabled) {
     return <AuthBridgeContext.Provider value={defaultValue}>{children}</AuthBridgeContext.Provider>;
   }
 
-  return (
-    <ClerkProvider publishableKey={publishableKey}>
-      <ClerkStateBridge>{children}</ClerkStateBridge>
-    </ClerkProvider>
-  );
+  return <ClerkStateBridge>{children}</ClerkStateBridge>;
 }
 
 export function useAuthBridge() {

@@ -51,6 +51,14 @@ export interface PaginatedResult<T> {
 
 // ─── User Roles / Status ───
 export type UserRole = "USER" | "HOST" | "MODEL" | "ADMIN";
+export const PLATFORM_ROLES = ["USER", "MODEL_INDEPENDENT", "MODEL_AGENCY", "AGENCY", "ADMIN"] as const;
+export type PlatformRole = (typeof PLATFORM_ROLES)[number];
+export const AUTH_PROVIDERS = ["EMAIL", "GOOGLE", "FACEBOOK", "PHONE_OTP", "WHATSAPP_OTP", "CUSTOM_OTP", "UNKNOWN"] as const;
+export type AuthProvider = (typeof AUTH_PROVIDERS)[number];
+export const ACCESS_RECORD_STATUSES = ["PENDING", "ACTIVE", "REJECTED", "SUSPENDED"] as const;
+export type AccessRecordStatus = (typeof ACCESS_RECORD_STATUSES)[number];
+export const MODEL_PROFILE_TYPES = ["INDEPENDENT", "AGENCY"] as const;
+export type ModelProfileType = (typeof MODEL_PROFILE_TYPES)[number];
 export type UserStatus = "ACTIVE" | "SUSPENDED" | "BANNED" | "PENDING_VERIFICATION" | "DELETED";
 export type PresenceState = "ONLINE" | "IDLE" | "BUSY" | "OFFLINE";
 

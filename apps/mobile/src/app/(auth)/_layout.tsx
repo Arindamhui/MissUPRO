@@ -17,7 +17,7 @@ export default function AuthLayout() {
   }
 
   if (isSignedIn || authMode === "guest") {
-    return <Redirect href="/(tabs)" />;
+    return <Redirect href="/onboarding" />;
   }
 
   return <Stack screenOptions={{ headerShown: false }} />;

@@ -1,4 +1,6 @@
 import { Injectable } from "@nestjs/common";
+import { createClerkClient } from "@clerk/backend";
+import { getEnv } from "@missu/config";
 import { db } from "@missu/db";
 import {
   accountDeletionRequests, users, dataExportRequests, profiles, wallets,
@@ -8,6 +10,9 @@ import { and, desc, eq } from "drizzle-orm";
 
 @Injectable()
 export class ComplianceService {
+  private readonly env = getEnv();
+  private readonly clerkClient = createClerkClient({ secretKey: this.env.CLERK_SECRET_KEY });
+
   async requestAccountDeletion(userId: string, reason: string) {
     const [existing] = await db
       .select()
@@ -41,6 +46,117 @@ export class ComplianceService {
       .limit(1);
 
     return request ?? null;
+  }
+
+  async cancelAccountDeletion(userId: string) {
+    const [existing] = await db
+      .select()
+      .from(accountDeletionRequests)
+      .where(and(eq(accountDeletionRequests.userId, userId), eq(accountDeletionRequests.status, "COOLING_OFF" as any)))
+      .limit(1);
+
+    if (!existing) {
+      throw new Error("No pending deletion request found");
+    }
+
+    const [cancelled] = await db
+      .update(accountDeletionRequests)
+      .set({ status: "CANCELLED" as any, cancelledAt: new Date() })
+      .where(eq(accountDeletionRequests.id, existing.id))
+      .returning();
+
+    return cancelled!;
+  }
+
+  async deleteMyAccount(userId: string, reason: string) {
+    const now = new Date();
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const [existingRequest] = await db
+      .select()
+      .from(accountDeletionRequests)
+      .where(eq(accountDeletionRequests.userId, userId))
+      .orderBy(desc(accountDeletionRequests.requestedAt))
+      .limit(1);
+
+    if (existingRequest) {
+      await db
+        .update(accountDeletionRequests)
+        .set({
+          status: "COMPLETED" as any,
+          reason,
+          completedAt: now,
+          cancelledAt: null,
+          coolingOffExpiresAt: now,
+        })
+        .where(eq(accountDeletionRequests.id, existingRequest.id));
+    } else {
+      await db.insert(accountDeletionRequests).values({
+        userId,
+        reason,
+        status: "COMPLETED",
+        requestedAt: now,
+        coolingOffExpiresAt: now,
+        completedAt: now,
+      });
+    }
+
+    const deletedEmail = `deleted+${user.id}@missu.local`;
+    const deletedUsername = `deleted_${user.id.replace(/-/g, "").slice(0, 24)}`;
+    const deletedReferralCode = `DEL${user.id.replace(/-/g, "").slice(0, 12).toUpperCase()}`;
+
+    await db
+      .update(users)
+      .set({
+        clerkId: null,
+        email: deletedEmail,
+        emailVerified: false,
+        phone: null,
+        phoneVerified: false,
+        passwordHash: null,
+        displayName: "Deleted User",
+        username: deletedUsername,
+        avatarUrl: null,
+        authRole: null,
+        role: "USER" as any,
+        status: "DELETED" as any,
+        city: null,
+        gender: null,
+        dateOfBirth: null,
+        referralCode: deletedReferralCode,
+        lastActiveAt: now,
+        updatedAt: now,
+      })
+      .where(eq(users.id, userId));
+
+    await db
+      .update(profiles)
+      .set({
+        bio: null,
+        socialLinksJson: null,
+        interestsJson: null,
+        profileFrameUrl: null,
+        headerImageUrl: null,
+        locationDisplay: null,
+        updatedAt: now,
+      })
+      .where(eq(profiles.userId, userId));
+
+    await db.delete(authSessions).where(eq(authSessions.userId, userId));
+
+    if (user.clerkId && this.env.CLERK_SECRET_KEY) {
+      try {
+        await this.clerkClient.users.deleteUser(user.clerkId);
+      } catch {
+        // Keep the local account deleted even if Clerk cleanup is temporarily unavailable.
+      }
+    }
+
+    return { success: true };
   }
 
   async listDeletionRequests(status?: string) {

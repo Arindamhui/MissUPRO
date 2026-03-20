@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import Image from "next/image";
 import { supportedLocales, useI18n } from "@/i18n";
 
@@ -9,9 +10,9 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
     <div className="min-h-screen bg-white">
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <a href="/" className="flex items-center">
+          <Link href="/" className="flex items-center">
             <Image src="/brand/missu-pro-web-logo.png" alt="MissU Pro" width={220} height={72} className="h-12 w-auto" priority />
-          </a>
+          </Link>
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
             <a href="#features" className="hover:text-gray-900">{t("public.nav.features")}</a>
             <a href="#creators" className="hover:text-gray-900">{t("public.nav.creators")}</a>
@@ -28,12 +29,24 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
                 <option key={option.code} value={option.code}>{option.label}</option>
               ))}
             </select>
-            <a
-              href="/admin/dashboard"
+            <Link
+              href="/login?role=agency"
+              className="text-sm font-medium text-gray-700 hover:text-gray-900"
+            >
+              Login
+            </Link>
+            <Link
+              href="/signup"
+              className="text-sm font-medium text-gray-700 hover:text-gray-900"
+            >
+              Join as Agency
+            </Link>
+            <Link
+              href="/login?role=admin"
               className="text-sm font-medium text-primary hover:underline"
             >
               {t("public.nav.adminLogin")}
-            </a>
+            </Link>
           </div>
         </div>
       </header>

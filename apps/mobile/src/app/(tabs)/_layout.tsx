@@ -12,7 +12,7 @@ import { getMobileLayoutScope, getMobileRuntimeScope } from "@/lib/runtime-confi
 const routeMeta: Record<string, { label: string; icon: React.ComponentProps<typeof MaterialCommunityIcons>["name"] }> = {
   index: { label: "Live", icon: "video-wireless-outline" },
   discover: { label: "Shorts", icon: "play-box-multiple-outline" },
-  live: { label: "", icon: "snowflake-variant" },
+  host: { label: "Host", icon: "account-star-outline" },
   messages: { label: "Message", icon: "message-processing-outline" },
   me: { label: "Me", icon: "account-circle-outline" },
 };
@@ -74,7 +74,7 @@ export default function TabsLayout() {
   const defaultTabs = [
     { route: "index", label: "Live", order: 0, visible: true },
     { route: "discover", label: "Shorts", order: 1, visible: true },
-    { route: "live", label: "", order: 2, visible: true },
+    { route: "host", label: "Host", order: 2, visible: true },
     { route: "messages", label: "Message", order: 3, visible: true },
     { route: "me", label: "Me", order: 4, visible: true },
   ];
@@ -83,7 +83,7 @@ export default function TabsLayout() {
   const visibleTabs = (apiTabs.length > 0 ? apiTabs : defaultTabs)
     .filter((item: any) => {
       const route = String(item.route);
-      if (!["index", "discover", "live", "messages", "me"].includes(route) || item.visible === false) {
+      if (!["index", "discover", "host", "live", "messages", "me"].includes(route) || item.visible === false) {
         return false;
       }
       if (route === "live") return enabledFlags.get("live_streaming") !== false;
@@ -141,7 +141,7 @@ export default function TabsLayout() {
           name={String(tab.route)}
           options={{
             tabBarIcon: ({ focused }) => <TabIcon route={String(tab.route)} label={String(tab.label ?? routeMeta[String(tab.route)]?.label ?? tab.route)} focused={focused} />,
-            tabBarButton: String(tab.route) === "live" ? (props) => <LiveTabButton {...props} /> : undefined,
+            tabBarButton: ["host", "live"].includes(String(tab.route)) ? (props) => <LiveTabButton {...props} /> : undefined,
           }}
         />
       ))}

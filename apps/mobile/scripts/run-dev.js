@@ -20,21 +20,29 @@ function getExpoCliPath() {
 
 function isPortBusy(port) {
   return new Promise((resolve) => {
-    const socket = net.createConnection({ port, host: "127.0.0.1" });
+    const server = net.createServer();
 
-    socket.once("connect", () => {
-      socket.destroy();
-      resolve(true);
-    });
-
-    socket.once("error", (error) => {
-      if (error && (error.code === "ECONNREFUSED" || error.code === "EHOSTUNREACH")) {
-        resolve(false);
+    server.once("error", (error) => {
+      if (error && error.code === "EADDRINUSE") {
+        resolve(true);
         return;
       }
 
       resolve(true);
     });
+
+    server.once("listening", () => {
+      server.close((closeError) => {
+        if (closeError) {
+          resolve(true);
+          return;
+        }
+
+        resolve(false);
+      });
+    });
+
+    server.listen(port, "::");
   });
 }
 

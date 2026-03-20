@@ -16,7 +16,7 @@ export function createTrpcClient(options?: TrpcClientOptions) {
   return trpc.createClient({
     links: [
       httpBatchLink({
-        url: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/trpc",
+        url: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/trpc",
         headers: async () => {
           const token = options?.getToken ? await options.getToken() : options?.token;
           return token ? { Authorization: `Bearer ${token}` } : {};

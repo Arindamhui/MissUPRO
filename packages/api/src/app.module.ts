@@ -41,6 +41,7 @@ import { MetricsModule } from "./metrics/metrics.module";
 import { PkModule } from "./pk/pk.module";
 import { LeaderboardsModule } from "./leaderboards/leaderboards.module";
 import { JobsModule } from "./jobs/jobs.module";
+import { MissuProModule } from "./missu-pro/missu-pro.module";
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { JobsModule } from "./jobs/jobs.module";
     HealthModule,
     MetricsModule,
     JobsModule,
+    MissuProModule,
     ConfigModule,
     PayoutsModule,
     PkModule,

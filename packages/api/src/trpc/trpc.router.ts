@@ -35,6 +35,7 @@ import { ComplianceRouter } from "../compliance/compliance.router";
 import { PayoutsRouter } from "../payouts/payouts.router";
 import { PkRouter } from "../pk/pk.router";
 import { LeaderboardsRouter } from "../leaderboards/leaderboards.router";
+import { MissuProRouter } from "../missu-pro/missu-pro.router";
 
 @Injectable()
 export class TrpcRouter {
@@ -75,6 +76,7 @@ export class TrpcRouter {
     private readonly payouts: PayoutsRouter,
     private readonly pk: PkRouter,
     private readonly leaderboards: LeaderboardsRouter,
+    private readonly missu: MissuProRouter,
   ) {}
 
   get appRouter() {
@@ -117,6 +119,7 @@ export class TrpcRouter {
       payouts: this.payouts.router,
       pk: this.pk.router,
       leaderboards: this.leaderboards.router,
+      missu: this.missu.router,
     } as any);
   }
 }

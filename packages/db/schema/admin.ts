@@ -9,7 +9,10 @@ import { users } from "./users";
 export const admins = pgTable("admins", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").notNull().references(() => users.id),
+  email: text("email"),
+  clerkId: text("clerk_id"),
   adminName: text("admin_name").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
   mfaEnabled: boolean("mfa_enabled").default(true).notNull(),
   mfaSecretEncrypted: text("mfa_secret_encrypted"),
   lastLoginAt: timestamp("last_login_at"),
@@ -17,10 +20,13 @@ export const admins = pgTable("admins", {
   loginAttemptsFailed: integer("login_attempts_failed").default(0).notNull(),
   lockedUntil: timestamp("locked_until"),
   ipAllowlistJson: jsonb("ip_allowlist_json"),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   uniqueIndex("admins_user_id_idx").on(t.userId),
+  uniqueIndex("admins_email_idx").on(t.email),
+  uniqueIndex("admins_clerk_id_idx").on(t.clerkId),
 ]);
 
 // ─── admin_logs (append-only) ───

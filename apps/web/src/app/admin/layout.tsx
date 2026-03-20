@@ -1,6 +1,11 @@
+import { requirePortalRole } from "@/lib/auth-server";
 import { Sidebar } from "@/components/sidebar";
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export const dynamic = "force-dynamic";
+
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  await requirePortalRole("admin");
+
   return (
     <div className="flex min-h-screen">
       <Sidebar />

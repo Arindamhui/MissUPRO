@@ -1,8 +1,8 @@
 import { useClerk } from "@clerk/clerk-expo";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
-import React from "react";
-import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import React, { useState } from "react";
+import { Alert, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -32,19 +32,28 @@ export default function SettingsScreen() {
   const { t } = useI18n();
   const { signOut } = useClerk();
   const authMode = useAuthStore((state) => state.authMode);
+  const clearAuth = useAuthStore((state) => state.clearAuth);
   const isAuthenticated = authMode === "authenticated";
   const compliance = trpc.compliance;
-  const deletionRequest = compliance.getMyDeletionRequest.useQuery(undefined, { retry: false, enabled: isAuthenticated });
   const dataExports = compliance.listMyDataExports.useQuery(undefined, { retry: false, enabled: isAuthenticated });
   const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : "Please try again.";
 
-  const requestDeletion = compliance.requestAccountDeletion.useMutation({
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
+
+  const deleteAccount = compliance.deleteMyAccount.useMutation({
     onSuccess: () => {
-      deletionRequest.refetch();
-      Alert.alert("Deletion requested", "Your account has entered the cooling-off period.");
+      setDeleteModalVisible(false);
+      setDeleteReason("");
+      clearAuth();
+      void signOut().catch(() => undefined);
+      Alert.alert("Account deleted", "Your account has been deleted.", [
+        { text: "OK", onPress: () => router.replace("/(auth)/login") },
+      ]);
     },
-    onError: (error: unknown) => Alert.alert("Request failed", getErrorMessage(error)),
+    onError: (error: unknown) => Alert.alert("Delete failed", getErrorMessage(error)),
   });
+
   const requestDataExport = compliance.requestDataExport.useMutation({
     onSuccess: () => {
       dataExports.refetch();
@@ -53,7 +62,6 @@ export default function SettingsScreen() {
     onError: (error: unknown) => Alert.alert("Request failed", getErrorMessage(error)),
   });
   const latestDataExport = dataExports.data?.[0];
-  const currentDeletionRequest = deletionRequest.data;
 
   return (
     <View style={{ flex: 1, backgroundColor: "#0C1345" }}>
@@ -103,12 +111,52 @@ export default function SettingsScreen() {
         {isAuthenticated ? (
           <View style={{ marginTop: 24, gap: 12 }}>
             <Button title={`Request Data Export${latestDataExport ? ` (${latestDataExport.status})` : ""}`} variant="outline" onPress={() => requestDataExport.mutate()} style={{ borderColor: "rgba(255,255,255,0.24)", backgroundColor: "rgba(255,255,255,0.06)" }} />
-            <Button title={`Delete Account${currentDeletionRequest ? ` (${currentDeletionRequest.status})` : ""}`} variant="outline" onPress={() => Alert.alert("Delete Account", "Are you sure? This cannot be undone.", [
-              { text: "Cancel", style: "cancel" },
-              { text: "Delete", style: "destructive", onPress: () => requestDeletion.mutate({ reason: "Requested from mobile settings" }) },
-            ])} style={{ borderColor: "rgba(255,130,130,0.4)", backgroundColor: "rgba(120,20,20,0.16)" }} />
+            <Button
+              title="Delete Account"
+              variant="outline"
+              onPress={() => setDeleteModalVisible(true)}
+              style={{ borderColor: "rgba(255,130,130,0.4)", backgroundColor: "rgba(120,20,20,0.16)" }}
+            />
           </View>
         ) : null}
+
+        {/* Delete Account Modal */}
+        <Modal visible={deleteModalVisible} transparent animationType="fade" onRequestClose={() => setDeleteModalVisible(false)}>
+          <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", padding: 24 }}>
+            <View style={{ backgroundColor: "#141A42", borderRadius: 16, padding: 24, borderWidth: 1, borderColor: "rgba(255,130,130,0.3)" }}>
+              <Text style={{ color: "#FF8888", fontSize: 20, fontWeight: "800", marginBottom: 8 }}>Delete Account</Text>
+              <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 14, lineHeight: 20, marginBottom: 16 }}>
+                This will delete your account immediately, sign you out, and prevent future access with this profile. This action cannot be undone.
+              </Text>
+              <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, marginBottom: 6 }}>Reason (required)</Text>
+              <TextInput
+                placeholder="Why are you deleting your account?"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                value={deleteReason}
+                onChangeText={setDeleteReason}
+                multiline
+                style={{ backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 10, padding: 12, color: COLORS.white, fontSize: 14, minHeight: 80, textAlignVertical: "top", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", marginBottom: 20 }}
+              />
+              <View style={{ flexDirection: "row", gap: 12 }}>
+                <TouchableOpacity onPress={() => { setDeleteModalVisible(false); setDeleteReason(""); }} style={{ flex: 1, paddingVertical: 14, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.1)", alignItems: "center" }}>
+                  <Text style={{ color: COLORS.white, fontSize: 15, fontWeight: "600" }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (deleteReason.trim().length < 5) {
+                      Alert.alert("Reason required", "Please provide at least 5 characters.");
+                      return;
+                    }
+                    deleteAccount.mutate({ reason: deleteReason.trim() });
+                  }}
+                  style={{ flex: 1, paddingVertical: 14, borderRadius: 10, backgroundColor: "#8B2020", alignItems: "center", opacity: deleteReason.trim().length < 5 || deleteAccount.isPending ? 0.5 : 1 }}
+                >
+                  <Text style={{ color: COLORS.white, fontSize: 15, fontWeight: "700" }}>{deleteAccount.isPending ? "Deleting..." : "Delete"}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         <TouchableOpacity onPress={() => { void signOut().then(() => router.replace("/(auth)/login")); }} style={{ marginTop: 28, alignItems: "center", paddingVertical: 16, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.08)" }}>
           <Text style={{ color: COLORS.white, fontSize: 18, fontWeight: "500" }}>Log Out</Text>

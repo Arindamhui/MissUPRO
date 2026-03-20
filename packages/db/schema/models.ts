@@ -5,14 +5,22 @@ import {
 import { relations } from "drizzle-orm";
 import {
   modelApplicationStatusEnum, demoVideoStatusEnum, dayOfWeekEnum,
+  authProviderEnum, accessRecordStatusEnum, modelProfileTypeEnum,
   levelChangeReasonEnum, formulaTypeEnum,
 } from "./enums";
+import { agencies } from "./agencies";
 import { users } from "./users";
 
 // ─── models ───
 export const models = pgTable("models", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").notNull().references(() => users.id),
+  clerkId: text("clerk_id"),
+  agencyId: uuid("agency_id").references(() => agencies.id),
+  modelType: modelProfileTypeEnum("model_type").default("INDEPENDENT").notNull(),
+  registrationStatus: accessRecordStatusEnum("registration_status").default("ACTIVE").notNull(),
+  authProvider: authProviderEnum("auth_provider").default("UNKNOWN").notNull(),
+  metadataJson: jsonb("metadata_json"),
   talentCategoriesJson: jsonb("talent_categories_json").notNull(),
   talentDescription: text("talent_description").notNull(),
   languagesJson: jsonb("languages_json").notNull(),
@@ -29,11 +37,16 @@ export const models = pgTable("models", {
   qualityScore: decimal("quality_score", { precision: 5, scale: 2 }).default("0").notNull(),
   approvedAt: timestamp("approved_at"),
   approvedByAdminId: uuid("approved_by_admin_id").references(() => users.id),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   uniqueIndex("models_user_id_idx").on(t.userId),
+  uniqueIndex("models_clerk_id_idx").on(t.clerkId),
+  index("models_agency_id_idx").on(t.agencyId),
+  index("models_type_status_idx").on(t.modelType, t.registrationStatus),
   index("models_online_quality_idx").on(t.isOnline, t.qualityScore),
+  index("models_deleted_at_idx").on(t.deletedAt),
 ]);
 
 // ─── model_applications ───

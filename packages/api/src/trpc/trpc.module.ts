@@ -36,6 +36,7 @@ import { ComplianceModule } from "../compliance/compliance.module";
 import { PayoutsModule } from "../payouts/payouts.module";
 import { PkModule } from "../pk/pk.module";
 import { LeaderboardsModule } from "../leaderboards/leaderboards.module";
+import { MissuProModule } from "../missu-pro/missu-pro.module";
 
 // Global module: makes TrpcService available to all modules without explicit import
 @Global()
@@ -83,6 +84,7 @@ export class TrpcCoreModule {}
     PayoutsModule,
     PkModule,
     LeaderboardsModule,
+    MissuProModule,
   ],
   providers: [TrpcRouter],
   exports: [TrpcRouter],

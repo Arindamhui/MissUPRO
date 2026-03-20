@@ -143,6 +143,8 @@ async function bootstrap() {
         if (!token) {
           return createContext({
             userId: null,
+            authRole: null,
+            platformRole: null,
             isAdmin: false,
             ip,
             userAgent,
@@ -154,6 +156,8 @@ async function bootstrap() {
           const authenticatedUser = await authService.authenticateToken(token);
           return createContext({
             userId: authenticatedUser.userId,
+            authRole: authenticatedUser.authRole,
+            platformRole: authenticatedUser.platformRole,
             isAdmin: authenticatedUser.isAdmin,
             ip,
             userAgent,
@@ -162,6 +166,8 @@ async function bootstrap() {
         } catch {
           return createContext({
             userId: null,
+            authRole: null,
+            platformRole: null,
             isAdmin: false,
             ip,
             userAgent,

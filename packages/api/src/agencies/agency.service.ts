@@ -200,6 +200,7 @@ export class AgencyService {
     const [agency] = await db
       .insert(agencies)
       .values({
+        userId,
         agencyName: data.name,
         contactName: data.contactName,
         contactEmail: data.contactEmail,
@@ -217,6 +218,13 @@ export class AgencyService {
       userId,
       status: "ACTIVE" as any,
     });
+
+    // Align role system: agency operators are treated as HOST.
+    // (AGENCY role isn't a separate enum in this codebase.)
+    await db
+      .update(users)
+      .set({ role: "HOST" as any, authRole: "agency", updatedAt: new Date() })
+      .where(and(eq(users.id, userId), sql`${users.role} <> 'ADMIN'` as any));
 
     return agency;
   }

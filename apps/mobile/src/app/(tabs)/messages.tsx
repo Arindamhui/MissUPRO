@@ -134,7 +134,7 @@ export default function MessagesScreen() {
 
   const openConversation = (conversation?: ConversationRecord | null) => {
     if (!conversation?.id) {
-      router.push("/chat");
+      Alert.alert("No conversation yet", "Start from a profile or your friends list to create a new thread.");
       return;
     }
     router.push(`/chat/${conversation.id}`);

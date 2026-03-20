@@ -28,10 +28,10 @@ function TrpcProviders({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({ children, clerkEnabled }: { children: React.ReactNode; clerkEnabled: boolean }) {
   return (
     <WebI18nProvider>
-      <AuthBridgeProvider>
+      <AuthBridgeProvider clerkEnabled={clerkEnabled}>
         <TrpcProviders>{children}</TrpcProviders>
       </AuthBridgeProvider>
     </WebI18nProvider>

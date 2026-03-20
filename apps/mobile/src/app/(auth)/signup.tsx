@@ -79,7 +79,7 @@ export default function SignupScreen() {
       }
 
       await setActive?.({ session: verification.createdSessionId });
-      router.replace("/(tabs)");
+      router.replace("/onboarding");
     } catch (error) {
       setError(getClerkErrorMessage(error, "Verification failed"));
     } finally {
@@ -106,7 +106,7 @@ export default function SignupScreen() {
       }
 
       await setActive({ session: createdSessionId });
-      // Navigation is handled by (auth)/_layout.tsx redirect when isSignedIn becomes true
+      router.replace("/onboarding");
     } catch (error) {
       setError(getClerkErrorMessage(error, "Google sign up failed"));
     } finally {
