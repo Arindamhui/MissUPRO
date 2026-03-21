@@ -6,18 +6,13 @@ export function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
 }
 
-export const ADMIN_EMAILS = ["admin@yourapp.com", "owner@yourapp.com"] as const;
+export const ADMIN_EMAILS = ["admin@missupro.com", "huiarindam6@gmail.com"] as const;
 
 export function getAdminEmails() {
   const configured = normalizeEmails((process.env.ADMIN_EMAILS ?? "").split(","));
   const legacySingle = normalizeEmails([process.env.ADMIN_EMAIL ?? ""]);
-  const resolved = configured.length > 0 ? configured : legacySingle;
 
-  if (resolved.length > 0) {
-    return Array.from(new Set(resolved));
-  }
-
-  return normalizeEmails([...ADMIN_EMAILS]);
+  return Array.from(new Set(normalizeEmails([...ADMIN_EMAILS, ...configured, ...legacySingle])));
 }
 
 export function isAllowedAdminEmail(email: string) {

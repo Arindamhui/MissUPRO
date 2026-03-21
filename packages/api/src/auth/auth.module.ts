@@ -2,8 +2,10 @@ import { Module } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { AuthRouter } from "./auth.router";
 import { AuthController } from "./auth.controller";
+import { WalletModule } from "../wallet/wallet.module";
 
 @Module({
+  imports: [WalletModule],
   controllers: [AuthController],
   providers: [AuthService, AuthRouter],
   exports: [AuthService, AuthRouter],

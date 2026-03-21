@@ -30,19 +30,19 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               ))}
             </select>
             <Link
-              href="/login?role=agency"
+              href="/agency-login"
               className="text-sm font-medium text-gray-700 hover:text-gray-900"
             >
               Login
             </Link>
             <Link
-              href="/signup"
+              href="/agency-signup"
               className="text-sm font-medium text-gray-700 hover:text-gray-900"
             >
               Join as Agency
             </Link>
             <Link
-              href="/login?role=admin"
+              href="/admin-login"
               className="text-sm font-medium text-primary hover:underline"
             >
               {t("public.nav.adminLogin")}

@@ -7,7 +7,7 @@ export default async function CompleteAgencySignupPage() {
   const session = await getPortalSession("signup");
 
   if (!session) {
-    redirect("/signup");
+    redirect("/agency-signup");
   }
 
   if (session.status === "admin") {
@@ -16,6 +16,10 @@ export default async function CompleteAgencySignupPage() {
 
   if (session.status === "agency") {
     redirect("/agency/dashboard");
+  }
+
+  if (session.status === "agency_pending_approval") {
+    redirect("/auth/pending-approval");
   }
 
   if (session.status === "access_denied") {
@@ -33,7 +37,7 @@ export default async function CompleteAgencySignupPage() {
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-700">
-        Your Clerk account is already active. Submitting this form links your Clerk identity to the database user and agency profile.
+        Your account is already active. Submitting this form links your identity to the database user and agency profile.
       </div>
 
       <CompleteAgencySignupForm />

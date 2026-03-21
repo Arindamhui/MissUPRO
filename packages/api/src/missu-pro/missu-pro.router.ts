@@ -74,6 +74,22 @@ export class MissuProRouter {
       listHosts: this.trpc.adminProcedure
         .input(z.object({ status: z.enum(["PENDING", "APPROVED", "REJECTED", "SUSPENDED"]).optional(), limit: z.number().int().min(1).max(100).default(25) }).optional())
         .query(async ({ input }) => this.missuProService.listHosts(input?.status, input?.limit ?? 25)),
+
+      suspendHost: this.trpc.adminProcedure
+        .input(z.object({ hostId: z.string().uuid(), reason: z.string().max(500).optional() }))
+        .mutation(async ({ ctx, input }) => this.missuProService.suspendHost(ctx.userId, input)),
+
+      reactivateHost: this.trpc.adminProcedure
+        .input(z.object({ hostId: z.string().uuid(), reason: z.string().max(500).optional() }))
+        .mutation(async ({ ctx, input }) => this.missuProService.reactivateHost(ctx.userId, input)),
+
+      removeHostFromAgency: this.trpc.agencyProcedure
+        .input(z.object({ hostUserId: z.string().uuid(), reason: z.string().max(500).optional() }))
+        .mutation(async ({ ctx, input }) => this.missuProService.removeHostFromAgency(ctx.userId, input)),
+
+      transferHost: this.trpc.adminProcedure
+        .input(z.object({ hostUserId: z.string().uuid(), targetAgencyId: z.string().uuid(), reason: z.string().max(500).optional() }))
+        .mutation(async ({ ctx, input }) => this.missuProService.transferHost(ctx.userId, input)),
     });
   }
 }

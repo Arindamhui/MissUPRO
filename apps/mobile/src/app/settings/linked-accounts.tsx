@@ -1,4 +1,3 @@
-import { useUser } from "@clerk/clerk-expo";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -9,6 +8,8 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AnimatedSnow } from "@/components/AnimatedSnow";
 import { BackgroundCollage } from "@/components/BackgroundCollage";
 import { Card } from "@/components/ui";
+import { trpc } from "@/lib/trpc";
+import { useAuthStore } from "@/store";
 import { COLORS, SPACING } from "@/theme";
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -22,10 +23,12 @@ function Row({ label, value }: { label: string; value: string }) {
 
 export default function LinkedAccountsScreen() {
   const insets = useSafeAreaInsets();
-  const { user } = useUser();
-  const externalAccounts = (user?.externalAccounts ?? []) as Array<Record<string, any>>;
-  const email = user?.primaryEmailAddress?.emailAddress ?? "No email linked";
-  const phone = user?.primaryPhoneNumber?.phoneNumber ?? "No phone linked";
+  const authMode = useAuthStore((state) => state.authMode);
+  const fallbackEmail = useAuthStore((state) => state.email);
+  const me = trpc.user.getMe.useQuery(undefined, { retry: false, enabled: authMode === "authenticated" });
+  const email = String(me.data?.email ?? fallbackEmail ?? "No email linked");
+  const provider = String(me.data?.authProvider ?? "UNKNOWN");
+  const linkedProvider = provider === "UNKNOWN" ? "Email or app-managed login" : provider;
 
   return (
     <View style={{ flex: 1, backgroundColor: "#0C1345" }}>
@@ -40,15 +43,12 @@ export default function LinkedAccountsScreen() {
         <Text style={{ color: COLORS.white, fontSize: 34, fontWeight: "900", marginBottom: 16 }}>Linked Accounts</Text>
         <Card style={{ backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" }}>
           <Row label="Primary email" value={email} />
-          <Row label="Primary phone" value={phone} />
+          <Row label="Primary provider" value={linkedProvider} />
           <View style={{ paddingTop: 16 }}>
             <Text style={{ color: "rgba(255,255,255,0.58)", fontSize: 13, marginBottom: 10 }}>Connected providers</Text>
-            {externalAccounts.length ? externalAccounts.map((account, index) => (
-              <View key={`${account.id ?? account.provider ?? index}`} style={{ paddingVertical: 12, borderBottomWidth: index < externalAccounts.length - 1 ? 1 : 0, borderBottomColor: "rgba(255,255,255,0.08)" }}>
-                <Text style={{ color: COLORS.white, fontSize: 17, fontWeight: "600" }}>{String(account.provider ?? "Provider")}</Text>
-                <Text style={{ color: "rgba(255,255,255,0.62)", marginTop: 4 }}>{String(account.emailAddress ?? account.username ?? "Connected")}</Text>
-              </View>
-            )) : <Text style={{ color: "rgba(255,255,255,0.62)", lineHeight: 22 }}>No additional social providers are linked to this account yet.</Text>}
+            <Text style={{ color: "rgba(255,255,255,0.62)", lineHeight: 22 }}>
+              Mobile accounts currently use a single MissU session. Google sign-in will appear here as GOOGLE after the backend profile sync runs.
+            </Text>
           </View>
         </Card>
       </ScrollView>

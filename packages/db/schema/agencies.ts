@@ -11,6 +11,8 @@ import { admins } from "./admin";
 // ─── agencies ───
 export const agencies = pgTable("agencies", {
   id: uuid("id").primaryKey().defaultRandom(),
+  publicId: text("public_id"),
+  ownerId: uuid("owner_id").references(() => users.id),
   userId: uuid("user_id").references(() => users.id),
   clerkId: text("clerk_id"),
   agencyName: text("agency_name").notNull(),
@@ -18,7 +20,7 @@ export const agencies = pgTable("agencies", {
   contactName: text("contact_name").notNull(),
   contactEmail: text("contact_email").notNull(),
   country: text("country").notNull(),
-  status: text("status").default("PENDING").notNull(),
+  status: text("status").default("ACTIVE").notNull(),
   approvalStatus: agencyApplicationStatusEnum("approval_status").default("PENDING").notNull(),
   metadataJson: jsonb("metadata_json"),
   commissionTier: text("commission_tier"),
@@ -29,12 +31,15 @@ export const agencies = pgTable("agencies", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
+  uniqueIndex("agencies_public_id_idx").on(t.publicId),
+  index("agencies_owner_id_idx").on(t.ownerId),
   uniqueIndex("agencies_user_id_idx").on(t.userId),
   uniqueIndex("agencies_clerk_id_idx").on(t.clerkId),
   uniqueIndex("agencies_code_idx").on(t.agencyCode),
   index("agencies_status_idx").on(t.status),
   index("agencies_approval_status_idx").on(t.approvalStatus),
   index("agencies_country_idx").on(t.country),
+  index("agencies_created_at_idx").on(t.createdAt),
   index("agencies_deleted_at_idx").on(t.deletedAt),
 ]);
 

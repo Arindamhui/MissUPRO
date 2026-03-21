@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useAuthBridge } from "@/components/auth-bridge";
 import { Button } from "@/components/ui/button";
 import { buildAuthErrorHref } from "@/lib/auth-paths";
 import { completeAgencySignupRequest } from "@/lib/auth-api";
@@ -16,14 +16,13 @@ type FormState = {
 
 export function CompleteAgencySignupForm() {
   const router = useRouter();
-  const { getToken } = useAuth();
-  const { user } = useUser();
+  const auth = useAuthBridge();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(() => ({
     agencyName: "",
-    contactName: user?.fullName ?? "",
-    contactEmail: user?.primaryEmailAddress?.emailAddress ?? "",
+    contactName: auth.displayName ?? "",
+    contactEmail: auth.email ?? "",
     country: "",
   }));
 
@@ -35,19 +34,12 @@ export function CompleteAgencySignupForm() {
   ), [form]);
 
   useEffect(() => {
-    if (!user) {
-      return;
-    }
-
-    const fullName = user.fullName ?? "";
-    const email = user.primaryEmailAddress?.emailAddress ?? "";
-
     setForm((current) => ({
       ...current,
-      contactName: current.contactName.trim().length > 0 ? current.contactName : fullName,
-      contactEmail: current.contactEmail.trim().length > 0 ? current.contactEmail : email,
+      contactName: current.contactName.trim().length > 0 ? current.contactName : (auth.displayName ?? ""),
+      contactEmail: current.contactEmail.trim().length > 0 ? current.contactEmail : (auth.email ?? ""),
     }));
-  }, [user]);
+  }, [auth.displayName, auth.email]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -55,9 +47,9 @@ export function CompleteAgencySignupForm() {
     setPending(true);
 
     try {
-      const token = await getToken();
+      const token = await auth.getToken();
       if (!token) {
-        router.replace("/signup");
+        router.replace("/agency-signup");
         return;
       }
 

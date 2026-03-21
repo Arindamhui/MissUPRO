@@ -1,26 +1,24 @@
-import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
-import { tokenCache } from "@clerk/clerk-expo/token-cache";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { trpc, createTrpcClient } from "@/lib/trpc";
 import { I18nProvider, useI18n } from "@/i18n";
+import { clearStoredAuthSession, loadStoredAuthSession } from "@/lib/auth-storage";
 import { useAuthStore } from "@/store";
 import { Stack, router, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { ActivityIndicator, LogBox, Text, View } from "react-native";
-import React, { Component, useCallback, useEffect, useRef, useState } from "react";
-import { COLORS, FONT, SPACING } from "@/theme";
+import { ActivityIndicator, Text, View } from "react-native";
+import React, { Component, useEffect, useState } from "react";
+import { COLORS } from "@/theme";
 
-LogBox.ignoreLogs(["Clerk: Clerk has been loaded with development keys"]);
-
-// Error boundary to prevent blank screen on uncaught errors
 class ErrorBoundary extends Component<
   { children: React.ReactNode },
   { error: Error | null }
 > {
   state = { error: null as Error | null };
+
   static getDerivedStateFromError(error: Error) {
     return { error };
   }
+
   render() {
     if (this.state.error) {
       return (
@@ -30,101 +28,61 @@ class ErrorBoundary extends Component<
         </View>
       );
     }
+
     return this.props.children;
   }
 }
 
-const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
-
-function MissingClerkConfigScreen() {
-  const { t, isRTL } = useI18n();
-  return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: COLORS.background,
-        justifyContent: "center",
-        padding: SPACING.xl,
-      }}
-    >
-      <View
-        style={{
-          backgroundColor: COLORS.card,
-          borderRadius: 20,
-          padding: SPACING.xl,
-          borderWidth: 1,
-          borderColor: COLORS.border,
-          gap: SPACING.md,
-        }}
-      >
-        <Text style={{ fontSize: FONT.sizes.title, fontWeight: "700", color: COLORS.text }}>
-          {t("system.clerkMissingTitle")}
-        </Text>
-        <Text style={{ fontSize: FONT.sizes.md, color: COLORS.textSecondary, lineHeight: 22, textAlign: isRTL ? "right" : "left" }}>
-          {t("system.clerkMissingBody")}
-        </Text>
-        <Text style={{ fontSize: FONT.sizes.sm, color: COLORS.textSecondary, lineHeight: 20, textAlign: isRTL ? "right" : "left" }}>
-          {t("system.clerkMissingHint")}
-        </Text>
-      </View>
-      <StatusBar style="dark" />
-    </View>
-  );
-}
-
 function AuthBootstrap() {
-  const { isLoaded, isSignedIn, userId: clerkUserId, getToken } = useAuth();
-  const token = useAuthStore((s) => s.token);
-  const authMode = useAuthStore((s) => s.authMode);
-  const setAuth = useAuthStore((s) => s.setAuth);
-  const setMobilePanel = useAuthStore((s) => s.setMobilePanel);
-  const clearAuth = useAuthStore((s) => s.clearAuth);
-  const me = trpc.user.getMe.useQuery(undefined, {
-    enabled: isLoaded && isSignedIn,
-    retry: 3,
-    retryDelay: 1000,
-  });
-  const mobileSession = trpc.auth.getMobileSession.useQuery(undefined, {
-    enabled: isLoaded && isSignedIn,
-    retry: false,
-  });
+  const authMode = useAuthStore((state) => state.authMode);
+  const isHydrated = useAuthStore((state) => state.isHydrated);
+  const hydrateAuth = useAuthStore((state) => state.hydrateAuth);
+  const markHydrated = useAuthStore((state) => state.markHydrated);
+  const clearAuth = useAuthStore((state) => state.clearAuth);
+  const setMobilePanel = useAuthStore((state) => state.setMobilePanel);
 
-  // Set userId immediately so (tabs) gate doesn't block on the API call.
-  // We upgrade to the backend ID once the getMe query resolves.
   useEffect(() => {
-    if (!isLoaded || !isSignedIn || !clerkUserId) return;
-    if (!useAuthStore.getState().userId) {
-      setAuth(clerkUserId, "");
-    }
-  }, [clerkUserId, isLoaded, isSignedIn, setAuth]);
-
-  // Fetch a real JWT and, once the backend responds, upgrade the user ID.
-  useEffect(() => {
-    if (!isLoaded || !isSignedIn || !clerkUserId) return;
-
     let cancelled = false;
 
-    void (async () => {
-      const nextToken = await getToken();
-      if (!cancelled && nextToken) {
-        const backendId = me.data?.id;
-        setAuth(backendId ?? clerkUserId, nextToken);
+    void loadStoredAuthSession().then((session) => {
+      if (cancelled) {
+        return;
       }
-    })();
+
+      if (session) {
+        hydrateAuth({
+          userId: session.user.id,
+          token: session.token,
+          sessionId: session.sessionId,
+          email: session.user.email,
+          displayName: session.user.displayName,
+        });
+        return;
+      }
+
+      markHydrated();
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [clerkUserId, getToken, isLoaded, isSignedIn, me.data?.id, setAuth]);
+  }, [hydrateAuth, markHydrated]);
+
+  const isAuthenticated = authMode === "authenticated";
+  const me = trpc.user.getMe.useQuery(undefined, {
+    enabled: isHydrated && isAuthenticated,
+    retry: false,
+  });
+  const mobileSession = trpc.auth.getMobileSession.useQuery(undefined, {
+    enabled: isHydrated && isAuthenticated,
+    retry: false,
+  });
 
   useEffect(() => {
-    if (isLoaded && !isSignedIn && authMode === "authenticated" && token !== null) {
-      clearAuth();
+    if (!mobileSession.data) {
+      return;
     }
-  }, [authMode, clearAuth, isLoaded, isSignedIn, token]);
 
-  useEffect(() => {
-    if (!mobileSession.data) return;
     setMobilePanel(
       mobileSession.data.panel,
       mobileSession.data.agencyId ?? null,
@@ -132,28 +90,49 @@ function AuthBootstrap() {
     );
   }, [mobileSession.data, setMobilePanel]);
 
+  useEffect(() => {
+    if (!isHydrated || !isAuthenticated) {
+      return;
+    }
+
+    if (me.error || mobileSession.error) {
+      clearAuth();
+      void clearStoredAuthSession();
+    }
+  }, [clearAuth, isAuthenticated, isHydrated, me.error, mobileSession.error]);
+
   return null;
 }
 
 function GuardedStack() {
   const { t } = useI18n();
-  const { isSignedIn } = useAuth();
+  const authMode = useAuthStore((state) => state.authMode);
+  const isHydrated = useAuthStore((state) => state.isHydrated);
   const segments = useSegments();
-  const me = trpc.user.getMe.useQuery(undefined, { enabled: isSignedIn, retry: false });
-  const mobileSession = trpc.auth.getMobileSession.useQuery(undefined, { enabled: isSignedIn, retry: false });
+  const isAuthenticated = authMode === "authenticated";
+  const me = trpc.user.getMe.useQuery(undefined, {
+    enabled: isHydrated && isAuthenticated,
+    retry: false,
+  });
+  const mobileSession = trpc.auth.getMobileSession.useQuery(undefined, {
+    enabled: isHydrated && isAuthenticated,
+    retry: false,
+  });
 
   useEffect(() => {
     const rootSegment = segments[0];
-    if (!rootSegment) return;
+    if (!rootSegment) {
+      return;
+    }
 
     const isOnboardingRoute = rootSegment === "onboarding";
 
-    if (isSignedIn && mobileSession.data?.status === "needs_onboarding" && !isOnboardingRoute) {
+    if (isAuthenticated && mobileSession.data?.status === "needs_onboarding" && !isOnboardingRoute) {
       router.replace("/onboarding");
       return;
     }
 
-    if (isSignedIn && mobileSession.data && mobileSession.data.status !== "needs_onboarding" && isOnboardingRoute) {
+    if (isAuthenticated && mobileSession.data && mobileSession.data.status !== "needs_onboarding" && isOnboardingRoute) {
       router.replace("/(tabs)");
       return;
     }
@@ -163,16 +142,24 @@ function GuardedStack() {
       return;
     }
 
-    if (rootSegment === "agency" && !isSignedIn) {
+    if (rootSegment === "agency" && !isAuthenticated) {
       router.replace("/(auth)/login");
       return;
     }
 
     const role = String(me.data?.role ?? "");
-    if (rootSegment === "agency" && isSignedIn && me.data && !["ADMIN", "HOST", "MODEL"].includes(role)) {
+    if (rootSegment === "agency" && isAuthenticated && me.data && !["ADMIN", "HOST", "MODEL"].includes(role)) {
       router.replace("/(tabs)");
     }
-  }, [isSignedIn, me.data, mobileSession.data, segments]);
+  }, [isAuthenticated, me.data, mobileSession.data, segments]);
+
+  if (!isHydrated) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: COLORS.background }}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
 
   return (
     <Stack
@@ -237,40 +224,34 @@ function GuardedStack() {
 }
 
 function RootLayoutNav() {
-  const { isLoaded, getToken } = useAuth();
-
-  // Keep a ref to the latest getToken so the tRPC client never needs to be
-  // recreated. React 19 Fabric profiling crashes when diffing Proxy-based
-  // objects, so the client must be created exactly once.
-  const getTokenRef = useRef<typeof getToken>(getToken);
-  useEffect(() => {
-    getTokenRef.current = getToken;
-  }, [getToken]);
-
-  const stableGetToken = useCallback(
-    () => (getTokenRef.current ? getTokenRef.current() : Promise.resolve(null)),
-    [],
+  const isHydrated = useAuthStore((state) => state.isHydrated);
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: { queries: { staleTime: 30_000, retry: 2 } },
+      }),
   );
-
-  const [queryClient] = useState(() => new QueryClient({
-    defaultOptions: { queries: { staleTime: 30_000, retry: 2 } },
-  }));
-  const [trpcClient] = useState(() => createTrpcClient({ getToken: stableGetToken }));
-
-  if (!isLoaded) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: COLORS.background }}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
-  }
+  const [trpcClient] = useState(
+    () =>
+      createTrpcClient({
+        getToken: async () => useAuthStore.getState().token,
+      }),
+  );
 
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         <AuthBootstrap />
-        <StatusBar style="dark" />
-        <GuardedStack />
+        {!isHydrated ? (
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: COLORS.background }}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          </View>
+        ) : (
+          <>
+            <StatusBar style="dark" />
+            <GuardedStack />
+          </>
+        )}
       </QueryClientProvider>
     </trpc.Provider>
   );
@@ -280,16 +261,7 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <I18nProvider>
-        {!publishableKey ? (
-          <MissingClerkConfigScreen />
-        ) : (
-          <ClerkProvider
-            publishableKey={publishableKey}
-            tokenCache={tokenCache}
-          >
-            <RootLayoutNav />
-          </ClerkProvider>
-        )}
+        <RootLayoutNav />
       </I18nProvider>
     </ErrorBoundary>
   );

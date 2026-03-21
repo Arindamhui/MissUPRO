@@ -1,4 +1,3 @@
-import { useClerk, useUser } from "@clerk/clerk-expo";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import React, { useMemo, useState } from "react";
@@ -7,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AnimatedSnow } from "@/components/AnimatedSnow";
 import { BackgroundCollage } from "@/components/BackgroundCollage";
+import { signOutMobileSession } from "@/lib/auth-session";
 import { trpc } from "@/lib/trpc";
 import { Screen, Avatar, Card, Button } from "@/components/ui";
 import { COLORS, SPACING, RADIUS } from "@/theme";
@@ -41,8 +41,6 @@ function DashboardTile({ icon, label, route }: { icon: React.ComponentProps<type
 export default function MeScreen() {
   const insets = useSafeAreaInsets();
   const [momentsSheetOpen, setMomentsSheetOpen] = useState(false);
-  const { signOut } = useClerk();
-  const { user } = useUser();
   const userId = useAuthStore((s) => s.userId);
   const authMode = useAuthStore((s) => s.authMode);
   const guestName = useAuthStore((s) => s.guestName);
@@ -79,7 +77,6 @@ export default function MeScreen() {
       ?? (profile.data as any)?.profileImage
       ?? me.data?.avatarUrl
       ?? (me.data as any)?.profileImage
-      ?? user?.imageUrl
       ?? "",
   ) || undefined;
 
@@ -211,7 +208,7 @@ export default function MeScreen() {
             <Button
               title="Sign Out"
               variant="outline"
-              onPress={() => void signOut().then(() => router.replace("/(auth)/login"))}
+              onPress={() => void signOutMobileSession().then(() => router.replace("/(auth)/login"))}
               style={{ marginTop: SPACING.lg, borderColor: "rgba(255,255,255,0.3)", backgroundColor: "rgba(255,255,255,0.08)" }}
             />
           )}

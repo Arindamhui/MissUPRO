@@ -15,6 +15,22 @@ export const completeAgencySignupSchema = z.object({
   country: z.string().trim().min(2).max(80),
 });
 
+export const emailLoginSchema = z.object({
+  email: z.string().trim().email().max(320),
+  password: z.string().min(8).max(128),
+});
+
+export const emailSignupSchema = emailLoginSchema.extend({
+  displayName: z.string().trim().min(2).max(120),
+  referralCode: z.string().trim().min(2).max(64).optional(),
+});
+
+export const googleAuthSchema = z.object({
+  idToken: z.string().trim().min(20),
+  displayName: z.string().trim().min(2).max(120).optional(),
+  referralCode: z.string().trim().min(2).max(64).optional(),
+});
+
 export const completeMobileOnboardingSchema = z.object({
   selectedRole: z.enum(["USER", "MODEL_INDEPENDENT", "MODEL_AGENCY"]),
   agencyId: z.string().trim().min(3).max(120).optional(),
@@ -32,3 +48,6 @@ export type MobilePanel = z.infer<typeof mobilePanelSchema>;
 export type CompleteAgencySignupInput = z.infer<typeof completeAgencySignupSchema>;
 export type CompleteMobileOnboardingInput = z.infer<typeof completeMobileOnboardingSchema>;
 export type AgencyModelLoginInput = z.infer<typeof agencyModelLoginSchema>;
+export type EmailLoginInput = z.infer<typeof emailLoginSchema>;
+export type EmailSignupInput = z.infer<typeof emailSignupSchema>;
+export type GoogleAuthInput = z.infer<typeof googleAuthSchema>;

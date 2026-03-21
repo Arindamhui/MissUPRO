@@ -100,12 +100,14 @@ export const vipTiers = pgTable("vip_tiers", {
   perkJson: jsonb("perk_json").notNull(),
   isActive: boolean("is_active").default(true).notNull(),
   displayOrder: integer("display_order").default(0).notNull(),
+  deletedAt: timestamp("deleted_at"),
   createdByAdminId: uuid("created_by_admin_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   uniqueIndex("vip_tiers_code_idx").on(t.tierCode),
   index("vip_tiers_active_order_idx").on(t.isActive, t.displayOrder),
+  index("vip_tiers_deleted_at_idx").on(t.deletedAt),
 ]);
 
 export const referralRules = pgTable("referral_rules", {

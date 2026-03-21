@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { db } from "@missu/db";
 import {
@@ -11,6 +10,9 @@ import {
   users,
 } from "@missu/db/schema";
 import { and, count, desc, eq, sql } from "drizzle-orm";
+import { NotificationService } from "../notifications/notification.service";
+import { IdGenerationService } from "../common/id-generation.service";
+import { ApprovalService } from "../common/approval.service";
 
 type HostApplicationInput = {
   mode: "PLATFORM" | "AGENCY";
@@ -32,6 +34,12 @@ type AgencyRegistrationInput = {
 
 @Injectable()
 export class MissuProService {
+  constructor(
+    private readonly notificationService: NotificationService,
+    private readonly idGenerationService: IdGenerationService,
+    private readonly approvalService: ApprovalService,
+  ) {}
+
   async getMyWorkspace(userId: string) {
     const publicUserId = await this.ensureUserPublicId(userId);
 
@@ -192,7 +200,7 @@ export class MissuProService {
       return existingAgency;
     }
 
-    const agencyCode = await this.generateUniqueAgencyCode();
+    const agencyPublicId = await this.idGenerationService.generateAgencyCode();
     const metadataJson = {
       website: input.website ?? null,
       whatsappNumber: input.whatsappNumber ?? null,
@@ -208,7 +216,8 @@ export class MissuProService {
         contactName: input.contactName,
         contactEmail: input.contactEmail.toLowerCase(),
         country: input.country,
-        agencyCode,
+        publicId: agencyPublicId,
+        agencyCode: agencyPublicId,
         status: "PENDING",
         approvalStatus: "PENDING",
         metadataJson,
@@ -360,6 +369,18 @@ export class MissuProService {
         .where(eq(hostApplications.id, input.applicationId))
         .returning();
 
+      await this.notifyHostApplicationResult(application.userId, "REJECTED", null, input.reason);
+
+      await this.approvalService.logAuditEntry({
+        adminUserId,
+        action: "host.reject",
+        targetType: "host",
+        targetId: application.id,
+        beforeState: { status: application.status },
+        afterState: { status: "REJECTED" },
+        reason: input.reason,
+      });
+
       return { application: updatedApplication!, host: null };
     }
 
@@ -368,7 +389,7 @@ export class MissuProService {
     }
 
     const existingHost = await this.getHostByUserId(application.userId);
-    const hostId = existingHost?.hostId ?? await this.generateUniqueHostId(application.applicationType);
+    const hostId = existingHost?.hostId ?? await this.idGenerationService.generateHostId(application.applicationType);
 
     let hostRecord = existingHost;
     if (existingHost) {
@@ -376,6 +397,7 @@ export class MissuProService {
         .update(hosts)
         .set({
           hostId,
+          publicId: hostId,
           agencyId: application.agencyId,
           type: application.applicationType,
           status: "APPROVED",
@@ -397,6 +419,7 @@ export class MissuProService {
         .insert(hosts)
         .values({
           hostId,
+          publicId: hostId,
           userId: application.userId,
           agencyId: application.agencyId,
           type: application.applicationType,
@@ -453,6 +476,18 @@ export class MissuProService {
       })
       .where(eq(hostApplications.id, input.applicationId))
       .returning();
+
+    await this.notifyHostApplicationResult(application.userId, "APPROVED", hostId, input.reason);
+
+    await this.approvalService.logAuditEntry({
+      adminUserId,
+      action: "host.approve",
+      targetType: "host",
+      targetId: application.id,
+      beforeState: { status: application.status },
+      afterState: { status: "APPROVED", hostId, type: application.applicationType },
+      reason: input.reason,
+    });
 
     return { application: updatedApplication!, host: hostRecord };
   }
@@ -539,6 +574,20 @@ export class MissuProService {
         .where(eq(users.id, agency.userId));
     }
 
+    if (agency.userId) {
+      await this.notifyAgencyReviewResult(agency.userId, input.action === "approve" ? "APPROVED" : "REJECTED", updatedAgency?.agencyCode ?? null, input.reason);
+    }
+
+    await this.approvalService.logAuditEntry({
+      adminUserId,
+      action: input.action === "approve" ? "agency.approve" : "agency.reject",
+      targetType: "agency",
+      targetId: input.agencyId,
+      beforeState: { approvalStatus: agency.approvalStatus, status: agency.status },
+      afterState: { approvalStatus: approvalStatus, status },
+      reason: input.reason,
+    });
+
     return updatedAgency!;
   }
 
@@ -567,6 +616,306 @@ export class MissuProService {
       .limit(limit);
   }
 
+  // ─── Host Suspension ───
+
+  async suspendHost(adminUserId: string, input: { hostId: string; reason?: string }) {
+    const [host] = await db
+      .select()
+      .from(hosts)
+      .where(eq(hosts.id, input.hostId))
+      .limit(1);
+
+    if (!host) {
+      throw new Error("Host not found");
+    }
+
+    this.approvalService.validateStatusTransition(
+      String(host.status),
+      "reject",
+      ["APPROVED"],
+    );
+
+    const [updatedHost] = await db
+      .update(hosts)
+      .set({
+        status: "SUSPENDED" as any,
+        reviewNotes: input.reason ?? "Suspended by admin",
+        reviewedByAdminUserId: adminUserId,
+        rejectedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(hosts.id, input.hostId))
+      .returning();
+
+    // Downgrade user role back to USER
+    await db
+      .update(users)
+      .set({
+        role: "USER" as any,
+        platformRole: "USER" as any,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, host.userId));
+
+    // Deactivate the model profile
+    await db
+      .update(models)
+      .set({
+        registrationStatus: "SUSPENDED" as any,
+        isOnline: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(models.userId, host.userId));
+
+    await this.approvalService.logAuditEntry({
+      adminUserId,
+      action: "host.suspend",
+      targetType: "host",
+      targetId: input.hostId,
+      beforeState: { status: host.status },
+      afterState: { status: "SUSPENDED" },
+      reason: input.reason,
+    });
+
+    try {
+      await this.notificationService.createNotification(
+        host.userId,
+        "MODEL_APPLICATION_UPDATE",
+        "Account Suspended",
+        `Your host account has been suspended.${input.reason ? ` Reason: ${input.reason}` : ""}`,
+        { deepLink: "/(tabs)/host", channels: ["PUSH", "IN_APP"] as unknown as string[] },
+      );
+    } catch {
+      // Best-effort
+    }
+
+    return updatedHost!;
+  }
+
+  async reactivateHost(adminUserId: string, input: { hostId: string; reason?: string }) {
+    const [host] = await db
+      .select()
+      .from(hosts)
+      .where(eq(hosts.id, input.hostId))
+      .limit(1);
+
+    if (!host) {
+      throw new Error("Host not found");
+    }
+
+    this.approvalService.validateStatusTransition(
+      String(host.status),
+      "approve",
+      ["SUSPENDED", "REJECTED"],
+    );
+
+    const [updatedHost] = await db
+      .update(hosts)
+      .set({
+        status: "APPROVED" as any,
+        reviewNotes: input.reason ?? "Reactivated by admin",
+        reviewedByAdminUserId: adminUserId,
+        approvedAt: new Date(),
+        rejectedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(hosts.id, input.hostId))
+      .returning();
+
+    // Restore user role
+    const platformRole = host.agencyId ? "MODEL_AGENCY" : "MODEL_INDEPENDENT";
+    await db
+      .update(users)
+      .set({
+        role: "HOST" as any,
+        platformRole: platformRole as any,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, host.userId));
+
+    // Reactivate model profile
+    await db
+      .update(models)
+      .set({
+        registrationStatus: "ACTIVE" as any,
+        updatedAt: new Date(),
+      })
+      .where(eq(models.userId, host.userId));
+
+    await this.approvalService.logAuditEntry({
+      adminUserId,
+      action: "host.reactivate",
+      targetType: "host",
+      targetId: input.hostId,
+      beforeState: { status: host.status },
+      afterState: { status: "APPROVED" },
+      reason: input.reason,
+    });
+
+    try {
+      await this.notificationService.createNotification(
+        host.userId,
+        "MODEL_APPLICATION_UPDATE",
+        "Account Reactivated",
+        "Your host account has been reactivated. Welcome back!",
+        { deepLink: "/(tabs)/host", channels: ["PUSH", "IN_APP"] as unknown as string[] },
+      );
+    } catch {
+      // Best-effort
+    }
+
+    return updatedHost!;
+  }
+
+  // ─── Agency Host Management ───
+
+  async removeHostFromAgency(agencyOwnerId: string, input: { hostUserId: string; reason?: string }) {
+    // Verify caller owns the agency
+    const [agency] = await db
+      .select({ id: agencies.id })
+      .from(agencies)
+      .where(eq(agencies.userId, agencyOwnerId))
+      .limit(1);
+
+    if (!agency) {
+      throw new Error("You do not own an agency");
+    }
+
+    // Verify host belongs to this agency
+    const [membership] = await db
+      .select()
+      .from(agencyHosts)
+      .where(and(eq(agencyHosts.agencyId, agency.id), eq(agencyHosts.userId, input.hostUserId)))
+      .limit(1);
+
+    if (!membership) {
+      throw new Error("Host is not a member of your agency");
+    }
+
+    // Remove from roster
+    await db
+      .update(agencyHosts)
+      .set({ status: "REMOVED" as any })
+      .where(and(eq(agencyHosts.agencyId, agency.id), eq(agencyHosts.userId, input.hostUserId)));
+
+    // Update host record to PLATFORM type
+    await db
+      .update(hosts)
+      .set({
+        agencyId: null,
+        type: "PLATFORM" as any,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(hosts.userId, input.hostUserId), eq(hosts.agencyId, agency.id)));
+
+    // Update model profile
+    await db
+      .update(models)
+      .set({
+        agencyId: null,
+        modelType: "INDEPENDENT" as any,
+        updatedAt: new Date(),
+      })
+      .where(eq(models.userId, input.hostUserId));
+
+    // Update user platform role
+    await db
+      .update(users)
+      .set({
+        platformRole: "MODEL_INDEPENDENT" as any,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, input.hostUserId));
+
+    return { removed: true };
+  }
+
+  async transferHost(adminUserId: string, input: { hostUserId: string; targetAgencyId: string; reason?: string }) {
+    const [host] = await db
+      .select()
+      .from(hosts)
+      .where(eq(hosts.userId, input.hostUserId))
+      .limit(1);
+
+    if (!host) {
+      throw new Error("Host not found");
+    }
+
+    const [targetAgency] = await db
+      .select({ id: agencies.id, agencyCode: agencies.agencyCode, approvalStatus: agencies.approvalStatus })
+      .from(agencies)
+      .where(eq(agencies.id, input.targetAgencyId))
+      .limit(1);
+
+    if (!targetAgency) {
+      throw new Error("Target agency not found");
+    }
+
+    if (!this.isAgencyApproved(targetAgency)) {
+      throw new Error("Target agency is not approved");
+    }
+
+    const previousAgencyId = host.agencyId;
+
+    // Remove from old agency if applicable
+    if (previousAgencyId) {
+      await db
+        .update(agencyHosts)
+        .set({ status: "REMOVED" as any })
+        .where(and(eq(agencyHosts.agencyId, previousAgencyId), eq(agencyHosts.userId, input.hostUserId)));
+    }
+
+    // Assign to new agency
+    await db.insert(agencyHosts).values({
+      agencyId: input.targetAgencyId,
+      userId: input.hostUserId,
+      status: "ACTIVE" as any,
+    }).onConflictDoNothing();
+
+    // Generate new agency host ID
+    const newHostId = await this.idGenerationService.generateHostId("AGENCY");
+
+    await db
+      .update(hosts)
+      .set({
+        agencyId: input.targetAgencyId,
+        type: "AGENCY" as any,
+        hostId: newHostId,
+        publicId: newHostId,
+        updatedAt: new Date(),
+      })
+      .where(eq(hosts.userId, input.hostUserId));
+
+    await db
+      .update(models)
+      .set({
+        agencyId: input.targetAgencyId,
+        modelType: "AGENCY" as any,
+        updatedAt: new Date(),
+      })
+      .where(eq(models.userId, input.hostUserId));
+
+    await db
+      .update(users)
+      .set({
+        platformRole: "MODEL_AGENCY" as any,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, input.hostUserId));
+
+    await this.approvalService.logAuditEntry({
+      adminUserId,
+      action: "host.approve",
+      targetType: "host",
+      targetId: host.id,
+      beforeState: { agencyId: previousAgencyId, hostId: host.hostId },
+      afterState: { agencyId: input.targetAgencyId, hostId: newHostId },
+      reason: input.reason ?? "Admin host transfer",
+    });
+
+    return { hostId: newHostId, agencyId: input.targetAgencyId };
+  }
+
   private async resolveAdminRecordId(adminUserId: string) {
     const [adminRecord] = await db
       .select({ id: admins.id })
@@ -588,7 +937,7 @@ export class MissuProService {
       return user.publicUserId;
     }
 
-    const publicUserId = await this.generateUniqueUserId();
+    const publicUserId = await this.idGenerationService.generateUserId();
     await db
       .update(users)
       .set({ publicUserId, updatedAt: new Date() })
@@ -700,45 +1049,45 @@ export class MissuProService {
     await db.insert(models).values(values as any);
   }
 
-  private async generateUniqueUserId() {
-    return this.generateUniqueCode("U", 9, async (candidate) => {
-      const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.publicUserId, candidate)).limit(1);
-      return Boolean(existing);
-    });
-  }
+  // ID generation delegated to IdGenerationService (injected)
 
-  private async generateUniqueAgencyCode() {
-    return this.generateUniqueCode("AG", 8, async (candidate) => {
-      const [existing] = await db.select({ id: agencies.id }).from(agencies).where(eq(agencies.agencyCode, candidate)).limit(1);
-      return Boolean(existing);
-    });
-  }
+  private async notifyHostApplicationResult(userId: string, result: "APPROVED" | "REJECTED", hostId: string | null, reason?: string) {
+    try {
+      const title = result === "APPROVED"
+        ? "Host Application Approved!"
+        : "Host Application Update";
+      const body = result === "APPROVED"
+        ? `Congratulations! You are now an official MissU Host.${hostId ? ` Your Host ID is ${hostId}.` : ""}`
+        : `Your host application was not approved.${reason ? ` Reason: ${reason}` : " You may re-apply with updated details."}`;
 
-  private async generateUniqueHostId(type: "PLATFORM" | "AGENCY") {
-    const prefix = type === "AGENCY" ? "AH" : "H";
-    const digits = type === "AGENCY" ? 8 : 9;
-    return this.generateUniqueCode(prefix, digits, async (candidate) => {
-      const [existing] = await db.select({ id: hosts.id }).from(hosts).where(eq(hosts.hostId, candidate)).limit(1);
-      return Boolean(existing);
-    });
-  }
-
-  private async generateUniqueCode(prefix: string, digits: number, exists: (candidate: string) => Promise<boolean>) {
-    for (let attempt = 0; attempt < 20; attempt++) {
-      const candidate = `${prefix}${this.randomDigits(digits)}`;
-      if (!(await exists(candidate))) {
-        return candidate;
-      }
+      await this.notificationService.createNotification(userId, "MODEL_APPLICATION_UPDATE", title, body, {
+        deepLink: "/(tabs)/host",
+        hostId,
+        result,
+        channels: ["PUSH", "IN_APP"] as unknown as string[],
+      });
+    } catch {
+      // Best-effort: notification failure must not block approval flow
     }
-
-    return `${prefix}${String(Date.now()).slice(-digits).padStart(digits, "0")}`;
   }
 
-  private randomDigits(length: number) {
-    let digits = "";
-    while (digits.length < length) {
-      digits += randomBytes(Math.max(length, 6)).toString("hex").replace(/[^0-9]/g, "");
+  private async notifyAgencyReviewResult(userId: string, result: "APPROVED" | "REJECTED", agencyCode: string | null, reason?: string) {
+    try {
+      const title = result === "APPROVED"
+        ? "Agency Registration Approved!"
+        : "Agency Registration Update";
+      const body = result === "APPROVED"
+        ? `Your agency has been approved.${agencyCode ? ` Your Agency ID is ${agencyCode}. Share it with hosts to link them to your agency.` : ""}`
+        : `Your agency registration was not approved.${reason ? ` Reason: ${reason}` : ""}`;
+
+      await this.notificationService.createNotification(userId, "MODEL_APPLICATION_UPDATE", title, body, {
+        deepLink: "/agency/dashboard",
+        agencyCode,
+        result,
+        channels: ["PUSH", "IN_APP"] as unknown as string[],
+      });
+    } catch {
+      // Best-effort: notification failure must not block approval flow
     }
-    return digits.slice(0, length);
   }
 }

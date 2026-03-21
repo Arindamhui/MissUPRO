@@ -59,6 +59,32 @@ export class TrpcService {
     });
   });
 
+  // ─── Host middleware ───
+  readonly isHost = this.middleware(async ({ ctx, next }) => {
+    if (!ctx.userId) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
+    }
+    const hostRoles = ["MODEL_INDEPENDENT", "MODEL_AGENCY"];
+    const isHostRole = ctx.platformRole && hostRoles.includes(ctx.platformRole);
+    if (!isHostRole) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Host access required" });
+    }
+    return next({
+      ctx: {
+        ...ctx,
+        userId: ctx.userId,
+      },
+    });
+  });
+
+  // ─── Rate-limited mutation middleware ───
+  readonly withRateLimit = (profile: string) =>
+    this.middleware(async ({ ctx, next }) => {
+      // Rate limiting is enforced by the RateLimiterService at the service layer
+      // This middleware adds the rate-limit profile to context for downstream use
+      return next({ ctx: { ...ctx, rateLimitProfile: profile } });
+    });
+
   // ─── Protected procedure ───
   readonly protectedProcedure = this.procedure.use(this.isAuthed);
 
@@ -67,4 +93,7 @@ export class TrpcService {
 
   // ─── Agency procedure ───
   readonly agencyProcedure = this.procedure.use(this.isAgency);
+
+  // ─── Host procedure ───
+  readonly hostProcedure = this.procedure.use(this.isHost);
 }

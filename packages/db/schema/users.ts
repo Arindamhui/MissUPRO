@@ -14,6 +14,7 @@ import {
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   publicUserId: text("public_user_id"),
+  publicId: text("public_id"),
   clerkId: text("clerk_id"),
   email: text("email").notNull(),
   emailVerified: boolean("email_verified").default(false).notNull(),
@@ -37,6 +38,8 @@ export const users = pgTable("users", {
   gender: genderEnum("gender"),
   dateOfBirth: date("date_of_birth"),
   isVerified: boolean("is_verified").default(false).notNull(),
+  vipType: text("vip_type"),
+  vipExpiry: timestamp("vip_expiry"),
   referralCode: text("referral_code").notNull(),
   referredByUserId: uuid("referred_by_user_id"),
   lastActiveAt: timestamp("last_active_at"),
@@ -45,6 +48,7 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   uniqueIndex("users_public_user_id_idx").on(t.publicUserId),
+  uniqueIndex("users_public_id_idx").on(t.publicId),
   uniqueIndex("users_clerk_id_idx").on(t.clerkId),
   uniqueIndex("users_email_idx").on(t.email),
   uniqueIndex("users_username_idx").on(t.username),
@@ -55,6 +59,8 @@ export const users = pgTable("users", {
   index("users_auth_provider_idx").on(t.authProvider),
   index("users_role_status_country_idx").on(t.role, t.status, t.country),
   index("users_last_active_at_idx").on(t.lastActiveAt),
+  index("users_vip_expiry_idx").on(t.vipExpiry),
+  index("users_created_at_idx").on(t.createdAt),
   index("users_deleted_at_idx").on(t.deletedAt),
 ]);
 

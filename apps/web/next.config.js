@@ -10,12 +10,11 @@ loadEnvConfig(workspaceRoot);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@missu/types"],
+  transpilePackages: ["@missu/auth", "@missu/cache", "@missu/config", "@missu/db", "@missu/logger", "@missu/queue", "@missu/types", "@missu/utils"],
   serverExternalPackages: [],
   env: {
-    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "",
-    CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY ?? "",
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? process.env.API_URL ?? "",
+    NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "",
   },
 };
 

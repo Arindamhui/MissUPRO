@@ -1,7 +1,6 @@
-import SignupPageClient from "./page-client";
+import { redirect } from "next/navigation";
 
 export default function SignupPage() {
-  const clerkEnabled = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
-  return <SignupPageClient clerkEnabled={clerkEnabled} />;
+  redirect("/agency-signup");
 }
 

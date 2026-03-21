@@ -203,13 +203,13 @@ export default function LandingPage() {
             </div>
             <div className="flex gap-3">
               <a
-                href="/signup"
+                href="/agency-signup"
                 className="inline-flex items-center justify-center px-6 py-3 bg-primary text-white rounded-xl text-sm font-semibold hover:opacity-90 transition"
               >
                 Create agency account
               </a>
               <a
-                href="/login?role=agency"
+                href="/agency-login"
                 className="inline-flex items-center justify-center px-6 py-3 border rounded-xl text-sm font-semibold hover:bg-gray-50 transition"
               >
                 Agency login

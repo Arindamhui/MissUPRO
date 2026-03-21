@@ -1,7 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": [".env"],
-  "concurrency": "20",
+  "concurrency": "25",
   "tasks": {
     "dev": {
       "cache": false,

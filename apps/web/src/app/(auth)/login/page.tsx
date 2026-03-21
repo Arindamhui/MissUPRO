@@ -1,4 +1,4 @@
-import LoginPageClient from "./page-client";
+import { redirect } from "next/navigation";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -8,10 +8,21 @@ export default async function LoginPage({
   searchParams?: Promise<SearchParams>;
 }) {
   const resolvedSearchParams = (await searchParams) ?? {};
-  const role = resolvedSearchParams.role === "admin" ? "admin" : "agency";
+  const role = resolvedSearchParams.role;
   const reason = typeof resolvedSearchParams.reason === "string" ? resolvedSearchParams.reason : null;
-  const clerkEnabled = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+  const redirectTo = typeof resolvedSearchParams.redirect === "string" ? resolvedSearchParams.redirect : null;
 
-  return <LoginPageClient role={role} reason={reason} clerkEnabled={clerkEnabled} />;
+  const params = new URLSearchParams();
+  if (reason) params.set("reason", reason);
+  if (redirectTo) params.set("redirect", redirectTo);
+  const query = params.toString();
+  const suffix = query ? `?${query}` : "";
+
+  if (role === "admin") {
+    redirect(`/admin-login${suffix}`);
+  }
+
+  // Default to agency login for agency role or unspecified
+  redirect(`/agency-login${suffix}`);
 }
 

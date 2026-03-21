@@ -1,6 +1,7 @@
 export * from "./enums";
 export * from "./users";
 export * from "./auth";
+export * from "./clerk";
 export * from "./audit";
 export * from "./wallets";
 export * from "./payments";
@@ -23,6 +24,7 @@ export * from "./agencies";
 export * from "./campaigns";
 export * from "./analytics";
 export * from "./idempotency";
+export * from "./missu-pro-saas";
 export * from "./pk";
 export * from "./group-audio";
 export * from "./party";

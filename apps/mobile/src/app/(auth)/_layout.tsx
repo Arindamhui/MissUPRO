@@ -1,14 +1,13 @@
-import { useAuth } from "@clerk/clerk-expo";
 import { Redirect, Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 import { useAuthStore } from "@/store";
 import { COLORS } from "@/theme";
 
 export default function AuthLayout() {
-  const { isLoaded, isSignedIn } = useAuth();
   const authMode = useAuthStore((s) => s.authMode);
+  const isHydrated = useAuthStore((s) => s.isHydrated);
 
-  if (!isLoaded) {
+  if (!isHydrated) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: COLORS.background }}>
         <ActivityIndicator color={COLORS.primary} size="large" />
@@ -16,7 +15,7 @@ export default function AuthLayout() {
     );
   }
 
-  if (isSignedIn || authMode === "guest") {
+  if (authMode === "authenticated" || authMode === "guest") {
     return <Redirect href="/onboarding" />;
   }
 

@@ -1,6 +1,5 @@
 "use client";
 
-import { SignInButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Coins, Crown, Flame, MessageCircle, Radio, ShieldCheck, Sparkles, Wallet } from "lucide-react";
@@ -89,12 +88,8 @@ function RoomLoadingState() {
   );
 }
 
-function LockedAction({ authAvailable, children }: { authAvailable: boolean; children: React.ReactNode }) {
-  if (authAvailable) {
-    return <SignInButton mode="modal">{children}</SignInButton>;
-  }
-
-  return children;
+function LockedAction({ children }: { children: React.ReactNode }) {
+  return <Link href="/login?redirect=/discover">{children}</Link>;
 }
 
 export function LiveRoomScreen({ streamId }: { streamId: string }) {
@@ -353,7 +348,7 @@ export function LiveRoomScreen({ streamId }: { streamId: string }) {
             <Card className="border-white/8 bg-white/4">
               <CardHeader>
                 <CardTitle>Viewer wallet</CardTitle>
-                <CardDescription>Protected economy actions unlock from the current Clerk session.</CardDescription>
+                <CardDescription>Protected economy actions unlock from the current signed-in app session.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {auth.isSignedIn ? (
@@ -389,7 +384,7 @@ export function LiveRoomScreen({ streamId }: { streamId: string }) {
                 </div>
 
                 {!auth.isSignedIn ? (
-                  <LockedAction authAvailable={auth.clerkAvailable}>
+                  <LockedAction>
                     <Button className="w-full">Sign in for wallet access</Button>
                   </LockedAction>
                 ) : null}
@@ -432,7 +427,7 @@ export function LiveRoomScreen({ streamId }: { streamId: string }) {
                 {auth.isSignedIn ? (
                   <Button type="submit" className="w-full" disabled={!featureHints?.chatEnabled || chatDraft.trim().length === 0}>Send message</Button>
                 ) : (
-                  <LockedAction authAvailable={auth.clerkAvailable}>
+                  <LockedAction>
                     <Button type="button" className="w-full">Sign in to chat</Button>
                   </LockedAction>
                 )}

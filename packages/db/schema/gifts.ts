@@ -26,6 +26,7 @@ export const gifts = pgTable("gifts", {
   startAt: timestamp("start_at"),
   endAt: timestamp("end_at"),
   displayOrder: integer("display_order").default(0).notNull(),
+  deletedAt: timestamp("deleted_at"),
   createdByAdminId: uuid("created_by_admin_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -34,6 +35,7 @@ export const gifts = pgTable("gifts", {
   index("gifts_active_order_idx").on(t.isActive, t.displayOrder),
   index("gifts_active_time_idx").on(t.isActive, t.startAt, t.endAt),
   index("gifts_season_active_idx").on(t.seasonTag, t.isActive),
+  index("gifts_deleted_at_idx").on(t.deletedAt),
 ]);
 
 // ─── gift_transactions ───

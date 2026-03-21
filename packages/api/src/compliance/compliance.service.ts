@@ -1,6 +1,4 @@
 import { Injectable } from "@nestjs/common";
-import { createClerkClient } from "@clerk/backend";
-import { getEnv } from "@missu/config";
 import { db } from "@missu/db";
 import {
   accountDeletionRequests, users, dataExportRequests, profiles, wallets,
@@ -10,9 +8,6 @@ import { and, desc, eq } from "drizzle-orm";
 
 @Injectable()
 export class ComplianceService {
-  private readonly env = getEnv();
-  private readonly clerkClient = createClerkClient({ secretKey: this.env.CLERK_SECRET_KEY });
-
   async requestAccountDeletion(userId: string, reason: string) {
     const [existing] = await db
       .select()
@@ -147,14 +142,6 @@ export class ComplianceService {
       .where(eq(profiles.userId, userId));
 
     await db.delete(authSessions).where(eq(authSessions.userId, userId));
-
-    if (user.clerkId && this.env.CLERK_SECRET_KEY) {
-      try {
-        await this.clerkClient.users.deleteUser(user.clerkId);
-      } catch {
-        // Keep the local account deleted even if Clerk cleanup is temporarily unavailable.
-      }
-    }
 
     return { success: true };
   }

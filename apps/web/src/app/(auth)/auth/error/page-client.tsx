@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
-import { useClerk, useAuth } from "@clerk/nextjs";
-import { buildAuthErrorHref } from "@/lib/auth-paths";
+import { useAuthBridge } from "@/components/auth-bridge";
 
 const DEFAULT_MESSAGE = {
   title: "Access denied",
-  description: "This account is authenticated in Clerk but does not have an authorized admin or agency role in the database.",
+  description: "This account is authenticated but does not have an authorized admin or agency role in the database.",
 };
 
 const MESSAGE_MAP: Record<string, { title: string; description: string }> = {
@@ -57,12 +56,10 @@ function AuthErrorPageContent({
   reason,
   role,
   signedOut,
-  clerkEnabled,
 }: {
   reason: string;
   role: "admin" | "agency";
   signedOut: boolean;
-  clerkEnabled: boolean;
 }) {
   const copy = resolveMessage(reason, role);
 
@@ -80,26 +77,20 @@ function AuthErrorPageContent({
 
       {signedOut ? (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          The current Clerk session was cleared so you can retry with the correct account.
-        </div>
-      ) : null}
-
-      {!clerkEnabled ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Clerk is not configured for this web environment, so session cleanup is skipped and the page stays informational only.
+          The current app session was cleared so you can retry with the correct account.
         </div>
       ) : null}
 
       <div className="flex gap-3">
-        <Link href={`/login?role=${role}`} className="inline-flex h-11 items-center justify-center rounded-full bg-[#ff6b3d] px-5 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(255,107,61,0.28)] hover:bg-[#ff7d55]">
+        <Link href={role === "admin" ? "/admin-login" : "/agency-login"} className="inline-flex h-11 items-center justify-center rounded-full bg-[#ff6b3d] px-5 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(255,107,61,0.28)] hover:bg-[#ff7d55]">
           {role === "admin" ? "Return to admin login" : "Return to agency login"}
         </Link>
         {role === "admin" ? (
-          <Link href="/login?role=agency" className="inline-flex h-11 items-center justify-center rounded-full border border-slate-200 px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+          <Link href="/agency-login" className="inline-flex h-11 items-center justify-center rounded-full border border-slate-200 px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             Use agency login
           </Link>
         ) : (
-          <Link href="/signup" className="inline-flex h-11 items-center justify-center rounded-full border border-slate-200 px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+          <Link href="/agency-signup" className="inline-flex h-11 items-center justify-center rounded-full border border-slate-200 px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             Agency signup
           </Link>
         )}
@@ -108,41 +99,20 @@ function AuthErrorPageContent({
   );
 }
 
-function AuthErrorPageWithClerk({
-  reason,
-  role,
-  signedOut,
-  clerkEnabled,
-}: {
-  reason: string;
-  role: "admin" | "agency";
-  signedOut: boolean;
-  clerkEnabled: boolean;
-}) {
-  const { signOut } = useClerk();
-  const { isSignedIn } = useAuth();
-  const signOutRedirectUrl = `${buildAuthErrorHref(reason, role)}&signed_out=1`;
-
-  useEffect(() => {
-    if (!isSignedIn || signedOut) {
-      return;
-    }
-
-    void signOut({ redirectUrl: signOutRedirectUrl });
-  }, [isSignedIn, reason, role, signOut, signedOut, signOutRedirectUrl]);
-
-  return <AuthErrorPageContent reason={reason} role={role} signedOut={signedOut} clerkEnabled={clerkEnabled} />;
-}
-
 export default function AuthErrorPageClient(props: {
   reason: string;
   role: "admin" | "agency";
   signedOut: boolean;
-  clerkEnabled: boolean;
 }) {
-  if (!props.clerkEnabled) {
-    return <AuthErrorPageContent {...props} />;
-  }
+  const auth = useAuthBridge();
 
-  return <AuthErrorPageWithClerk {...props} />;
+  useEffect(() => {
+    if (!auth.isSignedIn || props.signedOut) {
+      return;
+    }
+
+    void auth.signOut();
+  }, [auth, props.signedOut]);
+
+  return <AuthErrorPageContent {...props} />;
 }

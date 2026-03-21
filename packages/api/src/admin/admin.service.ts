@@ -3,7 +3,7 @@ import { db } from "@missu/db";
 import {
   users, profiles, models, modelApplications, wallets,
   coinTransactions, diamondTransactions, payments, withdrawRequests,
-  gifts, giftTransactions, vipSubscriptions, agencies, agencyHosts,
+  gifts, giftTransactions, vipSubscriptions, vipTiers, agencies, agencyHosts,
   adminLogs, admins, systemSettings, featureFlags,
   uiLayoutConfigs, uiLayouts, uiComponents, componentPositions, homepageSections,
   liveRooms, callSessions, chatSessions,
@@ -14,6 +14,7 @@ import {
   groupAudioRooms, partyRooms,
   dmConversations, dmMessages, notificationCampaigns, agencyApplications,
   agencyCommissionRecords,
+  coinPackages, hostApplications, hosts, loginStreaks,
 } from "@missu/db/schema";
 import { PkService } from "../pk/pk.service";
 import { WalletService } from "../wallet/wallet.service";
@@ -26,7 +27,8 @@ import { SecurityService } from "../security/security.service";
 import { EventService } from "../events/event.service";
 import { CampaignService } from "../campaigns/campaign.service";
 import { ModelService } from "../models/model.service";
-import { eq, and, desc, asc, count, sum, between, like, isNull, isNotNull, or, sql } from "drizzle-orm";
+import { VipService } from "../vip/vip.service";
+import { eq, and, desc, asc, count, sum, between, like, isNull, isNotNull, or, sql, gt } from "drizzle-orm";
 import { decodeCursor, encodeCursor, generateIdempotencyKey } from "@missu/utils";
 import { cacheDel, getRedis } from "@missu/utils";
 
@@ -57,6 +59,7 @@ export class AdminService {
     private readonly eventService: EventService,
     private readonly campaignService: CampaignService,
     private readonly modelService: ModelService,
+    private readonly vipService: VipService,
   ) {}
 
   private async getAdminUserSchemaMode() {
@@ -116,7 +119,7 @@ export class AdminService {
   }
 
   // ─── User Management ───
-  async listUsers(cursor?: string, limit = 20, search?: string) {
+  async listUsers(cursor?: string, limit = 20, search?: string, authProvider?: string) {
     if (await this.getAdminUserSchemaMode() === "legacy") {
       const offset = cursor ? decodeCursor(cursor) : 0;
       const results = await db.execute(sql`
@@ -124,6 +127,9 @@ export class AdminService {
           u.id,
           u.email,
           u.role,
+          'UNKNOWN' as "authProvider",
+          null::text as "clerkId",
+          null::text as "platformRole",
           case
             when u.is_banned then 'BANNED'
             when u.is_suspended then 'SUSPENDED'
@@ -154,13 +160,23 @@ export class AdminService {
 
     const offset = cursor ? decodeCursor(cursor) : 0;
     const conditions: any[] = [];
-    if (search) conditions.push(like(users.displayName, `%${search}%`));
+    if (search) {
+      conditions.push(or(
+        like(users.displayName, `%${search}%`),
+        like(users.username, `%${search}%`),
+        like(users.email, `%${search}%`),
+      ));
+    }
+    if (authProvider) conditions.push(eq(users.authProvider, authProvider as any));
 
     const results = await db
       .select({
         id: users.id, email: users.email, role: users.role,
         status: users.status, displayName: users.displayName,
         avatarUrl: users.avatarUrl, createdAt: users.createdAt,
+        authProvider: users.authProvider,
+        clerkId: users.clerkId,
+        platformRole: users.platformRole,
       })
       .from(users)
       .where(conditions.length ? and(...conditions) : undefined)
@@ -522,7 +538,7 @@ export class AdminService {
 
   // ─── Gift Management ───
   async listGifts() {
-    return db.select().from(gifts).orderBy(asc(gifts.displayOrder));
+    return db.select().from(gifts).where(isNull(gifts.deletedAt)).orderBy(asc(gifts.displayOrder));
   }
 
   async createGift(
@@ -571,12 +587,152 @@ export class AdminService {
     return updated;
   }
 
+  async deleteGift(giftId: string, adminId: string) {
+    const [updated] = await db
+      .update(gifts)
+      .set({ isActive: false, deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(gifts.id, giftId))
+      .returning();
+
+    await this.logAction(adminId, "gift_delete", { giftId });
+    return updated;
+  }
+
   // ─── VIP Management ───
+  async listVipPackages() {
+    return this.vipService.listPackages();
+  }
+
+  async createVipPackage(
+    input: {
+      tierCode?: string;
+      name: string;
+      price: number;
+      coinPrice: number;
+      durationDays: number;
+      benefits: Record<string, unknown>;
+      isActive?: boolean;
+      displayOrder?: number;
+    },
+    adminId: string,
+  ) {
+    const created = await this.vipService.createPackage(input, adminId);
+    await this.logAction(adminId, "vip_package_create", { packageId: created.id, tierCode: created.tierCode });
+    return created;
+  }
+
+  async updateVipPackage(
+    packageId: string,
+    input: {
+      tierCode?: string;
+      name?: string;
+      price?: number;
+      coinPrice?: number;
+      durationDays?: number;
+      benefits?: Record<string, unknown>;
+      isActive?: boolean;
+      displayOrder?: number;
+    },
+    adminId: string,
+  ) {
+    const updated = await this.vipService.updatePackage(packageId, input);
+    await this.logAction(adminId, "vip_package_update", { packageId, tierCode: updated.tierCode });
+    return updated;
+  }
+
   async listVipSubscriptions(cursor?: string, limit = 20) {
     const offset = cursor ? decodeCursor(cursor) : 0;
     const results = await db.select().from(vipSubscriptions).orderBy(desc(vipSubscriptions.currentPeriodStart)).limit(limit + 1).offset(offset);
     const hasMore = results.length > limit;
     return { items: hasMore ? results.slice(0, limit) : results, nextCursor: hasMore ? encodeCursor(offset + limit) : null };
+  }
+
+  async adjustUserWallet(userId: string, adminId: string, coinDelta: number, diamondDelta: number, description?: string) {
+    const result = await this.walletService.adjustWallet(userId, adminId, coinDelta, diamondDelta, description);
+    await this.logAction(adminId, "wallet_adjust", { userId, coinDelta, diamondDelta, description: description ?? null, adjustmentId: result.adjustmentId });
+    return result;
+  }
+
+  async grantUserVip(userId: string, adminId: string, tierCode: string, durationDays?: number) {
+    const granted = await this.vipService.grantVip(userId, tierCode, adminId, durationDays);
+    await this.logAction(adminId, "vip_grant", { userId, tierCode, durationDays: durationDays ?? null, subscriptionId: granted?.id ?? null });
+    return granted;
+  }
+
+  async listWalletTransactions(input?: {
+    cursor?: string;
+    limit?: number;
+    userId?: string;
+    ledger?: "COIN" | "DIAMOND" | "ALL";
+    transactionType?: string;
+  }) {
+    const limit = input?.limit ?? 20;
+    const offset = input?.cursor ? decodeCursor(input.cursor) : 0;
+    const ledger = input?.ledger ?? "ALL";
+
+    const [coinRows, diamondRows] = await Promise.all([
+      ledger === "DIAMOND"
+        ? Promise.resolve([])
+        : db
+            .select({
+              id: coinTransactions.id,
+              userId: coinTransactions.userId,
+              email: users.email,
+              displayName: users.displayName,
+              ledger: sql<string>`'COIN'`,
+              transactionType: coinTransactions.transactionType,
+              amount: coinTransactions.amount,
+              balanceAfter: coinTransactions.balanceAfter,
+              referenceType: coinTransactions.referenceType,
+              referenceId: coinTransactions.referenceId,
+              description: coinTransactions.description,
+              createdAt: coinTransactions.createdAt,
+            })
+            .from(coinTransactions)
+            .innerJoin(users, eq(users.id, coinTransactions.userId))
+            .where(and(
+              input?.userId ? eq(coinTransactions.userId, input.userId) : undefined,
+              input?.transactionType ? eq(coinTransactions.transactionType, input.transactionType as any) : undefined,
+            ))
+            .orderBy(desc(coinTransactions.createdAt))
+            .limit(limit + offset + 1),
+      ledger === "COIN"
+        ? Promise.resolve([])
+        : db
+            .select({
+              id: diamondTransactions.id,
+              userId: diamondTransactions.userId,
+              email: users.email,
+              displayName: users.displayName,
+              ledger: sql<string>`'DIAMOND'`,
+              transactionType: diamondTransactions.transactionType,
+              amount: diamondTransactions.amount,
+              balanceAfter: diamondTransactions.balanceAfter,
+              referenceType: diamondTransactions.referenceType,
+              referenceId: diamondTransactions.referenceId,
+              description: diamondTransactions.description,
+              createdAt: diamondTransactions.createdAt,
+            })
+            .from(diamondTransactions)
+            .innerJoin(users, eq(users.id, diamondTransactions.userId))
+            .where(and(
+              input?.userId ? eq(diamondTransactions.userId, input.userId) : undefined,
+              input?.transactionType ? eq(diamondTransactions.transactionType, input.transactionType as any) : undefined,
+            ))
+            .orderBy(desc(diamondTransactions.createdAt))
+            .limit(limit + offset + 1),
+    ]);
+
+    const merged = [...coinRows, ...diamondRows]
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+
+    const sliced = merged.slice(offset, offset + limit + 1);
+    const hasMore = sliced.length > limit;
+
+    return {
+      items: hasMore ? sliced.slice(0, limit) : sliced,
+      nextCursor: hasMore ? encodeCursor(offset + limit) : null,
+    };
   }
 
   // --- Referral Management ---
@@ -665,25 +821,93 @@ export class AdminService {
   }
 
   async approveAgency(agencyId: string, adminId: string) {
-    await db.update(agencies).set({ status: "ACTIVE" as any }).where(eq(agencies.id, agencyId));
+    await db.update(agencies).set({ status: "ACTIVE" as any, approvalStatus: "APPROVED" as any, updatedAt: new Date() }).where(eq(agencies.id, agencyId));
     await this.logAction(adminId, "agency_approve", { agencyId });
     return { success: true };
   }
 
   async listAgencyApplications(status?: string, cursor?: string, limit = 20) {
-    return this.agencyService.listAgencyApplications(status, cursor, limit);
+    // Check the formal agencyApplications table first
+    const formal = await this.agencyService.listAgencyApplications(status, cursor, limit);
+    if (formal.items.length > 0) return formal;
+
+    // Fallback: pull from agencies table where approvalStatus matches
+    // This covers agencies registered via registerAgency (missu-pro flow)
+    const offset = cursor ? decodeCursor(cursor) : 0;
+    const where = status
+      ? eq(agencies.approvalStatus, status as any)
+      : undefined;
+    const rows = await db.select().from(agencies).where(where).orderBy(desc(agencies.createdAt)).limit(limit + 1).offset(offset);
+    const hasMore = rows.length > limit;
+    const items = (hasMore ? rows.slice(0, limit) : rows).map((a) => ({
+      id: a.id,
+      agencyName: a.agencyName,
+      contactName: a.contactName,
+      contactEmail: a.contactEmail,
+      country: a.country,
+      status: a.approvalStatus,
+      createdAt: a.createdAt,
+      applicantUserId: a.userId,
+      createdAgencyId: a.id,
+    }));
+    return { items, nextCursor: hasMore ? encodeCursor(offset + limit) : null };
+  }
+
+  async listAgencyHosts(agencyId: string, cursor?: string, limit = 20) {
+    const offset = cursor ? decodeCursor(cursor) : 0;
+    const results = await db
+      .select({
+        agencyHostId: agencyHosts.id,
+        hostId: hosts.id,
+        userId: users.id,
+        publicId: hosts.publicId,
+        hostCode: hosts.hostId,
+        displayName: users.displayName,
+        email: users.email,
+        type: hosts.type,
+        status: hosts.status,
+        assignedAt: agencyHosts.assignedAt,
+        createdAt: hosts.createdAt,
+      })
+      .from(agencyHosts)
+      .innerJoin(users, eq(users.id, agencyHosts.userId))
+      .leftJoin(hosts, eq(hosts.userId, agencyHosts.userId))
+      .where(eq(agencyHosts.agencyId, agencyId))
+      .orderBy(desc(agencyHosts.assignedAt))
+      .limit(limit + 1)
+      .offset(offset);
+
+    const hasMore = results.length > limit;
+    return {
+      items: hasMore ? results.slice(0, limit) : results,
+      nextCursor: hasMore ? encodeCursor(offset + limit) : null,
+    };
   }
 
   async approveAgencyApplication(applicationId: string, adminId: string) {
-    const result = await this.agencyService.approveAgencyApplication(applicationId, adminId);
-    await this.logAction(adminId, "agency_application_approve", { applicationId, agencyId: result.agency.id });
-    return result;
+    // Try formal agencyApplications first, fallback to agencies table
+    const [formalApp] = await db.select({ id: agencyApplications.id }).from(agencyApplications).where(eq(agencyApplications.id, applicationId)).limit(1);
+    if (formalApp) {
+      const result = await this.agencyService.approveAgencyApplication(applicationId, adminId);
+      await this.logAction(adminId, "agency_application_approve", { applicationId, agencyId: result.agency.id });
+      return result;
+    }
+    // Fallback: applicationId is actually an agency ID from registerAgency flow
+    await this.approveAgency(applicationId, adminId);
+    return { agency: { id: applicationId }, status: "APPROVED" };
   }
 
   async rejectAgencyApplication(applicationId: string, adminId: string, notes?: string) {
-    const result = await this.agencyService.rejectAgencyApplication(applicationId, adminId, notes);
+    const [formalApp] = await db.select({ id: agencyApplications.id }).from(agencyApplications).where(eq(agencyApplications.id, applicationId)).limit(1);
+    if (formalApp) {
+      const result = await this.agencyService.rejectAgencyApplication(applicationId, adminId, notes);
+      await this.logAction(adminId, "agency_application_reject", { applicationId });
+      return result;
+    }
+    // Fallback: reject agency directly
+    await db.update(agencies).set({ status: "REJECTED" as any, approvalStatus: "REJECTED" as any, updatedAt: new Date() }).where(eq(agencies.id, applicationId));
     await this.logAction(adminId, "agency_application_reject", { applicationId });
-    return result;
+    return { status: "REJECTED" };
   }
 
   async listAgencyCommissionRecords(cursor?: string, limit = 20) {
@@ -1513,6 +1737,309 @@ export class AdminService {
       activeGroupAudioRooms: Number(activeGroupAudio[0]?.count ?? 0),
       activePartyRooms: Number(activeParty[0]?.count ?? 0),
     };
+  }
+
+  // ─── Coin Package Management ───
+  async listCoinPackages() {
+    return db.select().from(coinPackages).orderBy(asc(coinPackages.displayOrder));
+  }
+
+  async createCoinPackage(
+    data: {
+      name: string;
+      coinAmount: number;
+      bonusCoins?: number;
+      priceUsd: number;
+      currency?: string;
+      appleProductId?: string;
+      googleProductId?: string;
+      isActive?: boolean;
+      isFeatured?: boolean;
+      displayOrder?: number;
+      regionScope?: unknown;
+      startAt?: Date;
+      endAt?: Date;
+    },
+    adminId: string,
+  ) {
+    const [created] = await db.insert(coinPackages).values({
+      name: data.name,
+      coinAmount: data.coinAmount,
+      bonusCoins: data.bonusCoins ?? 0,
+      priceUsd: String(data.priceUsd),
+      currency: data.currency ?? "USD",
+      appleProductId: data.appleProductId ?? null,
+      googleProductId: data.googleProductId ?? null,
+      isActive: data.isActive ?? true,
+      isFeatured: data.isFeatured ?? false,
+      displayOrder: data.displayOrder ?? 0,
+      regionScope: data.regionScope ?? null,
+      startAt: data.startAt ?? null,
+      endAt: data.endAt ?? null,
+      createdByAdminId: adminId,
+    } as any).returning();
+    if (!created) throw new Error("Failed to create coin package");
+    await this.logAction(adminId, "coin_package_create", { packageId: created.id });
+    return created;
+  }
+
+  async updateCoinPackage(packageId: string, data: Record<string, any>, adminId: string) {
+    const [updated] = await db.update(coinPackages).set({ ...data, updatedAt: new Date() }).where(eq(coinPackages.id, packageId)).returning();
+    await this.logAction(adminId, "coin_package_update", { packageId });
+    return updated;
+  }
+
+  async deleteCoinPackage(packageId: string, adminId: string) {
+    const [updated] = await db.update(coinPackages).set({ isActive: false, updatedAt: new Date() }).where(eq(coinPackages.id, packageId)).returning();
+    await this.logAction(adminId, "coin_package_delete", { packageId });
+    return updated;
+  }
+
+  // ─── Host Request Management ───
+  async listHostRequests(status?: string, cursor?: string, limit = 20) {
+    const offset = cursor ? decodeCursor(cursor) : 0;
+    const conditions: any[] = [];
+    if (status) conditions.push(eq(hostApplications.status, status as any));
+
+    const results = await db
+      .select({
+        id: hostApplications.id,
+        userId: hostApplications.userId,
+        agencyId: hostApplications.agencyId,
+        applicationType: hostApplications.applicationType,
+        status: hostApplications.status,
+        agencyCodeSnapshot: hostApplications.agencyCodeSnapshot,
+        talentDetailsJson: hostApplications.talentDetailsJson,
+        profileInfoJson: hostApplications.profileInfoJson,
+        idProofUrlsJson: hostApplications.idProofUrlsJson,
+        reviewNotes: hostApplications.reviewNotes,
+        submittedAt: hostApplications.submittedAt,
+        reviewedAt: hostApplications.reviewedAt,
+        displayName: users.displayName,
+        email: users.email,
+        avatarUrl: users.avatarUrl,
+        agencyName: agencies.agencyName,
+      })
+      .from(hostApplications)
+      .innerJoin(users, eq(users.id, hostApplications.userId))
+      .leftJoin(agencies, eq(agencies.id, hostApplications.agencyId))
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(desc(hostApplications.submittedAt))
+      .limit(limit + 1)
+      .offset(offset);
+
+    const hasMore = results.length > limit;
+    return { items: hasMore ? results.slice(0, limit) : results, nextCursor: hasMore ? encodeCursor(offset + limit) : null };
+  }
+
+  async getHostRequestDetail(applicationId: string) {
+    const [app] = await db
+      .select({
+        id: hostApplications.id,
+        userId: hostApplications.userId,
+        agencyId: hostApplications.agencyId,
+        applicationType: hostApplications.applicationType,
+        status: hostApplications.status,
+        agencyCodeSnapshot: hostApplications.agencyCodeSnapshot,
+        talentDetailsJson: hostApplications.talentDetailsJson,
+        profileInfoJson: hostApplications.profileInfoJson,
+        idProofUrlsJson: hostApplications.idProofUrlsJson,
+        reviewNotes: hostApplications.reviewNotes,
+        submittedAt: hostApplications.submittedAt,
+        reviewedAt: hostApplications.reviewedAt,
+        displayName: users.displayName,
+        email: users.email,
+        avatarUrl: users.avatarUrl,
+      })
+      .from(hostApplications)
+      .innerJoin(users, eq(users.id, hostApplications.userId))
+      .where(eq(hostApplications.id, applicationId))
+      .limit(1);
+    return app ?? null;
+  }
+
+  // ─── Commission Management ───
+  async getCommissionOverview() {
+    const [totalCommission] = await db
+      .select({ total: sum(agencyCommissionRecords.commissionAmountUsd), count: count() })
+      .from(agencyCommissionRecords);
+
+    const [totalGross] = await db
+      .select({ total: sum(agencyCommissionRecords.grossRevenueUsd) })
+      .from(agencyCommissionRecords);
+
+    const [pendingSettlement] = await db
+      .select({ total: sum(agencyCommissionRecords.commissionAmountUsd), count: count() })
+      .from(agencyCommissionRecords)
+      .where(eq(agencyCommissionRecords.status, "PENDING" as any));
+
+    const agencyBreakdown = await db
+      .select({
+        agencyId: agencyCommissionRecords.agencyId,
+        agencyName: agencies.agencyName,
+        totalCommission: sum(agencyCommissionRecords.commissionAmountUsd),
+        totalGross: sum(agencyCommissionRecords.grossRevenueUsd),
+        recordCount: count(),
+      })
+      .from(agencyCommissionRecords)
+      .innerJoin(agencies, eq(agencies.id, agencyCommissionRecords.agencyId))
+      .groupBy(agencyCommissionRecords.agencyId, agencies.agencyName)
+      .orderBy(desc(sum(agencyCommissionRecords.commissionAmountUsd)))
+      .limit(50);
+
+    return {
+      totalCommissionUsd: Number(totalCommission?.total ?? 0),
+      totalGrossUsd: Number(totalGross?.total ?? 0),
+      totalRecords: Number(totalCommission?.count ?? 0),
+      pendingSettlementUsd: Number(pendingSettlement?.total ?? 0),
+      pendingSettlementCount: Number(pendingSettlement?.count ?? 0),
+      agencyBreakdown,
+    };
+  }
+
+  async updateCommissionSetting(namespace: string, commissionPercent: number, adminId: string) {
+    return this.upsertSystemSetting({
+      namespace: "economy",
+      key: namespace,
+      value: { commissionPercent },
+      changeReason: `Commission updated to ${commissionPercent}%`,
+    }, adminId);
+  }
+
+  // ─── Daily Check-In Management ───
+  async getDailyCheckinConfig() {
+    const settings = await db
+      .select()
+      .from(systemSettings)
+      .where(and(
+        eq(systemSettings.namespace, "daily_checkin"),
+        eq(systemSettings.status, "PUBLISHED" as any),
+      ))
+      .orderBy(asc(systemSettings.key), desc(systemSettings.version));
+
+    const [streakStats] = await db
+      .select({
+        totalUsers: count(),
+        maxStreak: sql<number>`max(${loginStreaks.currentStreakDays})`,
+        avgStreak: sql<number>`avg(${loginStreaks.currentStreakDays})::int`,
+      })
+      .from(loginStreaks);
+
+    return {
+      settings,
+      stats: {
+        totalUsersWithStreak: Number(streakStats?.totalUsers ?? 0),
+        maxStreak: Number(streakStats?.maxStreak ?? 0),
+        avgStreak: Number(streakStats?.avgStreak ?? 0),
+      },
+    };
+  }
+
+  async upsertDailyCheckinReward(
+    day: number,
+    rewardType: string,
+    rewardValue: number,
+    adminId: string,
+  ) {
+    return this.upsertSystemSetting({
+      namespace: "daily_checkin",
+      key: `day_${day}_reward`,
+      value: { day, rewardType, rewardValue },
+      changeReason: `Set day ${day} reward: ${rewardValue} ${rewardType}`,
+    }, adminId);
+  }
+
+  // ─── Enhanced Dashboard Stats ───
+  async getDashboardStatsFull() {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const [
+      totalUsersRow,
+      blockedUsersRow,
+      vipUsersRow,
+      totalAgenciesRow,
+      totalHostsRow,
+      pendingHostsRow,
+      totalImpressionsRow,
+      liveHostsRow,
+      totalRevenueRow,
+      coinsSoldRow,
+      commissionEarnedRow,
+      hostEarningsRow,
+      hostPayoutsCompleteRow,
+      pendingPayoutsRow,
+    ] = await Promise.all([
+      db.select({ count: count() }).from(users),
+      db.select({ count: count() }).from(users).where(eq(users.status, "BANNED" as any)),
+      db.select({ count: count() }).from(vipSubscriptions).where(eq(vipSubscriptions.status, "ACTIVE" as any)),
+      db.select({ count: count() }).from(agencies).where(eq(agencies.approvalStatus, "APPROVED" as any)),
+      db.select({ count: count() }).from(hosts).where(eq(hosts.status, "APPROVED" as any)),
+      db.select({ count: count() }).from(hostApplications).where(eq(hostApplications.status, "PENDING" as any)),
+      db.select({ total: sum(giftTransactions.coinCost) }).from(giftTransactions),
+      db.select({ count: count() }).from(liveRooms).where(eq(liveRooms.status, "LIVE" as any)),
+      db.select({ total: sum(payments.amountUsd) }).from(payments).where(eq(payments.status, "COMPLETED" as any)),
+      db.select({ total: sum(coinTransactions.amount) }).from(coinTransactions).where(eq(coinTransactions.transactionType, "PURCHASE" as any)),
+      db.select({ total: sum(agencyCommissionRecords.commissionAmountUsd) }).from(agencyCommissionRecords),
+      db.select({ total: sum(diamondTransactions.amount) }).from(diamondTransactions).where(eq(diamondTransactions.transactionType, "GIFT_CREDIT" as any)),
+      db.select({ total: sum(withdrawRequests.totalPayoutAmount), count: count() }).from(withdrawRequests).where(eq(withdrawRequests.status, "COMPLETED" as any)),
+      db.select({ total: sum(withdrawRequests.totalPayoutAmount), count: count() }).from(withdrawRequests).where(eq(withdrawRequests.status, "PENDING" as any)),
+    ]);
+
+    return {
+      totalUsers: Number(totalUsersRow[0]?.count ?? 0),
+      totalBlockedUsers: Number(blockedUsersRow[0]?.count ?? 0),
+      totalVipUsers: Number(vipUsersRow[0]?.count ?? 0),
+      totalAgencies: Number(totalAgenciesRow[0]?.count ?? 0),
+      totalHosts: Number(totalHostsRow[0]?.count ?? 0),
+      pendingHosts: Number(pendingHostsRow[0]?.count ?? 0),
+      totalImpressions: Number(totalImpressionsRow[0]?.total ?? 0),
+      currentLiveHosts: Number(liveHostsRow[0]?.count ?? 0),
+      totalRevenue: Number(totalRevenueRow[0]?.total ?? 0),
+      coinsSold: Number(coinsSoldRow[0]?.total ?? 0),
+      adminCommissionEarned: Number(commissionEarnedRow[0]?.total ?? 0),
+      hostEarningsGenerated: Number(hostEarningsRow[0]?.total ?? 0),
+      hostPayoutsComplete: Number(hostPayoutsCompleteRow[0]?.total ?? 0),
+      hostPayoutsCompleteCount: Number(hostPayoutsCompleteRow[0]?.count ?? 0),
+      pendingPayoutLiability: Number(pendingPayoutsRow[0]?.total ?? 0),
+      pendingPayoutCount: Number(pendingPayoutsRow[0]?.count ?? 0),
+    };
+  }
+
+  // ─── Sub-Admin Management ───
+  async listSubAdmins(cursor?: string, limit = 20) {
+    const where = cursor ? and(gt(admins.createdAt, new Date(cursor))) : undefined;
+    const rows = await db
+      .select()
+      .from(admins)
+      .where(where)
+      .orderBy(desc(admins.createdAt))
+      .limit(limit);
+    return rows;
+  }
+
+  async createSubAdmin(data: { userId: string; adminName: string; email?: string }, actorAdminId: string) {
+    const [row] = await db.insert(admins).values({
+      userId: data.userId,
+      adminName: data.adminName,
+      email: data.email ?? null,
+      isActive: true,
+      mfaEnabled: false,
+    }).returning();
+    await this.logAction(actorAdminId, "SUB_ADMIN_CREATE", { adminId: row!.id, adminName: data.adminName });
+    return row!;
+  }
+
+  async updateSubAdmin(adminId: string, data: { isActive?: boolean; adminName?: string; mfaEnabled?: boolean }, actorAdminId: string) {
+    const [row] = await db.update(admins).set({ ...data, updatedAt: new Date() }).where(eq(admins.id, adminId)).returning();
+    await this.logAction(actorAdminId, "SUB_ADMIN_UPDATE", { adminId, ...data });
+    return row;
+  }
+
+  async deleteSubAdmin(adminId: string, actorAdminId: string) {
+    const [row] = await db.update(admins).set({ deletedAt: new Date(), isActive: false, updatedAt: new Date() }).where(eq(admins.id, adminId)).returning();
+    await this.logAction(actorAdminId, "SUB_ADMIN_DELETE", { adminId });
+    return row;
   }
 
   private async resolveAdminActorId(adminId: string) {

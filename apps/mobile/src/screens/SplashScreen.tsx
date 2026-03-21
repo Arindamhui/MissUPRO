@@ -1,4 +1,3 @@
-import { useAuth } from "@clerk/clerk-expo";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
@@ -10,8 +9,8 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { useAuthStore } from "@/store";
 
 export default function SplashScreen() {
-  const { isLoaded, isSignedIn } = useAuth();
   const authMode = useAuthStore((s) => s.authMode);
+  const isHydrated = useAuthStore((s) => s.isHydrated);
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(14)).current;
 
@@ -24,7 +23,7 @@ export default function SplashScreen() {
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      if (isSignedIn || authMode === "guest") {
+      if (authMode === "authenticated" || authMode === "guest") {
         router.replace("/(tabs)");
         return;
       }
@@ -32,7 +31,7 @@ export default function SplashScreen() {
     }, 2400);
 
     return () => clearTimeout(timeout);
-  }, [authMode, isSignedIn]);
+  }, [authMode]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -49,7 +48,7 @@ export default function SplashScreen() {
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}>
         <Animated.View style={{ alignItems: "center", opacity, transform: [{ translateY }] }}>
           <BrandLogo size={152} />
-          {!isLoaded ? (
+          {!isHydrated ? (
             <View style={{ marginTop: 18 }}>
               <ActivityIndicator color="#FFFFFF" size="small" />
             </View>

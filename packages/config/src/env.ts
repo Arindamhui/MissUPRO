@@ -18,14 +18,16 @@ const envSchema = z.object({
   // Redis
   REDIS_URL: z.string().default("redis://127.0.0.1:6379"),
 
-  // Clerk Auth
-  CLERK_SECRET_KEY: z.string().default(""),
-  CLERK_PUBLISHABLE_KEY: z.string().default(""),
-  CLERK_WEBHOOK_SECRET: z.string().default(""),
-
-  // JWT (internal service-to-service)
+  // Auth
   JWT_SECRET: z.string().default("dev-jwt-secret-change-in-production-min32chars"),
   JWT_REFRESH_SECRET: z.string().default("dev-refresh-secret-change-in-production32"),
+  JWT_ISSUER: z.string().default("missu-pro"),
+  JWT_AUDIENCE: z.string().default("missu-pro-clients"),
+  ACCESS_TOKEN_TTL_MINUTES: z.coerce.number().default(15),
+  REFRESH_TOKEN_TTL_DAYS: z.coerce.number().default(7),
+  COOKIE_DOMAIN: z.string().default(""),
+  GOOGLE_CLIENT_IDS: z.string().default(""),
+  GOOGLE_CLIENT_ID: z.string().default(""),
 
   // Stripe
   STRIPE_SECRET_KEY: z.string().default(""),
@@ -51,6 +53,11 @@ const envSchema = z.object({
   R2_BUCKET_NAME: z.string().default(""),
   R2_PUBLIC_URL: z.string().default("https://placeholder.r2.dev"),
   R2_ENDPOINT: z.string().default(""),
+
+  DEFAULT_AGENCY_PUBLIC_ID: z.string().default(""),
+  API_BASE_URL: z.string().default("http://localhost:3000"),
+  BULLMQ_PREFIX: z.string().default("missu-pro"),
+  BULLMQ_QUEUE_NAME: z.string().default("missu-domain-events"),
 
   // Sentry
   SENTRY_DSN: z.string().optional(),

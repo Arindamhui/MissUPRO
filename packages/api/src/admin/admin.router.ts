@@ -22,8 +22,13 @@ export class AdminRouter {
 
       // Users
       listUsers: this.trpc.adminProcedure
-        .input(z.object({ cursor: z.string().optional(), limit: z.number().int().min(1).max(100).default(20), search: z.string().optional() }))
-        .query(async ({ input }) => this.adminService.listUsers(input.cursor, input.limit, input.search)),
+        .input(z.object({
+          cursor: z.string().optional(),
+          limit: z.number().int().min(1).max(100).default(20),
+          search: z.string().optional(),
+          authProvider: z.enum(["EMAIL", "GOOGLE", "FACEBOOK", "PHONE_OTP", "WHATSAPP_OTP", "CUSTOM_OTP", "UNKNOWN"]).optional(),
+        }))
+        .query(async ({ input }) => this.adminService.listUsers(input.cursor, input.limit, input.search, input.authProvider)),
 
       getUserDetail: this.trpc.adminProcedure
         .input(z.object({ userId: z.string().uuid() }))
@@ -36,6 +41,24 @@ export class AdminRouter {
       updateUserRole: this.trpc.adminProcedure
         .input(z.object({ userId: z.string().uuid(), role: z.string() }))
         .mutation(async ({ ctx, input }) => this.adminService.updateUserRole(input.userId, input.role, ctx.userId)),
+
+      adjustUserWallet: this.trpc.adminProcedure
+        .input(z.object({ userId: z.string().uuid(), coinDelta: z.number().int().default(0), diamondDelta: z.number().int().default(0), description: z.string().max(300).optional() }))
+        .mutation(async ({ ctx, input }) => this.adminService.adjustUserWallet(input.userId, ctx.userId, input.coinDelta, input.diamondDelta, input.description)),
+
+      grantUserVip: this.trpc.adminProcedure
+        .input(z.object({ userId: z.string().uuid(), tierCode: z.string().min(1).max(32), durationDays: z.number().int().positive().optional() }))
+        .mutation(async ({ ctx, input }) => this.adminService.grantUserVip(input.userId, ctx.userId, input.tierCode, input.durationDays)),
+
+      listWalletTransactions: this.trpc.adminProcedure
+        .input(z.object({
+          cursor: z.string().optional(),
+          limit: z.number().int().min(1).max(100).default(20),
+          userId: z.string().uuid().optional(),
+          ledger: z.enum(["COIN", "DIAMOND", "ALL"]).default("ALL"),
+          transactionType: z.string().optional(),
+        }).optional())
+        .query(async ({ input }) => this.adminService.listWalletTransactions(input)),
 
       // Model Applications
       listModelApplications: this.trpc.adminProcedure
@@ -180,7 +203,43 @@ export class AdminRouter {
         .input(z.object({ giftId: z.string().uuid(), data: z.record(z.string(), z.any()) }))
         .mutation(async ({ ctx, input }) => this.adminService.updateGift(input.giftId, input.data, ctx.userId)),
 
+      deleteGift: this.trpc.adminProcedure
+        .input(z.object({ giftId: z.string().uuid() }))
+        .mutation(async ({ ctx, input }) => this.adminService.deleteGift(input.giftId, ctx.userId)),
+
       // VIP
+      listVipPackages: this.trpc.adminProcedure
+        .query(async () => this.adminService.listVipPackages()),
+
+      createVipPackage: this.trpc.adminProcedure
+        .input(z.object({
+          tierCode: z.string().max(32).optional(),
+          name: z.string().min(2).max(120),
+          price: z.number().min(0),
+          coinPrice: z.number().int().min(0),
+          durationDays: z.number().int().positive(),
+          benefits: z.record(z.string(), z.unknown()).default({}),
+          isActive: z.boolean().optional(),
+          displayOrder: z.number().int().optional(),
+        }))
+        .mutation(async ({ ctx, input }) => this.adminService.createVipPackage(input, ctx.userId)),
+
+      updateVipPackage: this.trpc.adminProcedure
+        .input(z.object({
+          packageId: z.string().uuid(),
+          data: z.object({
+            tierCode: z.string().max(32).optional(),
+            name: z.string().min(2).max(120).optional(),
+            price: z.number().min(0).optional(),
+            coinPrice: z.number().int().min(0).optional(),
+            durationDays: z.number().int().positive().optional(),
+            benefits: z.record(z.string(), z.unknown()).optional(),
+            isActive: z.boolean().optional(),
+            displayOrder: z.number().int().optional(),
+          }),
+        }))
+        .mutation(async ({ ctx, input }) => this.adminService.updateVipPackage(input.packageId, input.data, ctx.userId)),
+
       listVipSubscriptions: this.trpc.adminProcedure
         .input(z.object({ cursor: z.string().optional(), limit: z.number().int().min(1).max(100).default(20) }))
         .query(async ({ input }) => this.adminService.listVipSubscriptions(input.cursor, input.limit)),
@@ -250,6 +309,10 @@ export class AdminRouter {
       listAgencies: this.trpc.adminProcedure
         .input(z.object({ cursor: z.string().optional(), limit: z.number().int().min(1).max(100).default(20) }))
         .query(async ({ input }) => this.adminService.listAgencies(input.cursor, input.limit)),
+
+      listAgencyHosts: this.trpc.adminProcedure
+        .input(z.object({ agencyId: z.string().uuid(), cursor: z.string().optional(), limit: z.number().int().min(1).max(100).default(20) }))
+        .query(async ({ input }) => this.adminService.listAgencyHosts(input.agencyId, input.cursor, input.limit)),
 
       approveAgency: this.trpc.adminProcedure
         .input(z.object({ agencyId: z.string().uuid() }))
@@ -504,6 +567,99 @@ export class AdminRouter {
       getAuditLog: this.trpc.adminProcedure
         .input(z.object({ cursor: z.string().optional(), limit: z.number().int().min(1).max(100).default(50) }))
         .query(async ({ input }) => this.adminService.getAuditLog(input.cursor, input.limit)),
+
+      // Enhanced Dashboard
+      getDashboardStatsFull: this.trpc.adminProcedure
+        .query(async () => this.adminService.getDashboardStatsFull()),
+
+      // Coin Packages
+      listCoinPackages: this.trpc.adminProcedure
+        .query(async () => this.adminService.listCoinPackages()),
+
+      createCoinPackage: this.trpc.adminProcedure
+        .input(z.object({
+          name: z.string().min(2).max(120),
+          coinAmount: z.number().int().min(1),
+          bonusCoins: z.number().int().min(0).default(0),
+          priceUsd: z.number().positive(),
+          currency: z.string().max(3).default("USD"),
+          appleProductId: z.string().max(120).optional(),
+          googleProductId: z.string().max(120).optional(),
+          isActive: z.boolean().default(true),
+          isFeatured: z.boolean().default(false),
+          displayOrder: z.number().int().default(0),
+          regionScope: z.any().optional(),
+          startAt: z.coerce.date().optional(),
+          endAt: z.coerce.date().optional(),
+        }))
+        .mutation(async ({ ctx, input }) => this.adminService.createCoinPackage(input, ctx.userId)),
+
+      updateCoinPackage: this.trpc.adminProcedure
+        .input(z.object({ packageId: z.string().uuid(), data: z.record(z.string(), z.any()) }))
+        .mutation(async ({ ctx, input }) => this.adminService.updateCoinPackage(input.packageId, input.data, ctx.userId)),
+
+      deleteCoinPackage: this.trpc.adminProcedure
+        .input(z.object({ packageId: z.string().uuid() }))
+        .mutation(async ({ ctx, input }) => this.adminService.deleteCoinPackage(input.packageId, ctx.userId)),
+
+      // Host Requests
+      listHostRequests: this.trpc.adminProcedure
+        .input(z.object({
+          status: z.enum(["PENDING", "APPROVED", "REJECTED"]).optional(),
+          cursor: z.string().optional(),
+          limit: z.number().int().min(1).max(100).default(20),
+        }).optional())
+        .query(async ({ input }) => this.adminService.listHostRequests(input?.status, input?.cursor, input?.limit ?? 20)),
+
+      getHostRequestDetail: this.trpc.adminProcedure
+        .input(z.object({ applicationId: z.string().uuid() }))
+        .query(async ({ input }) => this.adminService.getHostRequestDetail(input.applicationId)),
+
+      // Commission
+      getCommissionOverview: this.trpc.adminProcedure
+        .query(async () => this.adminService.getCommissionOverview()),
+
+      updateCommissionSetting: this.trpc.adminProcedure
+        .input(z.object({ namespace: z.string().min(1), commissionPercent: z.number().min(0).max(100) }))
+        .mutation(async ({ ctx, input }) => this.adminService.updateCommissionSetting(input.namespace, input.commissionPercent, ctx.userId)),
+
+      // Daily Check-In
+      getDailyCheckinConfig: this.trpc.adminProcedure
+        .query(async () => this.adminService.getDailyCheckinConfig()),
+
+      upsertDailyCheckinReward: this.trpc.adminProcedure
+        .input(z.object({
+          day: z.number().int().min(1).max(30),
+          rewardType: z.enum(["COINS", "DIAMONDS", "VIP_DAYS", "BADGE"]),
+          rewardValue: z.number().int().min(1),
+        }))
+        .mutation(async ({ ctx, input }) => this.adminService.upsertDailyCheckinReward(input.day, input.rewardType, input.rewardValue, ctx.userId)),
+
+      // Sub-Admin Management
+      listSubAdmins: this.trpc.adminProcedure
+        .input(z.object({ cursor: z.string().optional(), limit: z.number().int().min(1).max(100).default(20) }).optional())
+        .query(async ({ input }) => this.adminService.listSubAdmins(input?.cursor, input?.limit ?? 20)),
+
+      createSubAdmin: this.trpc.adminProcedure
+        .input(z.object({
+          userId: z.string().uuid(),
+          adminName: z.string().min(2).max(100),
+          email: z.string().email().optional(),
+        }))
+        .mutation(async ({ ctx, input }) => this.adminService.createSubAdmin(input, ctx.userId)),
+
+      updateSubAdmin: this.trpc.adminProcedure
+        .input(z.object({
+          adminId: z.string().uuid(),
+          isActive: z.boolean().optional(),
+          adminName: z.string().min(2).max(100).optional(),
+          mfaEnabled: z.boolean().optional(),
+        }))
+        .mutation(async ({ ctx, input }) => this.adminService.updateSubAdmin(input.adminId, { isActive: input.isActive, adminName: input.adminName, mfaEnabled: input.mfaEnabled }, ctx.userId)),
+
+      deleteSubAdmin: this.trpc.adminProcedure
+        .input(z.object({ adminId: z.string().uuid() }))
+        .mutation(async ({ ctx, input }) => this.adminService.deleteSubAdmin(input.adminId, ctx.userId)),
     });
   }
 }

@@ -6,15 +6,88 @@ import {
   Headers,
   Post,
   Query,
+  Req,
   UnauthorizedException,
 } from "@nestjs/common";
+import type { Request } from "express";
 import { ZodError } from "zod";
 import { AuthService } from "./auth.service";
-import { agencyModelLoginSchema, completeAgencySignupSchema, completeMobileOnboardingSchema, mobilePanelSchema, sessionIntentSchema } from "./auth.schemas";
+import {
+  agencyModelLoginSchema,
+  completeAgencySignupSchema,
+  completeMobileOnboardingSchema,
+  emailLoginSchema,
+  emailSignupSchema,
+  googleAuthSchema,
+  mobilePanelSchema,
+  sessionIntentSchema,
+} from "./auth.schemas";
 
 @Controller("auth")
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Post("signup")
+  async signUp(
+    @Body() body: unknown,
+    @Req() req: Request,
+  ) {
+    try {
+      const input = emailSignupSchema.parse(body);
+      return await this.authService.signUpWithEmail(input, this.getRequestIp(req), String(req.headers["user-agent"] ?? ""));
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException(error.flatten());
+      }
+      throw new BadRequestException(error instanceof Error ? error.message : "Unable to create account");
+    }
+  }
+
+  @Post("login")
+  async login(
+    @Body() body: unknown,
+    @Req() req: Request,
+  ) {
+    try {
+      const input = emailLoginSchema.parse(body);
+      return await this.authService.signInWithEmail(input, this.getRequestIp(req), String(req.headers["user-agent"] ?? ""));
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException(error.flatten());
+      }
+      throw new UnauthorizedException(error instanceof Error ? error.message : "Invalid login");
+    }
+  }
+
+  @Post("google")
+  async googleAuth(
+    @Body() body: unknown,
+    @Req() req: Request,
+  ) {
+    try {
+      const input = googleAuthSchema.parse(body);
+      return await this.authService.signInWithGoogle(input, this.getRequestIp(req), String(req.headers["user-agent"] ?? ""));
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException(error.flatten());
+      }
+      throw new UnauthorizedException(error instanceof Error ? error.message : "Google sign-in failed");
+    }
+  }
+
+  @Post("logout")
+  async logout(@Headers("authorization") authorization: string | undefined) {
+    const token = this.authService.extractBearerToken(authorization);
+    if (!token) {
+      throw new UnauthorizedException("Missing bearer token");
+    }
+
+    try {
+      return await this.authService.logoutFromToken(token);
+    } catch {
+      throw new UnauthorizedException("Invalid bearer token");
+    }
+  }
 
   @Get("session")
   async getSession(
@@ -23,7 +96,7 @@ export class AuthController {
   ) {
     const token = this.authService.extractBearerToken(authorization);
     if (!token) {
-      throw new UnauthorizedException("Missing Clerk bearer token");
+      throw new UnauthorizedException("Missing bearer token");
     }
 
     try {
@@ -33,7 +106,7 @@ export class AuthController {
       if (error instanceof ZodError) {
         throw new BadRequestException(error.flatten());
       }
-      throw new UnauthorizedException("Invalid Clerk bearer token");
+      throw new UnauthorizedException(error instanceof Error ? error.message : "Invalid bearer token");
     }
   }
 
@@ -44,7 +117,7 @@ export class AuthController {
   ) {
     const token = this.authService.extractBearerToken(authorization);
     if (!token) {
-      throw new UnauthorizedException("Missing Clerk bearer token");
+      throw new UnauthorizedException("Missing bearer token");
     }
 
     try {
@@ -54,7 +127,7 @@ export class AuthController {
       if (error instanceof ZodError) {
         throw new BadRequestException(error.flatten());
       }
-      throw new UnauthorizedException("Invalid Clerk bearer token");
+      throw new UnauthorizedException(error instanceof Error ? error.message : "Invalid bearer token");
     }
   }
 
@@ -66,7 +139,7 @@ export class AuthController {
   ) {
     const token = this.authService.extractBearerToken(authorization);
     if (!token) {
-      throw new UnauthorizedException("Missing Clerk bearer token");
+      throw new UnauthorizedException("Missing bearer token");
     }
 
     try {
@@ -76,7 +149,7 @@ export class AuthController {
       if (error instanceof ZodError) {
         throw new BadRequestException(error.flatten());
       }
-      throw new UnauthorizedException("Invalid Clerk bearer token");
+      throw new UnauthorizedException("Invalid bearer token");
     }
   }
 
@@ -87,7 +160,7 @@ export class AuthController {
   ) {
     const token = this.authService.extractBearerToken(authorization);
     if (!token) {
-      throw new UnauthorizedException("Missing Clerk bearer token");
+      throw new UnauthorizedException("Missing bearer token");
     }
 
     try {
@@ -97,7 +170,7 @@ export class AuthController {
       if (error instanceof ZodError) {
         throw new BadRequestException(error.flatten());
       }
-      throw new UnauthorizedException("Invalid Clerk bearer token");
+      throw new UnauthorizedException("Invalid bearer token");
     }
   }
 
@@ -109,7 +182,7 @@ export class AuthController {
   ) {
     const token = this.authService.extractBearerToken(authorization);
     if (!token) {
-      throw new UnauthorizedException("Missing Clerk bearer token");
+      throw new UnauthorizedException("Missing bearer token");
     }
 
     try {
@@ -119,7 +192,11 @@ export class AuthController {
       if (error instanceof ZodError) {
         throw new BadRequestException(error.flatten());
       }
-      throw new UnauthorizedException("Invalid Clerk bearer token");
+      throw new UnauthorizedException("Invalid bearer token");
     }
+  }
+
+  private getRequestIp(req: Request) {
+    return String(req.headers["x-forwarded-for"] ?? req.ip ?? "unknown").split(",")[0]?.trim() || "unknown";
   }
 }

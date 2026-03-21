@@ -1,4 +1,3 @@
-import { useClerk } from "@clerk/clerk-expo";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
@@ -10,6 +9,7 @@ import { AnimatedSnow } from "@/components/AnimatedSnow";
 import { BackgroundCollage } from "@/components/BackgroundCollage";
 import { Button } from "@/components/ui";
 import { useI18n } from "@/i18n";
+import { signOutMobileSession } from "@/lib/auth-session";
 import { COLORS, SPACING } from "@/theme";
 import { trpc } from "@/lib/trpc";
 import { useAuthStore } from "@/store";
@@ -30,9 +30,7 @@ function SettingsRow({ label, value, highlight, onPress }: { label: string; valu
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useI18n();
-  const { signOut } = useClerk();
   const authMode = useAuthStore((state) => state.authMode);
-  const clearAuth = useAuthStore((state) => state.clearAuth);
   const isAuthenticated = authMode === "authenticated";
   const compliance = trpc.compliance;
   const dataExports = compliance.listMyDataExports.useQuery(undefined, { retry: false, enabled: isAuthenticated });
@@ -42,11 +40,10 @@ export default function SettingsScreen() {
   const [deleteReason, setDeleteReason] = useState("");
 
   const deleteAccount = compliance.deleteMyAccount.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
       setDeleteModalVisible(false);
       setDeleteReason("");
-      clearAuth();
-      void signOut().catch(() => undefined);
+      await signOutMobileSession();
       Alert.alert("Account deleted", "Your account has been deleted.", [
         { text: "OK", onPress: () => router.replace("/(auth)/login") },
       ]);
@@ -158,7 +155,7 @@ export default function SettingsScreen() {
           </View>
         </Modal>
 
-        <TouchableOpacity onPress={() => { void signOut().then(() => router.replace("/(auth)/login")); }} style={{ marginTop: 28, alignItems: "center", paddingVertical: 16, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.08)" }}>
+        <TouchableOpacity onPress={() => { void signOutMobileSession().then(() => router.replace("/(auth)/login")); }} style={{ marginTop: 28, alignItems: "center", paddingVertical: 16, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.08)" }}>
           <Text style={{ color: COLORS.white, fontSize: 18, fontWeight: "500" }}>Log Out</Text>
         </TouchableOpacity>
       </ScrollView>

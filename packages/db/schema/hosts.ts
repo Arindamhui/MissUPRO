@@ -35,6 +35,7 @@ export const hostApplications = pgTable("host_applications", {
 export const hosts = pgTable("hosts", {
   id: uuid("id").primaryKey().defaultRandom(),
   hostId: text("host_id").notNull(),
+  publicId: text("public_id"),
   userId: uuid("user_id").notNull().references(() => users.id),
   agencyId: uuid("agency_id").references(() => agencies.id),
   type: hostTypeEnum("type").notNull(),
@@ -51,9 +52,11 @@ export const hosts = pgTable("hosts", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   uniqueIndex("hosts_host_id_idx").on(t.hostId),
+  uniqueIndex("hosts_public_id_idx").on(t.publicId),
   uniqueIndex("hosts_user_id_idx").on(t.userId),
   index("hosts_agency_status_idx").on(t.agencyId, t.status, t.createdAt),
   index("hosts_type_status_idx").on(t.type, t.status, t.createdAt),
+  index("hosts_created_at_idx").on(t.createdAt),
 ]);
 
 export const hostApplicationsRelations = relations(hostApplications, ({ one }) => ({

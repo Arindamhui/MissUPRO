@@ -4,7 +4,7 @@ const features = [
   "Shared AG IDs for agency-based host onboarding",
   "Host approvals controlled by central admin review",
   "Roster visibility across web admin, agency web, and mobile app",
-  "Clerk authentication with role-aware panel routing",
+  "App-managed authentication with role-aware panel routing",
 ];
 
 const steps = [
@@ -31,7 +31,7 @@ export default function AgenciesLandingPage() {
               admin-controlled activation, and a consistent data model shared across mobile and web.
             </p>
             <div className="mt-10 flex flex-wrap gap-3">
-              <Link href="/signup" className="rounded-xl bg-slate-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">
+              <Link href="/agency-signup" className="rounded-xl bg-slate-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">
                 Start agency registration
               </Link>
               <Link href="/agency/missu-pro" className="rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-50">

@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { createClerkClient, verifyToken } from "@clerk/backend";
+import bcrypt from "bcryptjs";
 import { DEFAULTS, getEnv } from "@missu/config";
 import { db } from "@missu/db";
 import { admins, agencies, agencyHosts, auditLogs, authSessions, emailVerifications, models, profiles, securityEvents, users } from "@missu/db/schema";
@@ -7,11 +7,15 @@ import type { AuthProvider, PlatformRole } from "@missu/types";
 import { eq, and, gt, desc, or } from "drizzle-orm";
 import { randomBytes, createHash } from "node:crypto";
 import { normalizeEmail, isAllowedAdminEmail } from "./auth.constants";
+import { WalletService } from "../wallet/wallet.service";
 import {
   completeAgencySignupSchema,
   type AgencyModelLoginInput,
   type CompleteAgencySignupInput,
   type CompleteMobileOnboardingInput,
+  type EmailLoginInput,
+  type EmailSignupInput,
+  type GoogleAuthInput,
   type MobilePanel,
   type SessionIntent,
 } from "./auth.schemas";
@@ -24,16 +28,32 @@ type AuthenticatedUser = {
   sessionId: string | null;
 };
 
-type VerifiedClerkToken = {
-  sub?: string;
-  sid?: string;
-};
-
 type ResolvedIdentity = {
   appUser: typeof users.$inferSelect;
-  clerkUserId: string;
+  identityKey: string;
   email: string;
   sessionId: string | null;
+};
+
+type AuthMutationResult = {
+  token: string;
+  sessionId: string;
+  user: {
+    id: string;
+    email: string;
+    displayName: string;
+    platformRole: PlatformRole | null;
+    authProvider: AuthProvider;
+  };
+};
+
+type GoogleTokenInfo = {
+  aud?: string;
+  email?: string;
+  email_verified?: string;
+  name?: string;
+  picture?: string;
+  sub?: string;
 };
 
 type SessionState = {
@@ -42,7 +62,7 @@ type SessionState = {
   role: "admin" | "agency" | null;
   platformRole: PlatformRole | null;
   userId: string;
-  clerkUserId: string;
+  identityKey: string;
   email: string;
   sessionId: string | null;
   agencyId?: string;
@@ -56,7 +76,7 @@ type MobileSessionState = {
   panel: MobilePanel;
   role: PlatformRole | null;
   userId: string;
-  clerkUserId: string;
+  identityKey: string;
   email: string;
   sessionId: string | null;
   agencyId?: string;
@@ -67,7 +87,12 @@ type MobileSessionState = {
 @Injectable()
 export class AuthService {
   private readonly env = getEnv();
-  private readonly clerkClient = createClerkClient({ secretKey: this.env.CLERK_SECRET_KEY });
+
+  constructor(private readonly walletService: WalletService) {}
+
+  private loadJose(): Promise<any> {
+    return (0, eval)("import('jose')");
+  }
 
   async createSession(userId: string, ip: string, userAgent: string) {
     const refreshToken = randomBytes(48).toString("hex");
@@ -204,15 +229,92 @@ export class AuthService {
     return token.trim() || null;
   }
 
+  async signUpWithEmail(input: EmailSignupInput, ip: string, userAgent: string): Promise<AuthMutationResult> {
+    const normalizedEmail = normalizeEmail(input.email);
+    const [existingUser] = await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1);
+
+    if (existingUser) {
+      throw new Error("An account with this email already exists");
+    }
+
+    const displayName = input.displayName.trim();
+    const publicUserId = await this.generateUniquePublicUserId();
+    const referralCode = await this.generateUniqueReferralCode();
+    const username = await this.generateUniqueUsername(displayName, normalizedEmail);
+    const referredByUserId = await this.resolveReferrerId(input.referralCode);
+    const passwordHash = await bcrypt.hash(input.password, 10);
+
+    const [createdUser] = await db
+      .insert(users)
+      .values({
+        publicUserId,
+        clerkId: this.buildLegacyIdentityKey("local", normalizedEmail),
+        email: normalizedEmail,
+        emailVerified: false,
+        passwordHash,
+        displayName,
+        username,
+        platformRole: "USER",
+        authProvider: "EMAIL",
+        authMetadataJson: { authProvider: "EMAIL" },
+        country: "ZZ",
+        status: "ACTIVE" as any,
+        referralCode,
+        referredByUserId,
+        lastActiveAt: new Date(),
+      })
+      .returning();
+
+    if (!createdUser) {
+      throw new Error("Failed to create account");
+    }
+
+    await db.insert(profiles).values({ userId: createdUser.id }).onConflictDoNothing();
+    await this.walletService.getOrCreateWallet(createdUser.id);
+    return this.createAuthMutationResult(createdUser, ip, userAgent);
+  }
+
+  async signInWithEmail(input: EmailLoginInput, ip: string, userAgent: string): Promise<AuthMutationResult> {
+    const normalizedEmail = normalizeEmail(input.email);
+    const [appUser] = await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1);
+
+    if (!appUser?.passwordHash) {
+      throw new Error("Invalid email or password");
+    }
+
+    const matches = await bcrypt.compare(input.password, appUser.passwordHash);
+    if (!matches) {
+      throw new Error("Invalid email or password");
+    }
+
+    return this.createAuthMutationResult(appUser, ip, userAgent);
+  }
+
+  async signInWithGoogle(input: GoogleAuthInput, ip: string, userAgent: string): Promise<AuthMutationResult> {
+    const googleProfile = await this.verifyGoogleIdToken(input.idToken);
+    const appUser = await this.findOrCreateUserFromGoogle(googleProfile, input.displayName, input.referralCode);
+    return this.createAuthMutationResult(appUser, ip, userAgent);
+  }
+
+  async logoutFromToken(token: string) {
+    const identity = await this.resolveIdentityFromToken(token);
+    if (identity.sessionId) {
+      await this.revokeSession(identity.sessionId, identity.appUser.id);
+    }
+    return { success: true };
+  }
+
   async authenticateToken(token: string): Promise<AuthenticatedUser> {
-    const sessionState = await this.getSessionStateFromToken(token, "login");
+    const identity = await this.resolveIdentityFromToken(token);
 
     return {
-      userId: sessionState.userId,
-      authRole: sessionState.role,
-      platformRole: sessionState.platformRole,
-      isAdmin: sessionState.role === "admin",
-      sessionId: sessionState.sessionId,
+      userId: identity.appUser.id,
+      authRole: identity.appUser.authRole === "admin" || identity.appUser.authRole === "agency"
+        ? identity.appUser.authRole
+        : null,
+      platformRole: identity.appUser.platformRole as PlatformRole,
+      isAdmin: identity.appUser.platformRole === "ADMIN" || identity.appUser.authRole === "admin",
+      sessionId: identity.sessionId,
     };
   }
 
@@ -234,7 +336,7 @@ export class AuthService {
 
     return this.completeAgencySignup({
       appUser,
-      clerkUserId: appUser.clerkId ?? "",
+      identityKey: appUser.clerkId ?? "",
       email: normalizeEmail(appUser.email),
       sessionId: null,
     }, input);
@@ -253,7 +355,7 @@ export class AuthService {
 
     return this.completeMobileOnboarding({
       appUser,
-      clerkUserId: appUser.clerkId ?? "",
+      identityKey: appUser.clerkId ?? "",
       email: normalizeEmail(appUser.email),
       sessionId: null,
     }, input);
@@ -267,41 +369,43 @@ export class AuthService {
 
     return this.resolveMobileSession({
       appUser,
-      clerkUserId: appUser.clerkId ?? "",
+      identityKey: this.resolveLegacyIdentityKey(appUser),
       email: normalizeEmail(appUser.email),
       sessionId: null,
     }, panel);
   }
 
   private async resolveIdentityFromToken(token: string): Promise<ResolvedIdentity> {
-    if (!this.env.CLERK_SECRET_KEY) {
-      throw new Error("CLERK_SECRET_KEY is not configured");
-    }
+    return this.resolveIdentityFromLocalToken(token);
+  }
 
-    // @clerk/backend v3: verifyToken returns the JWT payload directly.
-    // It throws on invalid tokens, so no { data, errors } wrapper.
-    const jwtPayload = await verifyToken(token, {
-      secretKey: this.env.CLERK_SECRET_KEY,
+  private async resolveIdentityFromLocalToken(token: string): Promise<ResolvedIdentity> {
+    const { jwtVerify } = await this.loadJose();
+    const { payload } = await jwtVerify(token, this.getJwtSecret(), {
+      algorithms: ["HS256"],
     });
 
-    const clerkUserId = typeof jwtPayload === "object" && jwtPayload !== null
-      ? (jwtPayload as Record<string, unknown>).sub as string | undefined
-      : undefined;
-
-    if (!clerkUserId) {
-      throw new Error("Clerk token is missing subject");
+    const userId = typeof payload.sub === "string" ? payload.sub : null;
+    if (!userId) {
+      throw new Error("Auth token is missing subject");
     }
 
-    const sessionId = typeof (jwtPayload as Record<string, unknown>).sid === "string"
-      ? (jwtPayload as Record<string, unknown>).sid as string
-      : null;
+    const sessionId = typeof payload.sid === "string" ? payload.sid : null;
+    if (sessionId) {
+      const session = await this.validateSession(sessionId);
+      if (!session || session.userId !== userId) {
+        throw new Error("Session is no longer active");
+      }
+    }
 
-    const clerkUser = await this.clerkClient.users.getUser(clerkUserId);
-    const appUser = await this.findOrCreateUserFromClerk(clerkUser as any);
+    const [appUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!appUser) {
+      throw new Error("App user not found");
+    }
 
     return {
       appUser,
-      clerkUserId,
+      identityKey: this.resolveLegacyIdentityKey(appUser),
       email: normalizeEmail(appUser.email),
       sessionId,
     };
@@ -318,7 +422,7 @@ export class AuthService {
         .values({
           userId: identity.appUser.id,
           email,
-          clerkId: identity.clerkUserId,
+          clerkId: identity.identityKey,
           adminName: identity.appUser.displayName ?? email.split("@")[0] ?? "Admin",
           isActive: true,
           mfaEnabled: false,
@@ -329,7 +433,7 @@ export class AuthService {
     }
 
     if (adminRecord) {
-      await this.bindAdminIdentity(adminRecord.id, identity.appUser.id, email, identity.clerkUserId);
+      await this.bindAdminIdentity(adminRecord.id, identity.appUser.id, email, identity.identityKey);
       const adminUser = await this.updateUserAccess(identity.appUser.id, "admin");
 
       if (intent === "signup") {
@@ -339,7 +443,7 @@ export class AuthService {
           role: null,
           platformRole: "ADMIN",
           userId: adminUser.id,
-          clerkUserId: identity.clerkUserId,
+          identityKey: identity.identityKey,
           email,
           sessionId: identity.sessionId,
         };
@@ -350,7 +454,7 @@ export class AuthService {
         role: "admin",
         platformRole: "ADMIN",
         userId: adminUser.id,
-        clerkUserId: identity.clerkUserId,
+        identityKey: identity.identityKey,
         email,
         sessionId: identity.sessionId,
       };
@@ -369,7 +473,7 @@ export class AuthService {
           role: "agency",
           platformRole: "AGENCY",
           userId: identity.appUser.id,
-          clerkUserId: identity.clerkUserId,
+          identityKey: identity.identityKey,
           email,
           sessionId: identity.sessionId,
           agencyId: ownedAgency.id,
@@ -385,7 +489,7 @@ export class AuthService {
         role: "agency",
         platformRole: "AGENCY",
         userId: agencyUser.id,
-        clerkUserId: identity.clerkUserId,
+        identityKey: identity.identityKey,
         email,
         sessionId: identity.sessionId,
         agencyId: ownedAgency.id,
@@ -400,7 +504,7 @@ export class AuthService {
         role: null,
         platformRole: identity.appUser.platformRole as PlatformRole,
         userId: identity.appUser.id,
-        clerkUserId: identity.clerkUserId,
+        identityKey: identity.identityKey,
         email,
         sessionId: identity.sessionId,
       };
@@ -412,7 +516,7 @@ export class AuthService {
         role: null,
         platformRole: identity.appUser.platformRole as PlatformRole,
         userId: identity.appUser.id,
-        clerkUserId: identity.clerkUserId,
+        identityKey: identity.identityKey,
         email,
         sessionId: identity.sessionId,
       };
@@ -424,7 +528,7 @@ export class AuthService {
       role: null,
       platformRole: identity.appUser.platformRole as PlatformRole,
       userId: identity.appUser.id,
-      clerkUserId: identity.clerkUserId,
+      identityKey: identity.identityKey,
       email,
       sessionId: identity.sessionId,
     };
@@ -438,7 +542,7 @@ export class AuthService {
         role: null,
         platformRole: "ADMIN",
         userId: identity.appUser.id,
-        clerkUserId: identity.clerkUserId,
+        identityKey: identity.identityKey,
         email: identity.email,
         sessionId: identity.sessionId,
       } satisfies SessionState;
@@ -449,17 +553,19 @@ export class AuthService {
 
     if (!agency) {
       const agencyCode = await this.generateUniqueAgencyCode(input.agencyName);
+      const agencyPublicId = await this.generateUniqueAgencyPublicId();
       const [createdAgency] = await db
         .insert(agencies)
         .values({
           userId: identity.appUser.id,
-          clerkId: identity.clerkUserId,
+          clerkId: identity.identityKey,
           agencyName: input.agencyName,
+          publicId: agencyPublicId,
           agencyCode,
           contactName: input.contactName,
           contactEmail: normalizeEmail(input.contactEmail),
           country: input.country,
-          status: "PENDING",
+          status: "ACTIVE",
           approvalStatus: "PENDING" as any,
           metadataJson: { panel: "agency", createdBy: "portal_signup" },
           commissionTier: DEFAULTS.AGENCY_COMMISSION_TIERS[0]?.name ?? "STANDARD",
@@ -510,7 +616,7 @@ export class AuthService {
         role: "agency",
         platformRole: "AGENCY",
         userId: agencyUser.id,
-        clerkUserId: identity.clerkUserId,
+        identityKey: identity.identityKey,
         email: identity.email,
         sessionId: identity.sessionId,
         agencyId: agency.id,
@@ -523,7 +629,7 @@ export class AuthService {
       role: "agency",
       platformRole: "AGENCY",
       userId: agencyUser.id,
-      clerkUserId: identity.clerkUserId,
+      identityKey: identity.identityKey,
       email: identity.email,
       sessionId: identity.sessionId,
       agencyId: agency.id,
@@ -531,199 +637,184 @@ export class AuthService {
     } satisfies SessionState;
   }
 
-  private async findOrCreateUserFromClerk(clerkUser: any) {
-    const primaryEmail = this.getPrimaryEmail(clerkUser);
-    const primaryPhone = this.getPrimaryPhone(clerkUser);
-    const normalizedEmail = primaryEmail
-      ? normalizeEmail(primaryEmail.emailAddress)
-      : `clerk-${String(clerkUser?.id ?? randomBytes(4).toString("hex"))}@phone.local`;
-    const displayName = this.resolveDisplayName(clerkUser, normalizedEmail);
-    const emailVerified = primaryEmail?.verification?.status === "verified";
-    const phoneNumber = typeof primaryPhone?.phoneNumber === "string" ? primaryPhone.phoneNumber : null;
-    const phoneVerified = primaryPhone?.verification?.status === "verified";
-    const clerkUserId = typeof clerkUser?.id === "string" ? clerkUser.id : null;
-    const authProvider = this.extractAuthProvider(clerkUser);
-    const authMetadata = this.extractAuthMetadata(clerkUser, authProvider);
-    const profileData = this.extractProfileData(clerkUser);
+  private async createAuthMutationResult(appUser: typeof users.$inferSelect, ip: string, userAgent: string): Promise<AuthMutationResult> {
+    const { session } = await this.createSession(appUser.id, ip, userAgent);
+    const token = await this.issueAccessToken(appUser, session.id);
 
-    const [existingByClerkId] = clerkUserId
-      ? await db.select().from(users).where(eq(users.clerkId, clerkUserId)).limit(1)
-      : [];
-    const [existingByEmail] = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, normalizedEmail))
-      .limit(1);
+    await db
+      .update(users)
+      .set({ lastActiveAt: new Date(), updatedAt: new Date() })
+      .where(eq(users.id, appUser.id));
 
-    const matchedUser = existingByClerkId ?? existingByEmail ?? null;
+    return {
+      token,
+      sessionId: session.id,
+      user: {
+        id: appUser.id,
+        email: normalizeEmail(appUser.email),
+        displayName: appUser.displayName,
+        platformRole: appUser.platformRole as PlatformRole,
+        authProvider: appUser.authProvider as AuthProvider,
+      },
+    };
+  }
+
+  private async issueAccessToken(appUser: typeof users.$inferSelect, sessionId: string) {
+    const { SignJWT } = await this.loadJose();
+    return new SignJWT({
+      sid: sessionId,
+      email: normalizeEmail(appUser.email),
+      platformRole: appUser.platformRole,
+      authProvider: appUser.authProvider,
+    })
+      .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+      .setSubject(appUser.id)
+      .setIssuedAt()
+      .setExpirationTime("7d")
+      .sign(this.getJwtSecret());
+  }
+
+  private getJwtSecret() {
+    if (!this.env.JWT_SECRET || this.env.JWT_SECRET.length < 16) {
+      throw new Error("JWT_SECRET is not configured");
+    }
+
+    return new TextEncoder().encode(this.env.JWT_SECRET);
+  }
+
+  private buildLegacyIdentityKey(provider: "local" | "google", subject: string) {
+    return `${provider}:${subject}`;
+  }
+
+  private isLegacyIdentityKey(value: string | null | undefined) {
+    return Boolean(value?.startsWith("local:") || value?.startsWith("google:"));
+  }
+
+  private resolveLegacyIdentityKey(appUser: typeof users.$inferSelect) {
+    return appUser.clerkId ?? this.buildLegacyIdentityKey("local", normalizeEmail(appUser.email));
+  }
+
+  private resolveDisplayName(value: string | null | undefined, email: string) {
+    const trimmed = value?.trim();
+    return trimmed && trimmed.length > 0 ? trimmed : (email.split("@")[0] ?? "MissU User");
+  }
+
+  private async verifyGoogleIdToken(idToken: string): Promise<GoogleTokenInfo> {
+    const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+    if (!response.ok) {
+      throw new Error("Google token verification failed");
+    }
+
+    const payload = await response.json() as GoogleTokenInfo;
+    const configuredClientIds = Array.from(new Set([
+      this.env.GOOGLE_CLIENT_ID,
+      ...this.env.GOOGLE_CLIENT_IDS.split(","),
+    ].map((value) => value.trim()).filter(Boolean)));
+
+    if (configuredClientIds.length > 0 && payload.aud && !configuredClientIds.includes(payload.aud)) {
+      throw new Error("Google token audience mismatch");
+    }
+
+    if (!payload.sub || !payload.email || payload.email_verified !== "true") {
+      throw new Error("Google account email is not verified");
+    }
+
+    return payload;
+  }
+
+  private async findOrCreateUserFromGoogle(
+    googleProfile: GoogleTokenInfo,
+    displayNameOverride?: string,
+    referralCode?: string,
+  ) {
+    const normalizedEmail = normalizeEmail(String(googleProfile.email));
+    const legacyIdentityKey = this.buildLegacyIdentityKey("google", String(googleProfile.sub));
+    const displayName = this.resolveDisplayName(displayNameOverride ?? googleProfile.name, normalizedEmail);
+
+    const [existingByLegacyKey] = await db.select().from(users).where(eq(users.clerkId, legacyIdentityKey)).limit(1);
+    const [existingByEmail] = await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1);
+    const matchedUser = existingByLegacyKey ?? existingByEmail ?? null;
 
     if (matchedUser) {
-      const shouldUpdateDisplayName = displayName && matchedUser.displayName !== displayName;
-      const shouldVerifyEmail = emailVerified && !matchedUser.emailVerified;
-      const shouldSetClerkId = Boolean(clerkUserId) && matchedUser.clerkId !== clerkUserId;
-      const shouldSetPhone = Boolean(phoneNumber) && matchedUser.phone !== phoneNumber;
-      const shouldVerifyPhone = phoneVerified && !matchedUser.phoneVerified;
-      const shouldSetAuthProvider = matchedUser.authProvider !== authProvider;
-      const shouldSetProfileData = profileData !== null;
+      const shouldSetLegacyKey = this.isLegacyIdentityKey(matchedUser.clerkId) && matchedUser.clerkId !== legacyIdentityKey;
+      const shouldSetDisplayName = displayName.length > 0 && matchedUser.displayName !== displayName;
+      const shouldSetAvatar = typeof googleProfile.picture === "string" && googleProfile.picture.length > 0 && matchedUser.avatarUrl !== googleProfile.picture;
       const shouldSetPublicUserId = !matchedUser.publicUserId;
-      const publicUserId = shouldSetPublicUserId
-        ? await this.generateUniquePublicUserId()
-        : matchedUser.publicUserId;
 
-      if (shouldUpdateDisplayName || shouldVerifyEmail || shouldSetClerkId || shouldSetPhone || shouldVerifyPhone || shouldSetAuthProvider || shouldSetProfileData || shouldSetPublicUserId) {
+      if (shouldSetLegacyKey || shouldSetDisplayName || shouldSetAvatar || shouldSetPublicUserId || !matchedUser.emailVerified || matchedUser.authProvider !== "GOOGLE") {
         const [updatedUser] = await db
           .update(users)
           .set({
-            publicUserId,
-            clerkId: shouldSetClerkId ? clerkUserId : matchedUser.clerkId,
-            displayName: shouldUpdateDisplayName ? displayName : matchedUser.displayName,
-            emailVerified: shouldVerifyEmail ? true : matchedUser.emailVerified,
-            phone: shouldSetPhone ? phoneNumber : matchedUser.phone,
-            phoneVerified: shouldVerifyPhone ? true : matchedUser.phoneVerified,
-            authProvider,
-            authMetadataJson: authMetadata,
-            profileDataJson: shouldSetProfileData ? profileData : matchedUser.profileDataJson,
+            publicUserId: shouldSetPublicUserId ? await this.generateUniquePublicUserId() : matchedUser.publicUserId,
+            clerkId: shouldSetLegacyKey ? legacyIdentityKey : matchedUser.clerkId,
+            emailVerified: true,
+            displayName: shouldSetDisplayName ? displayName : matchedUser.displayName,
+            avatarUrl: shouldSetAvatar ? googleProfile.picture ?? matchedUser.avatarUrl : matchedUser.avatarUrl,
+            authProvider: "GOOGLE",
+            authMetadataJson: {
+              authProvider: "GOOGLE",
+              googleSub: googleProfile.sub,
+            },
             lastActiveAt: new Date(),
             updatedAt: new Date(),
           })
           .where(eq(users.id, matchedUser.id))
           .returning();
+
         return updatedUser ?? matchedUser;
       }
 
       return matchedUser;
     }
 
-    const username = await this.generateUniqueUsername(displayName, normalizedEmail);
-    const referralCode = await this.generateUniqueReferralCode();
-    const referredByUserId = await this.resolveReferrerId(clerkUser?.unsafeMetadata?.referralCode);
     const publicUserId = await this.generateUniquePublicUserId();
+    const generatedReferralCode = await this.generateUniqueReferralCode();
+    const username = await this.generateUniqueUsername(displayName, normalizedEmail);
+    const referredByUserId = await this.resolveReferrerId(referralCode);
 
     const [createdUser] = await db
       .insert(users)
       .values({
         publicUserId,
-        clerkId: clerkUserId,
+        clerkId: legacyIdentityKey,
         email: normalizedEmail,
-        emailVerified,
-        phone: phoneNumber,
-        phoneVerified,
+        emailVerified: true,
         displayName,
         username,
+        avatarUrl: googleProfile.picture ?? null,
         platformRole: "USER",
-        authProvider,
-        authMetadataJson: authMetadata,
-        profileDataJson: profileData,
-        country: "GLOBAL",
-        status: emailVerified || phoneVerified ? "ACTIVE" as any : "PENDING_VERIFICATION" as any,
-        referralCode,
+        authProvider: "GOOGLE",
+        authMetadataJson: {
+          authProvider: "GOOGLE",
+          googleSub: googleProfile.sub,
+        },
+        country: "ZZ",
+        status: "ACTIVE" as any,
+        referralCode: generatedReferralCode,
         referredByUserId,
         lastActiveAt: new Date(),
       })
       .returning();
 
     if (!createdUser) {
-      throw new Error("Failed to create app user from Clerk identity");
+      throw new Error("Failed to create app user from Google identity");
     }
 
     await db.insert(profiles).values({ userId: createdUser.id }).onConflictDoNothing();
-
+    await this.walletService.getOrCreateWallet(createdUser.id);
     return createdUser;
   }
 
-  private getPrimaryEmail(clerkUser: any) {
-    if (!clerkUser?.emailAddresses?.length) {
+  private readString(value: unknown) {
+    return typeof value === "string" && value.trim().length > 0 ? value : null;
+  }
+
+  private readTimestamp(value: unknown) {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
       return null;
     }
 
-    return clerkUser.emailAddresses.find(
-      (email: any) => email.id === clerkUser.primaryEmailAddressId,
-    ) ?? clerkUser.emailAddresses[0] ?? null;
-  }
-
-  private getPrimaryPhone(clerkUser: any) {
-    if (!clerkUser?.phoneNumbers?.length) {
-      return null;
-    }
-
-    return clerkUser.phoneNumbers.find(
-      (phone: any) => phone.id === clerkUser.primaryPhoneNumberId,
-    ) ?? clerkUser.phoneNumbers[0] ?? null;
-  }
-
-  private resolveDisplayName(clerkUser: any, email: string) {
-    const metadataDisplayName = typeof clerkUser?.unsafeMetadata?.displayName === "string"
-      ? clerkUser.unsafeMetadata.displayName.trim()
-      : "";
-
-    if (metadataDisplayName) return metadataDisplayName;
-
-    const nameParts = [clerkUser?.firstName, clerkUser?.lastName]
-      .filter((value: unknown): value is string => typeof value === "string" && value.trim().length > 0)
-      .map((value) => value.trim());
-
-    if (nameParts.length > 0) {
-      return nameParts.join(" ");
-    }
-
-    return email.split("@")[0] ?? "MissU User";
-  }
-
-  private extractAuthProvider(clerkUser: any): AuthProvider {
-    const metadataProvider = typeof clerkUser?.unsafeMetadata?.authProvider === "string"
-      ? String(clerkUser.unsafeMetadata.authProvider).trim().toUpperCase()
-      : "";
-
-    if (["EMAIL", "GOOGLE", "FACEBOOK", "PHONE_OTP", "WHATSAPP_OTP", "CUSTOM_OTP", "UNKNOWN"].includes(metadataProvider)) {
-      return metadataProvider as AuthProvider;
-    }
-
-    const externalAccounts = Array.isArray(clerkUser?.externalAccounts) ? clerkUser.externalAccounts : [];
-    if (externalAccounts.some((account: any) => String(account?.provider).toLowerCase().includes("google"))) {
-      return "GOOGLE";
-    }
-    if (externalAccounts.some((account: any) => String(account?.provider).toLowerCase().includes("facebook"))) {
-      return "FACEBOOK";
-    }
-
-    if (this.getPrimaryPhone(clerkUser)) {
-      return typeof clerkUser?.unsafeMetadata?.otpChannel === "string" && String(clerkUser.unsafeMetadata.otpChannel).toLowerCase() === "whatsapp"
-        ? "WHATSAPP_OTP"
-        : "PHONE_OTP";
-    }
-
-    if (this.getPrimaryEmail(clerkUser)) {
-      return "EMAIL";
-    }
-
-    return "UNKNOWN";
-  }
-
-  private extractAuthMetadata(clerkUser: any, authProvider: AuthProvider) {
-    const externalAccounts = Array.isArray(clerkUser?.externalAccounts)
-      ? clerkUser.externalAccounts.map((account: any) => ({
-          provider: account?.provider ?? null,
-          providerUserId: account?.providerUserId ?? null,
-        }))
-      : [];
-
-    return {
-      authProvider,
-      otpChannel: clerkUser?.unsafeMetadata?.otpChannel ?? null,
-      whatsappNumber: clerkUser?.unsafeMetadata?.whatsappNumber ?? null,
-      externalAccounts,
-    };
-  }
-
-  private extractProfileData(clerkUser: any) {
-    if (clerkUser?.unsafeMetadata && typeof clerkUser.unsafeMetadata === "object") {
-      const profileData = clerkUser.unsafeMetadata.profileData;
-      if (profileData && typeof profileData === "object" && !Array.isArray(profileData)) {
-        return profileData as Record<string, unknown>;
-      }
-    }
-
-    return null;
+    return new Date(value);
   }
 
   private async generateUniqueUsername(displayName: string, email: string) {
@@ -766,6 +857,18 @@ export class AuthService {
     }
 
     return `U${Date.now().toString().slice(-9)}`;
+  }
+
+  private async generateUniqueAgencyPublicId() {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const publicId = `A${this.randomDigits(9)}`;
+      const [existing] = await db.select({ id: agencies.id }).from(agencies).where(eq(agencies.publicId, publicId)).limit(1);
+      if (!existing) {
+        return publicId;
+      }
+    }
+
+    return `A${Date.now().toString().slice(-9)}`;
   }
 
   private randomDigits(length: number) {
@@ -821,13 +924,13 @@ export class AuthService {
     return adminRecord?.isActive ? adminRecord : null;
   }
 
-  private async bindAdminIdentity(adminId: string, userId: string, email: string, clerkUserId: string) {
+  private async bindAdminIdentity(adminId: string, userId: string, email: string, identityKey: string) {
     await db
       .update(admins)
       .set({
         userId,
         email: normalizeEmail(email),
-        clerkId: clerkUserId,
+        clerkId: identityKey,
         lastLoginAt: new Date(),
         updatedAt: new Date(),
       })
@@ -964,7 +1067,7 @@ export class AuthService {
   }
 
   private async upsertModelProfile(userId: string, input: {
-    clerkUserId?: string | null;
+    identityKey?: string | null;
     agencyId?: string | null;
     modelType: "INDEPENDENT" | "AGENCY";
     authProvider: AuthProvider;
@@ -972,7 +1075,7 @@ export class AuthService {
   }) {
     const values = {
       userId,
-      clerkId: input.clerkUserId ?? null,
+      clerkId: input.identityKey ?? null,
       agencyId: input.agencyId ?? null,
       modelType: input.modelType,
       registrationStatus: "ACTIVE" as any,
@@ -992,7 +1095,7 @@ export class AuthService {
       .onConflictDoUpdate({
         target: models.userId,
         set: {
-          clerkId: input.clerkUserId ?? null,
+          clerkId: input.identityKey ?? null,
           agencyId: input.agencyId ?? null,
           modelType: input.modelType as any,
           registrationStatus: "ACTIVE" as any,
@@ -1030,7 +1133,7 @@ export class AuthService {
   // ─── Mobile session resolution ───
 
   /**
-   * Resolves a mobile session from a Clerk token.
+    * Resolves a mobile session from an app auth token.
    * Determines the user's panel: user, model, or agency-model.
    */
   async getMobileSessionFromToken(token: string, panel: MobilePanel): Promise<MobileSessionState> {
@@ -1066,7 +1169,7 @@ export class AuthService {
           panel: "agency_model",
           role: null,
           userId: appUser.id,
-          clerkUserId: identity.clerkUserId,
+          identityKey: identity.identityKey,
           email: identity.email,
           sessionId: identity.sessionId,
         };
@@ -1079,7 +1182,7 @@ export class AuthService {
           panel: "agency_model",
           role: "MODEL_AGENCY",
           userId: appUser.id,
-          clerkUserId: identity.clerkUserId,
+          identityKey: identity.identityKey,
           email: identity.email,
           sessionId: identity.sessionId,
           agencyId: agency.id,
@@ -1093,7 +1196,7 @@ export class AuthService {
         panel: "agency_model",
         role: "MODEL_AGENCY",
         userId: appUser.id,
-        clerkUserId: identity.clerkUserId,
+        identityKey: identity.identityKey,
         email: identity.email,
         sessionId: identity.sessionId,
         agencyId: agency.id,
@@ -1108,7 +1211,7 @@ export class AuthService {
         panel: "model",
         role: "MODEL_INDEPENDENT",
         userId: appUser.id,
-        clerkUserId: identity.clerkUserId,
+        identityKey: identity.identityKey,
         email: identity.email,
         sessionId: identity.sessionId,
       };
@@ -1120,7 +1223,7 @@ export class AuthService {
         panel,
         role: derivedPlatformRole,
         userId: appUser.id,
-        clerkUserId: identity.clerkUserId,
+        identityKey: identity.identityKey,
         email: identity.email,
         sessionId: identity.sessionId,
       };
@@ -1131,7 +1234,7 @@ export class AuthService {
       panel: "user",
       role: derivedPlatformRole,
       userId: appUser.id,
-      clerkUserId: identity.clerkUserId,
+      identityKey: identity.identityKey,
       email: identity.email,
       sessionId: identity.sessionId,
     };
@@ -1151,7 +1254,7 @@ export class AuthService {
       }).where(eq(users.id, identity.appUser.id));
     } else if (input.selectedRole === "MODEL_INDEPENDENT") {
       await this.upsertModelProfile(identity.appUser.id, {
-        clerkUserId: identity.clerkUserId,
+        identityKey: identity.identityKey,
         agencyId: null,
         modelType: "INDEPENDENT",
         authProvider: (identity.appUser.authProvider as AuthProvider) ?? "UNKNOWN",
@@ -1173,7 +1276,7 @@ export class AuthService {
           panel: "agency_model",
           role: null,
           userId: identity.appUser.id,
-          clerkUserId: identity.clerkUserId,
+          identityKey: identity.identityKey,
           email: identity.email,
           sessionId: identity.sessionId,
         };
@@ -1186,7 +1289,7 @@ export class AuthService {
           panel: "agency_model",
           role: "MODEL_AGENCY",
           userId: identity.appUser.id,
-          clerkUserId: identity.clerkUserId,
+          identityKey: identity.identityKey,
           email: identity.email,
           sessionId: identity.sessionId,
           agencyId: agency.id,
@@ -1197,7 +1300,7 @@ export class AuthService {
 
       await this.ensureAgencyMembership(identity.appUser.id, agency.id);
       await this.upsertModelProfile(identity.appUser.id, {
-        clerkUserId: identity.clerkUserId,
+        identityKey: identity.identityKey,
         agencyId: agency.id,
         modelType: "AGENCY",
         authProvider: (identity.appUser.authProvider as AuthProvider) ?? "UNKNOWN",
@@ -1244,7 +1347,7 @@ export class AuthService {
     }
     return this.loginAsAgencyModel({
       appUser,
-      clerkUserId: appUser.clerkId ?? "",
+      identityKey: appUser.clerkId ?? "",
       email: appUser.email.trim().toLowerCase(),
       sessionId: null,
     }, input);
@@ -1262,7 +1365,7 @@ export class AuthService {
         panel: "agency_model",
         role: null,
         userId: appUser.id,
-        clerkUserId: identity.clerkUserId,
+        identityKey: identity.identityKey,
         email: identity.email,
         sessionId: identity.sessionId,
       };
@@ -1275,7 +1378,7 @@ export class AuthService {
         panel: "agency_model",
         role: "MODEL_AGENCY",
         userId: appUser.id,
-        clerkUserId: identity.clerkUserId,
+        identityKey: identity.identityKey,
         email: identity.email,
         sessionId: identity.sessionId,
         agencyId: agency.id,
@@ -1286,7 +1389,7 @@ export class AuthService {
 
     await this.ensureAgencyMembership(appUser.id, agency.id);
     await this.upsertModelProfile(appUser.id, {
-      clerkUserId: identity.clerkUserId,
+      identityKey: identity.identityKey,
       agencyId: agency.id,
       modelType: "AGENCY",
       authProvider: (appUser.authProvider as AuthProvider) ?? "UNKNOWN",
@@ -1309,7 +1412,7 @@ export class AuthService {
       panel: "agency_model",
       role: "MODEL_AGENCY",
       userId: appUser.id,
-      clerkUserId: identity.clerkUserId,
+      identityKey: identity.identityKey,
       email: identity.email,
       sessionId: identity.sessionId,
       agencyId: agency.id,
@@ -1327,7 +1430,7 @@ export class AuthService {
     const [updated] = await db
       .update(agencies)
       .set({ status: "ACTIVE", approvalStatus: "APPROVED" as any, approvedAt: new Date(), updatedAt: new Date(), rejectedAt: null })
-      .where(and(eq(agencies.id, agencyId), eq(agencies.status, "PENDING")))
+      .where(and(eq(agencies.id, agencyId), eq(agencies.approvalStatus, "PENDING" as any)))
       .returning({ id: agencies.id, agencyName: agencies.agencyName, agencyCode: agencies.agencyCode });
 
     if (!updated) throw new Error("Agency not found or already approved");
@@ -1352,7 +1455,7 @@ export class AuthService {
     await db
       .update(agencies)
       .set({ status: "REJECTED", approvalStatus: "REJECTED" as any, rejectedAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(agencies.id, agencyId), eq(agencies.status, "PENDING")));
+      .where(and(eq(agencies.id, agencyId), eq(agencies.approvalStatus, "PENDING" as any)));
 
     await this.logAuditEvent({
       actorUserId: adminUserId,

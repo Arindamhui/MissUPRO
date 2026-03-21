@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { ClerkProvider } from "@clerk/nextjs";
 import { Providers } from "@/components/providers";
 import "@/styles/globals.css";
 
@@ -14,25 +13,10 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
-  const clerkEnabled = clerkPublishableKey.length > 0;
-
-  if (clerkEnabled) {
-    return (
-      <ClerkProvider publishableKey={clerkPublishableKey}>
-        <html lang="en" dir="ltr" suppressHydrationWarning>
-          <body>
-            <Providers clerkEnabled>{children}</Providers>
-          </body>
-        </html>
-      </ClerkProvider>
-    );
-  }
-
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
       <body>
-        <Providers clerkEnabled={false}>{children}</Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

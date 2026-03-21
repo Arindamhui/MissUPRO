@@ -1,5 +1,4 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useAuth } from "@clerk/clerk-expo";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, Redirect } from "expo-router";
 import { COLORS } from "@/theme";
@@ -61,16 +60,16 @@ function LiveTabButton({ onPress, accessibilityState }: { onPress?: (...args: an
 }
 
 export default function TabsLayout() {
-  const { isLoaded, isSignedIn } = useAuth();
   const userId = useAuthStore((s) => s.userId);
   const authMode = useAuthStore((s) => s.authMode);
+  const isHydrated = useAuthStore((s) => s.isHydrated);
   useCallSocket();
   const layoutScope = getMobileLayoutScope();
   const runtimeScope = getMobileRuntimeScope();
   const layoutQuery = trpc.config.getUILayout.useQuery({ layoutKey: "tab_navigation", ...layoutScope }, { retry: false });
   const bootstrapQuery = trpc.config.getBootstrap.useQuery(runtimeScope, { retry: false });
 
-  const hasAppAccess = isSignedIn || authMode === "guest";
+  const hasAppAccess = authMode === "authenticated" || authMode === "guest";
   const defaultTabs = [
     { route: "index", label: "Live", order: 0, visible: true },
     { route: "discover", label: "Shorts", order: 1, visible: true },
@@ -92,7 +91,7 @@ export default function TabsLayout() {
     })
     .sort((left: any, right: any) => Number(left.order ?? 0) - Number(right.order ?? 0));
 
-  if (!isLoaded) {
+  if (!isHydrated) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: COLORS.background }}>
         <ActivityIndicator size="large" color={COLORS.primary} />

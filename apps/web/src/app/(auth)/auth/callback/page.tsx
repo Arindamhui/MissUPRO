@@ -14,7 +14,11 @@ export default async function AuthCallbackPage({ searchParams }: CallbackPagePro
   const session = await getPortalSession(intent);
 
   if (!session) {
-    redirect(intent === "signup" ? "/signup" : `/login?role=${requestedRole}&reason=session_expired`);
+    redirect(intent === "signup"
+      ? "/agency-signup"
+      : requestedRole === "admin"
+        ? "/admin-login?reason=session_expired"
+        : "/agency-login?reason=session_expired");
   }
 
   if (session.status === "admin") {

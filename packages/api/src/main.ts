@@ -78,7 +78,7 @@ async function resolveApiPort() {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const expressApp = app.getHttpAdapter().getInstance();
   const trpcRouter = app.get(TrpcRouter);
   const authService = app.get(AuthService);
@@ -112,14 +112,22 @@ async function bootstrap() {
 
     const ip = String(req.headers["x-forwarded-for"] ?? req.ip ?? "unknown").split(",")[0]?.trim() || "unknown";
     const key = `ratelimit:api:${ip}`;
-    const limit = await checkRateLimit(key, 600, 60);
 
-    res.setHeader("X-RateLimit-Remaining", String(limit.remaining));
-    res.setHeader("X-RateLimit-Reset", String(limit.resetAt));
+    try {
+      const limit = await Promise.race([
+        checkRateLimit(key, 600, 60),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Redis timeout")), 2000)),
+      ]);
 
-    if (!limit.allowed) {
-      res.status(429).json({ error: "rate_limit_exceeded" });
-      return;
+      res.setHeader("X-RateLimit-Remaining", String(limit.remaining));
+      res.setHeader("X-RateLimit-Reset", String(limit.resetAt));
+
+      if (!limit.allowed) {
+        res.status(429).json({ error: "rate_limit_exceeded" });
+        return;
+      }
+    } catch {
+      // Redis unavailable — allow the request through without rate limiting
     }
 
     next();

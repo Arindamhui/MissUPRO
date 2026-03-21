@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { z } from "zod";
 import { TrpcService } from "../trpc/trpc.service";
 import { WalletService } from "./wallet.service";
 import { requestWithdrawalSchema } from "@missu/types";
@@ -25,6 +26,24 @@ export class WalletRouter {
       getTopUpHistory: this.trpc.protectedProcedure
         .query(async ({ ctx }) => {
           return this.walletService.getTopUpHistory(ctx.userId);
+        }),
+
+      listTransactions: this.trpc.protectedProcedure
+        .input(z.object({ cursor: z.string().optional(), limit: z.number().int().min(1).max(100).default(20) }).optional())
+        .query(async ({ ctx, input }) => {
+          return this.walletService.listTransactions(ctx.userId, input?.cursor, input?.limit ?? 20);
+        }),
+
+      topUp: this.trpc.adminProcedure
+        .input(z.object({ userId: z.string().uuid(), amount: z.number().int().positive(), paymentReferenceId: z.string().uuid().optional(), description: z.string().max(300).optional() }))
+        .mutation(async ({ input }) => {
+          return this.walletService.topUpCoins(input.userId, input.amount, input.paymentReferenceId, input.description);
+        }),
+
+      spend: this.trpc.protectedProcedure
+        .input(z.object({ amount: z.number().int().positive(), source: z.string().min(2).max(60), referenceId: z.string().uuid().optional(), description: z.string().max(300).optional() }))
+        .mutation(async ({ ctx, input }) => {
+          return this.walletService.spendCoins(ctx.userId, input.amount, input.source, input.referenceId, input.description);
         }),
 
       requestWithdrawal: this.trpc.protectedProcedure

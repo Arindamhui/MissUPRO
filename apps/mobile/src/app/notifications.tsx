@@ -9,6 +9,7 @@ import { Screen, Card, EmptyState } from "@/components/ui";
 import { trpc } from "@/lib/trpc";
 import { COLORS, SPACING, RADIUS } from "@/theme";
 import { useAuthStore } from "@/store";
+import { router } from "expo-router";
 
 type Notification = {
   id: string;
@@ -17,6 +18,7 @@ type Notification = {
   body?: string;
   iconUrl?: string;
   deepLink?: string;
+  metadataJson?: Record<string, unknown> | null;
   isRead?: boolean;
   createdAt?: string;
 };
@@ -31,6 +33,7 @@ const ICON_MAP: Record<string, string> = {
   SYSTEM: "ℹ️",
   PAYOUT_COMPLETED: "💰",
   MODEL_APPROVED: "✅",
+  MODEL_APPLICATION_UPDATE: "🏷️",
 };
 
 export default function NotificationsScreen() {
@@ -59,6 +62,10 @@ export default function NotificationsScreen() {
         { notificationId: item.id },
         { onSuccess: () => notifications.refetch() }
       );
+    }
+    const deepLink = item.deepLink ?? (item.metadataJson?.deepLink as string | undefined);
+    if (deepLink) {
+      router.push(deepLink as never);
     }
   };
 

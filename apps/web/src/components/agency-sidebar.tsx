@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Building2, BarChart3, CreditCard, Settings, Users, ChevronLeft, ChevronRight, LayoutDashboard } from "lucide-react";
-import { UserButton } from "@clerk/nextjs";
+import { useAuthBridge } from "@/components/auth-bridge";
 
 const NAV = [
   { label: "Dashboard", href: "/agency/dashboard", icon: LayoutDashboard },
@@ -20,6 +20,7 @@ export function AgencySidebar() {
   const pathname = usePathname();
   const currentPath = pathname ?? "";
   const [collapsed, setCollapsed] = useState(false);
+  const auth = useAuthBridge();
 
   return (
     <aside
@@ -76,9 +77,13 @@ export function AgencySidebar() {
               Back to Discover
             </Link>
           </div>
-          <div className={cn(collapsed ? "" : "ml-auto")}>
-            <UserButton />
-          </div>
+          <button
+            type="button"
+            onClick={() => void auth.signOut()}
+            className={cn("rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-slate-800", collapsed ? "" : "ml-auto")}
+          >
+            Sign out
+          </button>
         </div>
       </div>
     </aside>

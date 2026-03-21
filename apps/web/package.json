@@ -6,10 +6,18 @@
     "dev": "node scripts/dev.js",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "worker": "tsx src/server/workers/run-worker.ts"
   },
   "dependencies": {
-    "@clerk/nextjs": "^7.0.4",
+    "@aws-sdk/client-s3": "^3.577.0",
+    "@missu/auth": "*",
+    "@missu/cache": "*",
+    "@missu/config": "*",
+    "@missu/db": "*",
+    "@missu/logger": "*",
+    "@missu/queue": "*",
+    "@missu/utils": "*",
     "@hookform/resolvers": "^5.2.2",
     "@missu/types": "*",
     "@tanstack/react-query": "^5.90.21",
@@ -19,6 +27,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
+    "bcryptjs": "^2.4.3",
     "lucide-react": "^0.400.0",
     "next": "^16.1.6",
     "react": "^19.2.0",
@@ -32,6 +41,7 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@tailwindcss/postcss": "^4.1.14",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",

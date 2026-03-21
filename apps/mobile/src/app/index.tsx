@@ -1,4 +1,3 @@
-import { useAuth } from "@clerk/clerk-expo";
 import { router } from "expo-router";
 import React, { useEffect } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
@@ -6,21 +5,21 @@ import { useAuthStore } from "@/store";
 import { COLORS } from "@/theme";
 
 export default function IndexScreen() {
-  const { isLoaded, isSignedIn } = useAuth();
   const authMode = useAuthStore((s) => s.authMode);
+  const isHydrated = useAuthStore((s) => s.isHydrated);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      if (isSignedIn || authMode === "guest") {
+      if (authMode === "authenticated" || authMode === "guest") {
         router.replace("/(tabs)");
         return;
       }
 
       router.replace("/(auth)/login");
-    }, isLoaded ? 250 : 1600);
+    }, isHydrated ? 250 : 1600);
 
     return () => clearTimeout(timeout);
-  }, [authMode, isLoaded, isSignedIn]);
+  }, [authMode, isHydrated]);
 
   return (
     <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.background }}>

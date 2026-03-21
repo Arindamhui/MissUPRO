@@ -1,17 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useDeferredValue, useState } from "react";
+import { Crown, ShieldCheck, UserRound, WalletCards } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { Button, Card, DataTable, Input, Modal, PageHeader, Select, StatusBadge, Tabs } from "@/components/ui";
 import { formatDate, formatNumber } from "@/lib/utils";
+import { AdminButton, AdminDataTable, AdminField, AdminInput, AdminMetricCard, AdminModal, AdminPageHeader, AdminPanelCard, AdminPagination, AdminSearchField, AdminSelect, AdminStatusPill, AdminTabs } from "@/features/admin/components/admin-ui";
+import { useAdminNotifier } from "@/features/admin/hooks/use-admin-panel-api";
 
 type UserRow = {
   id: string;
   email: string;
   role: string;
+  platformRole?: string | null;
   status: string;
+  authProvider?: string | null;
   displayName: string;
-  avatarUrl?: string | null;
   createdAt: string | Date;
 };
 
@@ -23,6 +26,9 @@ type UserDetail = {
     displayName: string;
     username: string;
     role: string;
+    platformRole?: string | null;
+    authRole?: string | null;
+    authProvider?: string | null;
     status: string;
     country: string;
     city?: string | null;
@@ -48,58 +54,72 @@ type UserDetail = {
 };
 
 const STATUS_OPTIONS = ["ALL", "ACTIVE", "SUSPENDED", "BANNED", "PENDING_VERIFICATION", "DELETED"];
+const AUTH_PROVIDER_OPTIONS = ["ALL", "EMAIL", "GOOGLE", "FACEBOOK", "PHONE_OTP", "WHATSAPP_OTP", "CUSTOM_OTP", "UNKNOWN"];
 const ROLE_OPTIONS = ["USER", "HOST", "MODEL", "ADMIN"];
 
-export default function UsersPage() {
+export default function AdminUsersPage() {
+  const notify = useAdminNotifier();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [authProviderFilter, setAuthProviderFilter] = useState("ALL");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
   const [cursorStack, setCursorStack] = useState<Array<string | undefined>>([undefined]);
-
-  useEffect(() => {
-    setPageIndex(0);
-    setCursorStack([undefined]);
-  }, [search, statusFilter]);
+  const [detailTab, setDetailTab] = useState("profile");
+  const [walletAdjust, setWalletAdjust] = useState({ coinDelta: "0", diamondDelta: "0", description: "" });
+  const [vipGrant, setVipGrant] = useState({ tierCode: "VIP", durationDays: "30" });
+  const deferredSearch = useDeferredValue(search);
 
   const listUsers = trpc.admin.listUsers.useQuery(
     {
       cursor: cursorStack[pageIndex],
       limit: 20,
-      search: search.trim() || undefined,
+      search: deferredSearch.trim() || undefined,
+      authProvider: authProviderFilter === "ALL" ? undefined : authProviderFilter as typeof AUTH_PROVIDER_OPTIONS[number],
     },
     { retry: false },
   );
-
   const userDetail = trpc.admin.getUserDetail.useQuery(
     { userId: selectedUserId ?? "00000000-0000-0000-0000-000000000000" },
-    { retry: false, enabled: !!selectedUserId },
+    { retry: false, enabled: Boolean(selectedUserId) },
   );
-
   const updateUserStatus = trpc.admin.updateUserStatus.useMutation({
     onSuccess: async () => {
-      await listUsers.refetch();
-      await userDetail.refetch();
+      notify.success("User status updated");
+      await Promise.all([listUsers.refetch(), userDetail.refetch()]);
     },
+    onError: (error: Error) => notify.error("Status update failed", error.message),
   });
-
   const updateUserRole = trpc.admin.updateUserRole.useMutation({
     onSuccess: async () => {
-      await listUsers.refetch();
+      notify.success("User role updated");
+      await Promise.all([listUsers.refetch(), userDetail.refetch()]);
+    },
+    onError: (error: Error) => notify.error("Role update failed", error.message),
+  });
+  const adjustWallet = trpc.admin.adjustUserWallet.useMutation({
+    onSuccess: async () => {
+      notify.success("Wallet adjusted");
+      setWalletAdjust({ coinDelta: "0", diamondDelta: "0", description: "" });
       await userDetail.refetch();
     },
+    onError: (error: Error) => notify.error("Wallet adjustment failed", error.message),
+  });
+  const grantVip = trpc.admin.grantUserVip.useMutation({
+    onSuccess: async () => {
+      notify.success("VIP granted");
+      await userDetail.refetch();
+    },
+    onError: (error: Error) => notify.error("VIP grant failed", error.message),
   });
 
   const rawRows = (listUsers.data?.items ?? []) as UserRow[];
-  const rows = statusFilter === "ALL"
-    ? rawRows
-    : rawRows.filter((row) => row.status === statusFilter);
-
-  const selectedUser = (userDetail.data ?? null) as UserDetail | null;
+  const rows = rawRows.filter((row) => statusFilter === "ALL" || row.status === statusFilter);
+  const detail = (userDetail.data ?? null) as UserDetail | null;
+  const selectedUser = detail?.user;
 
   function handleNextPage() {
     if (!listUsers.data?.nextCursor) return;
-
     setCursorStack((current) => {
       const next = [...current];
       next[pageIndex + 1] = listUsers.data?.nextCursor;
@@ -108,199 +128,143 @@ export default function UsersPage() {
     setPageIndex((current) => current + 1);
   }
 
+  function handlePreviousPage() {
+    if (pageIndex === 0) return;
+    setPageIndex((current) => current - 1);
+  }
+
   return (
-    <>
-      <PageHeader title="User Management" description="Search users, inspect account state, and apply moderation or role changes." />
-
-      <div className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
-        <Input
-          placeholder="Search by display name"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-        <Select
-          value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value)}
-          options={STATUS_OPTIONS.map((status) => ({
-            value: status,
-            label: status === "ALL" ? "All statuses" : status.replaceAll("_", " "),
-          }))}
-        />
-      </div>
-
-      <DataTable
-        columns={[
-          { key: "id", label: "User", render: (row) => <span className="font-medium">{String(row.displayName || row.id)}</span> },
-          { key: "email", label: "Email" },
-          { key: "role", label: "Role", render: (row) => String(row.role).toLowerCase() },
-          { key: "status", label: "Status", render: (row) => <StatusBadge status={String(row.status)} /> },
-          { key: "createdAt", label: "Joined", render: (row) => formatDate(String(row.createdAt)) },
-          {
-            key: "actions",
-            label: "",
-            render: (row) => (
-              <Button size="sm" variant="ghost" onClick={() => setSelectedUserId(String(row.id))}>
-                View
-              </Button>
-            ),
-          },
-        ]}
-        data={rows as Record<string, unknown>[]}
+    <div className="space-y-6">
+      <AdminPageHeader
+        eyebrow="Identity Control"
+        title="Users"
+        description="Search, moderate, re-role, top up, and grant VIP access from one admin workspace."
       />
 
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          Page {pageIndex + 1} • {formatNumber(rows.length)} visible user{rows.length === 1 ? "" : "s"}
-        </p>
-        <div className="flex gap-2">
-          <Button variant="secondary" size="sm" disabled={pageIndex === 0} onClick={() => setPageIndex((current) => Math.max(0, current - 1))}>
-            Previous
-          </Button>
-          <Button variant="secondary" size="sm" disabled={!listUsers.data?.nextCursor} onClick={handleNextPage}>
-            Next
-          </Button>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <AdminMetricCard label="Visible Users" value={formatNumber(rows.length)} icon={UserRound} />
+        <AdminMetricCard label="Active Accounts" value={formatNumber(rows.filter((row) => row.status === "ACTIVE").length)} icon={ShieldCheck} tone="emerald" />
+        <AdminMetricCard label="VIP Candidates" value={formatNumber(rows.filter((row) => row.role === "USER").length)} icon={Crown} tone="amber" />
+        <AdminMetricCard label="Wallet Review Queue" value={formatNumber(rows.filter((row) => row.status !== "BANNED").length)} icon={WalletCards} tone="sky" />
+      </div>
+
+      <AdminPanelCard
+        title="User Directory"
+        subtitle="Filter the identity graph, then open an account for full admin controls."
+        actions={
+          <div className="grid w-full gap-3 lg:grid-cols-[minmax(0,320px)_220px_220px]">
+            <AdminSearchField value={search} onChange={setSearch} placeholder="Search by display name or email" />
+            <AdminSelect value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              {STATUS_OPTIONS.map((status) => <option key={status} value={status}>{status === "ALL" ? "All statuses" : status.replaceAll("_", " ")}</option>)}
+            </AdminSelect>
+            <AdminSelect value={authProviderFilter} onChange={(event) => setAuthProviderFilter(event.target.value)}>
+              {AUTH_PROVIDER_OPTIONS.map((provider) => <option key={provider} value={provider}>{provider === "ALL" ? "All auth providers" : provider.replaceAll("_", " ")}</option>)}
+            </AdminSelect>
+          </div>
+        }
+      >
+        <AdminDataTable
+          rows={rows}
+          rowKey={(row) => row.id}
+          isLoading={listUsers.isLoading}
+          emptyMessage="No users match the current filters."
+          columns={[
+            { key: "displayName", label: "User", sortable: true, render: (row) => <div><p className="font-medium text-slate-900">{row.displayName}</p><p className="text-xs text-slate-500">{row.email}</p></div> },
+            { key: "role", label: "Role", sortable: true, render: (row) => row.role },
+            { key: "authProvider", label: "Auth", render: (row) => String(row.authProvider ?? "UNKNOWN").replaceAll("_", " ") },
+            { key: "status", label: "Status", sortable: true, render: (row) => <AdminStatusPill value={row.status} /> },
+            { key: "createdAt", label: "Joined", sortable: true, render: (row) => formatDate(row.createdAt) },
+            { key: "actions", label: "", render: (row) => <AdminButton variant="ghost" onClick={() => { setSelectedUserId(row.id); setDetailTab("profile"); }}>Open</AdminButton> },
+          ]}
+        />
+        <div className="mt-5">
+          <AdminPagination pageLabel={`Page ${pageIndex + 1}`} onPrevious={handlePreviousPage} onNext={handleNextPage} disablePrevious={pageIndex === 0} disableNext={!listUsers.data?.nextCursor} />
         </div>
-      </div>
+      </AdminPanelCard>
 
-      <UserDetailModal
-        detail={selectedUser}
-        isLoading={userDetail.isLoading}
-        isUpdatingStatus={updateUserStatus.isPending}
-        isUpdatingRole={updateUserRole.isPending}
-        onChangeRole={(role) => {
-          if (!selectedUser?.user?.id) return;
-          updateUserRole.mutate({ userId: selectedUser.user.id, role });
-        }}
-        onChangeStatus={(status) => {
-          if (!selectedUser?.user?.id) return;
-          updateUserStatus.mutate({ userId: selectedUser.user.id, status });
-        }}
-        onClose={() => setSelectedUserId(null)}
-      />
-    </>
-  );
-}
+      <AdminModal open={Boolean(selectedUserId)} onClose={() => setSelectedUserId(null)} title={selectedUser ? selectedUser.displayName : "User Details"} description="Inspect account profile, wallet state, and admin controls.">
+        {selectedUser ? (
+          <div className="space-y-6">
+            <AdminTabs value={detailTab} onChange={setDetailTab} tabs={[{ value: "profile", label: "Profile" }, { value: "wallet", label: "Wallet" }, { value: "access", label: "Access" }]} />
 
-function UserDetailModal({
-  detail,
-  isLoading,
-  isUpdatingStatus,
-  isUpdatingRole,
-  onChangeRole,
-  onChangeStatus,
-  onClose,
-}: {
-  detail: UserDetail | null;
-  isLoading: boolean;
-  isUpdatingStatus: boolean;
-  isUpdatingRole: boolean;
-  onChangeRole: (role: string) => void;
-  onChangeStatus: (status: string) => void;
-  onClose: () => void;
-}) {
-  const [tab, setTab] = useState("profile");
-  const isOpen = isLoading || !!detail?.user;
-  const user = detail?.user;
-  const wallet = detail?.wallet;
-  const profile = detail?.profile;
-
-  return (
-    <Modal open={isOpen} onClose={onClose} title={user ? `User: ${user.displayName}` : "Loading user"}>
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading user details...</p>
-      ) : user ? (
-        <div className="space-y-4">
-          <Tabs
-            tabs={[
-              { id: "profile", label: "Profile" },
-              { id: "wallet", label: "Wallet" },
-              { id: "actions", label: "Actions" },
-            ]}
-            active={tab}
-            onChange={setTab}
-          />
-
-          {tab === "profile" ? (
-            <div className="grid gap-3 md:grid-cols-2 text-sm">
-              <Card title="Account">
-                <div className="space-y-2">
-                  <p><span className="text-muted-foreground">Email:</span> {user.email}</p>
-                  <p><span className="text-muted-foreground">Username:</span> {user.username}</p>
-                  <p><span className="text-muted-foreground">Phone:</span> {user.phone || "-"}</p>
-                  <p><span className="text-muted-foreground">Joined:</span> {formatDate(user.createdAt)}</p>
-                  <p><span className="text-muted-foreground">Last active:</span> {user.lastActiveAt ? formatDate(user.lastActiveAt) : "-"}</p>
-                </div>
-              </Card>
-              <Card title="Profile">
-                <div className="space-y-2">
-                  <p><span className="text-muted-foreground">Country:</span> {user.country}</p>
-                  <p><span className="text-muted-foreground">City:</span> {user.city || "-"}</p>
-                  <p><span className="text-muted-foreground">Locale:</span> {user.preferredLocale || "-"}</p>
-                  <p><span className="text-muted-foreground">Timezone:</span> {user.preferredTimezone || "-"}</p>
-                  <p><span className="text-muted-foreground">Verified:</span> {user.isVerified ? "Yes" : "No"}</p>
-                  <p><span className="text-muted-foreground">Completeness:</span> {formatNumber(Number(profile?.profileCompletenessScore ?? 0))}%</p>
-                  <p><span className="text-muted-foreground">Bio:</span> {profile?.bio || "-"}</p>
-                </div>
-              </Card>
-            </div>
-          ) : null}
-
-          {tab === "wallet" ? (
-            <div className="grid gap-3 md:grid-cols-2">
-              <Card title="Current Balances">
-                <div className="space-y-2 text-sm">
-                  <p><span className="text-muted-foreground">Coins:</span> {formatNumber(Number(wallet?.coinBalance ?? 0))}</p>
-                  <p><span className="text-muted-foreground">Diamonds:</span> {formatNumber(Number(wallet?.diamondBalance ?? 0))}</p>
-                </div>
-              </Card>
-              <Card title="Lifetime Totals">
-                <div className="space-y-2 text-sm">
-                  <p><span className="text-muted-foreground">Coins Purchased:</span> {formatNumber(Number(wallet?.lifetimeCoinsPurchased ?? 0))}</p>
-                  <p><span className="text-muted-foreground">Coins Spent:</span> {formatNumber(Number(wallet?.lifetimeCoinsSpent ?? 0))}</p>
-                  <p><span className="text-muted-foreground">Diamonds Earned:</span> {formatNumber(Number(wallet?.lifetimeDiamondsEarned ?? 0))}</p>
-                  <p><span className="text-muted-foreground">Diamonds Withdrawn:</span> {formatNumber(Number(wallet?.lifetimeDiamondsWithdrawn ?? 0))}</p>
-                </div>
-              </Card>
-            </div>
-          ) : null}
-
-          {tab === "actions" ? (
-            <div className="space-y-4">
-              <Card title="Current State">
-                <div className="grid gap-3 md:grid-cols-2 text-sm">
-                  <div>
-                    <p className="mb-2 text-muted-foreground">Role</p>
-                    <Select
-                      value={user.role}
-                      disabled={isUpdatingRole}
-                      onChange={(event) => onChangeRole(event.target.value)}
-                      options={ROLE_OPTIONS.map((role) => ({ value: role, label: role }))}
-                    />
+            {detailTab === "profile" ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                <AdminPanelCard title="Account" className="border-slate-100 shadow-none">
+                  <div className="grid gap-2 text-sm text-slate-600">
+                    <p><span className="font-medium text-slate-900">Email:</span> {selectedUser.email}</p>
+                    <p><span className="font-medium text-slate-900">Username:</span> {selectedUser.username}</p>
+                    <p><span className="font-medium text-slate-900">Phone:</span> {selectedUser.phone ?? "-"}</p>
+                    <p><span className="font-medium text-slate-900">Auth:</span> {selectedUser.authProvider ?? "UNKNOWN"}</p>
+                    <p><span className="font-medium text-slate-900">Joined:</span> {formatDate(selectedUser.createdAt)}</p>
+                    <p><span className="font-medium text-slate-900">Last Active:</span> {selectedUser.lastActiveAt ? formatDate(selectedUser.lastActiveAt) : "-"}</p>
                   </div>
-                  <div>
-                    <p className="mb-2 text-muted-foreground">Status</p>
-                    <Select
-                      value={user.status}
-                      disabled={isUpdatingStatus}
-                      onChange={(event) => onChangeStatus(event.target.value)}
-                      options={STATUS_OPTIONS.filter((status) => status !== "ALL").map((status) => ({
-                        value: status,
-                        label: status.replaceAll("_", " "),
-                      }))}
-                    />
+                </AdminPanelCard>
+                <AdminPanelCard title="Profile" className="border-slate-100 shadow-none">
+                  <div className="grid gap-2 text-sm text-slate-600">
+                    <p><span className="font-medium text-slate-900">Country:</span> {selectedUser.country}</p>
+                    <p><span className="font-medium text-slate-900">City:</span> {selectedUser.city ?? "-"}</p>
+                    <p><span className="font-medium text-slate-900">Locale:</span> {selectedUser.preferredLocale ?? "-"}</p>
+                    <p><span className="font-medium text-slate-900">Timezone:</span> {selectedUser.preferredTimezone ?? "-"}</p>
+                    <p><span className="font-medium text-slate-900">Verified:</span> {selectedUser.isVerified ? "Yes" : "No"}</p>
+                    <p><span className="font-medium text-slate-900">Profile Score:</span> {formatNumber(Number(detail?.profile?.profileCompletenessScore ?? 0))}%</p>
+                    <p><span className="font-medium text-slate-900">Bio:</span> {detail?.profile?.bio ?? "-"}</p>
                   </div>
-                </div>
-              </Card>
-              <div className="flex items-center gap-2 text-sm">
-                <StatusBadge status={user.status} />
-                <span className="text-muted-foreground">Role: {user.role}</span>
+                </AdminPanelCard>
               </div>
-            </div>
-          ) : null}
-        </div>
-      ) : (
-        <p className="text-sm text-muted-foreground">User not found.</p>
-      )}
-    </Modal>
+            ) : null}
+
+            {detailTab === "wallet" ? (
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <AdminMetricCard label="Coin Balance" value={formatNumber(Number(detail?.wallet?.coinBalance ?? 0))} icon={WalletCards} />
+                  <AdminMetricCard label="Diamond Balance" value={formatNumber(Number(detail?.wallet?.diamondBalance ?? 0))} icon={WalletCards} tone="sky" />
+                  <AdminMetricCard label="Coins Purchased" value={formatNumber(Number(detail?.wallet?.lifetimeCoinsPurchased ?? 0))} icon={WalletCards} tone="amber" />
+                  <AdminMetricCard label="Diamonds Earned" value={formatNumber(Number(detail?.wallet?.lifetimeDiamondsEarned ?? 0))} icon={WalletCards} tone="emerald" />
+                </div>
+                <AdminPanelCard title="Manual Wallet Adjustment" className="border-slate-100 shadow-none">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <AdminField label="Coin delta"><AdminInput type="number" value={walletAdjust.coinDelta} onChange={(event) => setWalletAdjust((current) => ({ ...current, coinDelta: event.target.value }))} /></AdminField>
+                    <AdminField label="Diamond delta"><AdminInput type="number" value={walletAdjust.diamondDelta} onChange={(event) => setWalletAdjust((current) => ({ ...current, diamondDelta: event.target.value }))} /></AdminField>
+                    <div className="md:col-span-2"><AdminField label="Reason"><AdminInput value={walletAdjust.description} onChange={(event) => setWalletAdjust((current) => ({ ...current, description: event.target.value }))} placeholder="Why are you adjusting this wallet?" /></AdminField></div>
+                  </div>
+                  <div className="mt-4 flex justify-end"><AdminButton onClick={() => adjustWallet.mutate({ userId: selectedUser.id, coinDelta: Number(walletAdjust.coinDelta || 0), diamondDelta: Number(walletAdjust.diamondDelta || 0), description: walletAdjust.description || undefined })} disabled={adjustWallet.isPending}>{adjustWallet.isPending ? "Applying..." : "Apply adjustment"}</AdminButton></div>
+                </AdminPanelCard>
+              </div>
+            ) : null}
+
+            {detailTab === "access" ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                <AdminPanelCard title="Permissions" className="border-slate-100 shadow-none">
+                  <div className="grid gap-4">
+                    <AdminField label="Role">
+                      <AdminSelect value={selectedUser.role} onChange={(event) => updateUserRole.mutate({ userId: selectedUser.id, role: event.target.value })}>
+                        {ROLE_OPTIONS.map((role) => <option key={role} value={role}>{role}</option>)}
+                      </AdminSelect>
+                    </AdminField>
+                    <AdminField label="Status">
+                      <AdminSelect value={selectedUser.status} onChange={(event) => updateUserStatus.mutate({ userId: selectedUser.id, status: event.target.value })}>
+                        {STATUS_OPTIONS.filter((status) => status !== "ALL").map((status) => <option key={status} value={status}>{status.replaceAll("_", " ")}</option>)}
+                      </AdminSelect>
+                    </AdminField>
+                  </div>
+                </AdminPanelCard>
+                <AdminPanelCard title="VIP Grant" className="border-slate-100 shadow-none">
+                  <div className="grid gap-4">
+                    <AdminField label="Tier Code"><AdminInput value={vipGrant.tierCode} onChange={(event) => setVipGrant((current) => ({ ...current, tierCode: event.target.value }))} /></AdminField>
+                    <AdminField label="Duration Days"><AdminInput type="number" value={vipGrant.durationDays} onChange={(event) => setVipGrant((current) => ({ ...current, durationDays: event.target.value }))} /></AdminField>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <AdminStatusPill value={selectedUser.status} />
+                    <AdminButton onClick={() => grantVip.mutate({ userId: selectedUser.id, tierCode: vipGrant.tierCode, durationDays: Number(vipGrant.durationDays || 30) })} disabled={grantVip.isPending}>{grantVip.isPending ? "Granting..." : "Grant VIP"}</AdminButton>
+                  </div>
+                </AdminPanelCard>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500">Loading user details...</p>
+        )}
+      </AdminModal>
+    </div>
   );
 }

@@ -10,6 +10,7 @@ import { SecurityModule } from "../security/security.module";
 import { EventsModule } from "../events/events.module";
 import { CampaignsModule } from "../campaigns/campaigns.module";
 import { ModelsModule } from "../models/models.module";
+import { VipModule } from "../vip/vip.module";
 import { AdminService } from "./admin.service";
 import { AdminRouter } from "./admin.router";
 
@@ -26,6 +27,7 @@ import { AdminRouter } from "./admin.router";
     EventsModule,
     CampaignsModule,
     ModelsModule,
+    VipModule,
   ],
   providers: [AdminService, AdminRouter],
   exports: [AdminRouter, AdminService],

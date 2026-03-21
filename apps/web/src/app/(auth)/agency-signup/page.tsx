@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation";
+import AgencySignupClient from "./page-client";
 
 export default function AgencySignupPage() {
-  redirect("/signup");
+  return <AgencySignupClient />;
 }
 

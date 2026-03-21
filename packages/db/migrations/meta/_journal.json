@@ -120,6 +120,34 @@
       "when": 1774052400000,
       "tag": "0016_pk_session_schema_compat",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1774056000000,
+      "tag": "0017_missu_host_program",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1774059600000,
+      "tag": "0018_clerk_webhook_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1774063200000,
+      "tag": "0019_missu_pro_saas_backend",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1774094400000,
+      "tag": "0020_admin_monetization_control",
+      "breakpoints": true
     }
   ]
 }
