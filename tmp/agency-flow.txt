@@ -1,0 +1,25 @@
+[2026-03-23T12:38:55.946Z] === AGENCY FLOW TEST ===
+[2026-03-23T12:38:55.947Z] 
+--- STEP 1: SIGNUP ---
+[2026-03-23T12:39:00.024Z] Signup OK: 201 (4075ms)
+[2026-03-23T12:39:00.052Z] Token: 545 chars
+[2026-03-23T12:39:00.053Z] CSRF: MISSING
+[2026-03-23T12:39:00.054Z] 
+--- STEP 2: AGENCY SIGNUP ---
+[2026-03-23T12:39:00.296Z] Status: 401 (240ms)
+[2026-03-23T12:39:00.296Z] Response: {"status":"access_denied","reason":"unauthorized_role","role":null,"platformRole":null,"agencyStatus":"NONE","userId":"","email":"","sessionId":null}
+[2026-03-23T12:39:00.297Z] 
+--- STEP 3: HOST APPLICATION ---
+[2026-03-23T12:39:00.868Z] Status: 403 (571ms)
+[2026-03-23T12:39:00.869Z] Response: {"ok":false,"error":{"code":"FORBIDDEN","message":"CSRF validation failed"},"requestId":"agency-test-1774269540297-b9dy0k"}
+[2026-03-23T12:39:00.869Z] 
+--- STEP 4: HOST STATUS ---
+[2026-03-23T12:39:02.476Z] Status: 200 (1606ms)
+[2026-03-23T12:39:02.477Z] Response: {"ok":true,"data":{},"requestId":"agency-test-1774269540870-k4pnw0"}
+[2026-03-23T12:39:02.477Z] 
+=== SUMMARY ===
+[2026-03-23T12:39:02.478Z] Signup: PASS (201)
+[2026-03-23T12:39:02.478Z] Agency Signup: CHECK (401)
+[2026-03-23T12:39:02.479Z] Host Apply: CHECK (403)
+[2026-03-23T12:39:02.479Z] Host Status: PASS (200)
+[2026-03-23T12:39:02.479Z] DONE

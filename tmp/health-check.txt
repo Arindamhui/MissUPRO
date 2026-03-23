@@ -1,0 +1,2 @@
+HEALTH: 200 {"status":"healthy","version":"dev","uptime":7244.126638,"timestamp":"2026-03-23T11:16:07.224Z","components":{"database":{"status":"healthy","latencyMs":1727},"redis":{"status":"degraded","latencyMs":1,"message":"redis_unreachable"}},"totalLatencyMs":1727}
+SIGNUP_ERROR: read ECONNRESET

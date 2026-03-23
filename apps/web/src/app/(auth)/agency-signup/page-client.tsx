@@ -6,22 +6,29 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { GoogleAuthButton } from "@/components/google-auth-button";
 import { useAuthBridge } from "@/components/auth-bridge";
-import { buildPendingAgencySignupInput, retryAgencyAuthRequest } from "@/lib/agency-auth";
-import { completeAgencySignupRequest, signInWithGoogle, signUpWithEmail } from "@/lib/auth-api";
+import { retryAgencyAuthRequest } from "@/lib/agency-auth";
+import { completeAgencySignupRequest, signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/lib/auth-api";
 
 export default function AgencySignupClient() {
   const router = useRouter();
   const auth = useAuthBridge();
   const [displayName, setDisplayName] = useState("");
+  const [agencyName, setAgencyName] = useState("");
+  const [contactName, setContactName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [country, setCountry] = useState("");
   const [referralCode, setReferralCode] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function completeSignup() {
-    router.replace("/auth/pending-approval");
+  async function completeSignup(apiStatus?: string) {
+    if (apiStatus === "agency") {
+      router.replace("/agency/dashboard");
+    } else {
+      router.replace("/auth/pending-approval");
+    }
     router.refresh();
   }
 
@@ -32,30 +39,59 @@ export default function AgencySignupClient() {
       return;
     }
 
+    if (agencyName.trim().length < 2 || contactName.trim().length < 2 || country.trim().length < 2) {
+      setError("Agency name, contact name, and country are required");
+      return;
+    }
+
     setPending(true);
     setError(null);
 
     try {
-      const session = await signUpWithEmail({
-        displayName,
-        email,
-        password,
-        referralCode: referralCode.trim() || undefined,
-      });
-      await retryAgencyAuthRequest(() => completeAgencySignupRequest(session.token, buildPendingAgencySignupInput({
-        displayName: session.user.displayName,
-        email: session.user.email,
-      })));
+      let session;
+      try {
+        session = await signUpWithEmail({
+          displayName,
+          email,
+          password,
+          referralCode: referralCode.trim() || undefined,
+        });
+      } catch (signupErr) {
+        const msg = signupErr instanceof Error ? signupErr.message : "";
+        // If email already exists, fall back to login and proceed to agency creation
+        if (/already exist/i.test(msg)) {
+          try {
+            session = await signInWithEmail({ email, password });
+          } catch {
+            setError("This email is already registered. Please use the Agency Login page to sign in.");
+            setPending(false);
+            return;
+          }
+        } else {
+          throw signupErr;
+        }
+      }
+      const agencyResult = await retryAgencyAuthRequest(() => completeAgencySignupRequest(session.token, {
+        agencyName: agencyName.trim(),
+        contactName: contactName.trim(),
+        contactEmail: session.user.email,
+        country: country.trim(),
+      }));
       auth.setSession(session);
-      await completeSignup();
-    } catch (signupError) {
-      setError(signupError instanceof Error ? signupError.message : "Unable to create account");
+      await completeSignup((agencyResult as { status?: string })?.status);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to create account");
     } finally {
       setPending(false);
     }
   }
 
   async function handleGoogleSignup(idToken: string) {
+    if (agencyName.trim().length < 2 || contactName.trim().length < 2 || country.trim().length < 2) {
+      setError("Agency name, contact name, and country are required");
+      return;
+    }
+
     setPending(true);
     setError(null);
 
@@ -65,12 +101,14 @@ export default function AgencySignupClient() {
         displayName: displayName.trim() || undefined,
         referralCode: referralCode.trim() || undefined,
       });
-      await retryAgencyAuthRequest(() => completeAgencySignupRequest(session.token, buildPendingAgencySignupInput({
-        displayName: session.user.displayName,
-        email: session.user.email,
-      })));
+      const agencyResult = await retryAgencyAuthRequest(() => completeAgencySignupRequest(session.token, {
+        agencyName: agencyName.trim(),
+        contactName: contactName.trim(),
+        contactEmail: session.user.email,
+        country: country.trim(),
+      }));
       auth.setSession(session);
-      await completeSignup();
+      await completeSignup((agencyResult as { status?: string })?.status);
     } catch (signupError) {
       setError(signupError instanceof Error ? signupError.message : "Google sign-up failed");
     } finally {
@@ -160,6 +198,26 @@ export default function AgencySignupClient() {
 
               <form className="space-y-4" onSubmit={handleEmailSignup}>
                 <label className="grid gap-2 text-sm text-slate-700">
+                  Agency name
+                  <input
+                    value={agencyName}
+                    onChange={(event) => setAgencyName(event.target.value)}
+                    className="h-12 rounded-2xl border border-slate-200 px-4 text-slate-950 outline-none transition focus:border-[#ff6b3d] focus:ring-2 focus:ring-[#ff6b3d]/20"
+                    placeholder="North Star Agency"
+                    required
+                  />
+                </label>
+                <label className="grid gap-2 text-sm text-slate-700">
+                  Contact name
+                  <input
+                    value={contactName}
+                    onChange={(event) => setContactName(event.target.value)}
+                    className="h-12 rounded-2xl border border-slate-200 px-4 text-slate-950 outline-none transition focus:border-[#ff6b3d] focus:ring-2 focus:ring-[#ff6b3d]/20"
+                    placeholder="Aisha Rahman"
+                    required
+                  />
+                </label>
+                <label className="grid gap-2 text-sm text-slate-700">
                   Display name
                   <input
                     value={displayName}
@@ -177,6 +235,16 @@ export default function AgencySignupClient() {
                     onChange={(event) => setEmail(event.target.value)}
                     className="h-12 rounded-2xl border border-slate-200 px-4 text-slate-950 outline-none transition focus:border-[#ff6b3d] focus:ring-2 focus:ring-[#ff6b3d]/20"
                     placeholder="ops@your-agency.com"
+                    required
+                  />
+                </label>
+                <label className="grid gap-2 text-sm text-slate-700">
+                  Country
+                  <input
+                    value={country}
+                    onChange={(event) => setCountry(event.target.value)}
+                    className="h-12 rounded-2xl border border-slate-200 px-4 text-slate-950 outline-none transition focus:border-[#ff6b3d] focus:ring-2 focus:ring-[#ff6b3d]/20"
+                    placeholder="India"
                     required
                   />
                 </label>

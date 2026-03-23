@@ -1,0 +1,9 @@
+Node processes:
+"node.exe","1808","Console","1","1,448 K"
+"node.exe","13756","Console","1","1,568 K"
+"node.exe","4924","Console","1","1,756 K"
+"node.exe","35580","Console","1","6,128 K"
+"node.exe","30292","Console","1","31,568 K"
+"node.exe","32560","Console","1","26,468 K"
+"node.exe","27348","Console","1","44,108 K"
+No processes on port 3001

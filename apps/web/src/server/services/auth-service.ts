@@ -10,16 +10,16 @@ import { AuthenticationError, ConflictError, NotFoundError, generateUniquePublic
 import { authRepository } from "../repositories/auth-repository";
 import { eventRepository } from "../repositories/event-repository";
 import { userRepository } from "../repositories/user-repository";
+import {
+  getGoogleSubject,
+  mergeGoogleAuthMetadata,
+  normalizeAuthEmail,
+  resolveGoogleIdentityResolution,
+  resolveSessionAccessState,
+} from "../lib/auth-identity";
 import type { SessionActor } from "@missu/types";
 import type { RequestContext } from "../lib/request";
 import type { GoogleLoginInput, LoginInput, SignupInput } from "../validators/auth";
-
-function mapRole(user: { role: string; platformRole?: string | null; authRole?: string | null }): SessionActor["role"] {
-  if (user.platformRole === "ADMIN" || user.authRole === "admin") return "ADMIN";
-  if (user.role === "ADMIN") return "ADMIN";
-  if (user.role === "HOST" || user.role === "MODEL") return "HOST";
-  return "USER";
-}
 
 async function buildActor(userId: string): Promise<SessionActor> {
   const profile = await userRepository.getProfileById(userId);
@@ -28,13 +28,23 @@ async function buildActor(userId: string): Promise<SessionActor> {
     throw new NotFoundError("User not found");
   }
 
+  const accessState = resolveSessionAccessState({
+    role: profile.user.role,
+    platformRole: profile.user.platformRole,
+    authRole: profile.user.authRole,
+    agencyId: profile.agency?.id ?? profile.host?.agencyId ?? null,
+    agencyStatus: profile.agency?.approvalStatus ?? null,
+  });
+
   return {
     userId: profile.user.id,
     publicId: profile.user.publicId ?? profile.user.publicUserId ?? null,
-    email: profile.user.email,
-    role: mapRole(profile.user),
+    email: normalizeAuthEmail(profile.user.email),
+    role: accessState.role,
+    platformRole: accessState.platformRole,
+    agencyStatus: accessState.agencyStatus,
     sessionId: "",
-    agencyId: profile.host?.agencyId ?? null,
+    agencyId: profile.agency?.id ?? profile.host?.agencyId ?? null,
   };
 }
 
@@ -80,16 +90,24 @@ async function cacheUserProfile(userId: string) {
     return null;
   }
 
+  const accessState = resolveSessionAccessState({
+    role: profile.user.role,
+    platformRole: profile.user.platformRole,
+    authRole: profile.user.authRole,
+    agencyId: profile.agency?.id ?? profile.host?.agencyId ?? null,
+    agencyStatus: profile.agency?.approvalStatus ?? null,
+  });
+
   const cached = {
     id: profile.user.id,
     publicId: profile.user.publicId ?? profile.user.publicUserId ?? null,
-    email: profile.user.email,
+    email: normalizeAuthEmail(profile.user.email),
     displayName: profile.user.displayName,
     username: profile.user.username,
-    role: mapRole(profile.user),
+    role: accessState.role,
     phone: profile.user.phone,
     authProvider: profile.user.authProvider,
-    agencyId: profile.host?.agencyId ?? null,
+    agencyId: profile.agency?.id ?? profile.host?.agencyId ?? null,
     createdAt: profile.user.createdAt.toISOString(),
   };
 
@@ -129,7 +147,8 @@ async function verifyGoogleIdToken(idToken: string) {
 
 export const authService = {
   async signup(input: SignupInput, context: RequestContext) {
-    const existing = await userRepository.findByEmail(input.email);
+    const normalizedEmail = normalizeAuthEmail(input.email);
+    const existing = await userRepository.findByEmail(normalizedEmail);
     if (existing) {
       throw new ConflictError("Email already exists");
     }
@@ -137,7 +156,7 @@ export const authService = {
     // Generate username if not provided
     let username = input.username;
     if (!username) {
-      const base = input.email.split("@")[0]!.replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20) || "missuuser";
+      const base = normalizedEmail.split("@")[0]!.replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20) || "missuuser";
       username = base;
       let suffix = 1;
       while (await userRepository.existsByUsername(username)) {
@@ -163,12 +182,12 @@ export const authService = {
       name: "USER_CREATED",
       aggregateType: "USER",
       aggregateId: publicId,
-      payload: { publicId, email: input.email },
+      payload: { publicId, email: normalizedEmail },
     });
 
     const { user, sessionArtifacts } = await db.transaction(async (tx) => {
       const createdUser = await userRepository.create({
-        email: input.email,
+        email: normalizedEmail,
         passwordHash,
         displayName: input.displayName,
         username,
@@ -193,8 +212,10 @@ export const authService = {
       const actor: Omit<SessionActor, "sessionId"> = {
         userId: createdUser.id,
         publicId: createdUser.publicId ?? createdUser.publicUserId ?? null,
-        email: createdUser.email,
+        email: normalizeAuthEmail(createdUser.email),
         role: "USER",
+        platformRole: "USER",
+        agencyStatus: "NONE",
         agencyId: null,
       };
       const createdSession = await createSession(actor, context, tx);
@@ -218,6 +239,7 @@ export const authService = {
     return {
       user: await cacheUserProfile(user.id),
       platformRole: "USER" as const,
+      agencyStatus: "NONE" as const,
       rawAuthProvider: input.phone ? "PHONE_OTP" : "EMAIL",
       auth: {
         accessToken: sessionArtifacts.accessToken,
@@ -229,7 +251,8 @@ export const authService = {
   },
 
   async login(input: LoginInput, context: RequestContext) {
-    const user = await userRepository.findByEmail(input.email);
+    const normalizedEmail = normalizeAuthEmail(input.email);
+    const user = await userRepository.findByEmail(normalizedEmail);
 
     if (!user?.passwordHash) {
       throw new AuthenticationError("Invalid credentials");
@@ -264,7 +287,8 @@ export const authService = {
 
     return {
       user: await cacheUserProfile(user.id),
-      platformRole: user.platformRole,
+      platformRole: actor.platformRole,
+      agencyStatus: actor.agencyStatus,
       rawAuthProvider: user.authProvider,
       auth: {
         accessToken: sessionArtifacts.accessToken,
@@ -277,10 +301,33 @@ export const authService = {
 
   async google(input: GoogleLoginInput, context: RequestContext) {
     const googleProfile = await verifyGoogleIdToken(input.idToken);
-    let user = await userRepository.findByEmail(googleProfile.email!);
+    const normalizedEmail = normalizeAuthEmail(googleProfile.email!);
+    const googleSub = googleProfile.sub?.trim() || null;
+    const existingByGoogleSub = googleSub ? await userRepository.findByGoogleSub(googleSub) : null;
+    const existingByEmail = await userRepository.findByEmail(normalizedEmail);
+    const resolution = resolveGoogleIdentityResolution({
+      googleUserId: existingByGoogleSub?.id ?? null,
+      emailUserId: existingByEmail?.id ?? null,
+      emailUserGoogleSub: getGoogleSubject(existingByEmail?.authMetadataJson ?? null),
+      googleSub,
+    });
+
+    if (resolution === "conflict") {
+      throw new ConflictError("Google account conflicts with an existing user record");
+    }
+
+    if (resolution === "subject-mismatch") {
+      throw new AuthenticationError("Google account does not match the existing identity for this email");
+    }
+
+    let user = resolution === "by-google-sub"
+      ? existingByGoogleSub
+      : resolution === "by-email"
+        ? existingByEmail
+        : null;
 
     if (!user) {
-      const baseUsername = googleProfile.email!.split("@")[0]!.replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20) || "missuuser";
+      const baseUsername = normalizedEmail.split("@")[0]!.replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20) || "missuuser";
       let username = baseUsername;
       let suffix = 1;
 
@@ -303,13 +350,13 @@ export const authService = {
         name: "USER_CREATED",
         aggregateType: "USER",
         aggregateId: publicId,
-        payload: { publicId, email: googleProfile.email!, provider: "GOOGLE" },
+        payload: { publicId, email: normalizedEmail, provider: "GOOGLE" },
       });
 
       user = await db.transaction(async (tx) => {
         const createdUser = await userRepository.create({
-          email: googleProfile.email!,
-          displayName: googleProfile.name ?? googleProfile.email!.split("@")[0]!,
+          email: normalizedEmail,
+          displayName: googleProfile.name ?? normalizedEmail.split("@")[0]!,
           username,
           country: "US",
           preferredLocale: "en",
@@ -319,7 +366,8 @@ export const authService = {
           authProvider: "GOOGLE",
           status: "ACTIVE",
           avatarUrl: googleProfile.picture ?? null,
-          authMetadataJson: { googleSub: googleProfile.sub },
+          googleId: googleSub,
+          authMetadataJson: mergeGoogleAuthMetadata(null, googleSub),
           emailVerified: true,
           publicId,
           publicUserId: publicId,
@@ -336,6 +384,17 @@ export const authService = {
       });
 
       await publishDomainEvent({ ...createdEvent, aggregateId: user.id, payload: { publicId, email: user.email, provider: "GOOGLE" } });
+    } else {
+      user = await userRepository.update(user.id, {
+        email: normalizedEmail,
+        displayName: googleProfile.name ?? user.displayName,
+        avatarUrl: googleProfile.picture ?? user.avatarUrl ?? null,
+        authProvider: "GOOGLE",
+        googleId: googleSub,
+        authMetadataJson: mergeGoogleAuthMetadata(user.authMetadataJson ?? null, googleSub),
+        emailVerified: true,
+        lastActiveAt: new Date(),
+      }) ?? user;
     }
 
     const actor = await buildActor(user.id);
@@ -344,7 +403,8 @@ export const authService = {
 
     return {
       user: await cacheUserProfile(user.id),
-      platformRole: user.platformRole,
+      platformRole: actor.platformRole,
+      agencyStatus: actor.agencyStatus,
       rawAuthProvider: user.authProvider,
       auth: {
         accessToken: sessionArtifacts.accessToken,

@@ -5,16 +5,19 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { GoogleAuthButton } from "@/components/google-auth-button";
 import { useAuthBridge } from "@/components/auth-bridge";
-import { buildPendingAgencySignupInput, retryAgencyAuthRequest } from "@/lib/agency-auth";
+import { retryAgencyAuthRequest } from "@/lib/agency-auth";
 import { completeAgencySignupRequest, signInWithGoogle, signUpWithEmail } from "@/lib/auth-api";
 
 export default function SignupPageClient() {
   const router = useRouter();
   const auth = useAuthBridge();
   const [displayName, setDisplayName] = useState("");
+  const [agencyName, setAgencyName] = useState("");
+  const [contactName, setContactName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [country, setCountry] = useState("");
   const [referralCode, setReferralCode] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +34,11 @@ export default function SignupPageClient() {
       return;
     }
 
+    if (agencyName.trim().length < 2 || contactName.trim().length < 2 || country.trim().length < 2) {
+      setError("Agency name, contact name, and country are required");
+      return;
+    }
+
     setPending(true);
     setError(null);
 
@@ -41,10 +49,12 @@ export default function SignupPageClient() {
         password,
         referralCode: referralCode.trim() || undefined,
       });
-      await retryAgencyAuthRequest(() => completeAgencySignupRequest(session.token, buildPendingAgencySignupInput({
-        displayName: session.user.displayName,
-        email: session.user.email,
-      })));
+      await retryAgencyAuthRequest(() => completeAgencySignupRequest(session.token, {
+        agencyName: agencyName.trim(),
+        contactName: contactName.trim(),
+        contactEmail: session.user.email,
+        country: country.trim(),
+      }));
       auth.setSession(session);
       await completeSignup();
     } catch (signupError) {
@@ -55,6 +65,11 @@ export default function SignupPageClient() {
   }
 
   async function handleGoogleSignup(idToken: string) {
+    if (agencyName.trim().length < 2 || contactName.trim().length < 2 || country.trim().length < 2) {
+      setError("Agency name, contact name, and country are required");
+      return;
+    }
+
     setPending(true);
     setError(null);
 
@@ -64,10 +79,12 @@ export default function SignupPageClient() {
         displayName: displayName.trim() || undefined,
         referralCode: referralCode.trim() || undefined,
       });
-      await retryAgencyAuthRequest(() => completeAgencySignupRequest(session.token, buildPendingAgencySignupInput({
-        displayName: session.user.displayName,
-        email: session.user.email,
-      })));
+      await retryAgencyAuthRequest(() => completeAgencySignupRequest(session.token, {
+        agencyName: agencyName.trim(),
+        contactName: contactName.trim(),
+        contactEmail: session.user.email,
+        country: country.trim(),
+      }));
       auth.setSession(session);
       await completeSignup();
     } catch (signupError) {
@@ -93,6 +110,26 @@ export default function SignupPageClient() {
 
       <form className="space-y-4" onSubmit={handleEmailSignup}>
         <label className="grid gap-2 text-sm text-slate-700">
+          Agency name
+          <input
+            value={agencyName}
+            onChange={(event) => setAgencyName(event.target.value)}
+            className="h-12 rounded-2xl border border-slate-200 px-4 text-slate-950 outline-none transition focus:border-[#ff6b3d] focus:ring-2 focus:ring-[#ff6b3d]/20"
+            placeholder="North Star Agency"
+            required
+          />
+        </label>
+        <label className="grid gap-2 text-sm text-slate-700">
+          Contact name
+          <input
+            value={contactName}
+            onChange={(event) => setContactName(event.target.value)}
+            className="h-12 rounded-2xl border border-slate-200 px-4 text-slate-950 outline-none transition focus:border-[#ff6b3d] focus:ring-2 focus:ring-[#ff6b3d]/20"
+            placeholder="Aisha Rahman"
+            required
+          />
+        </label>
+        <label className="grid gap-2 text-sm text-slate-700">
           Display name
           <input
             value={displayName}
@@ -110,6 +147,16 @@ export default function SignupPageClient() {
             onChange={(event) => setEmail(event.target.value)}
             className="h-12 rounded-2xl border border-slate-200 px-4 text-slate-950 outline-none transition focus:border-[#ff6b3d] focus:ring-2 focus:ring-[#ff6b3d]/20"
             placeholder="ops@northstar.agency"
+            required
+          />
+        </label>
+        <label className="grid gap-2 text-sm text-slate-700">
+          Country
+          <input
+            value={country}
+            onChange={(event) => setCountry(event.target.value)}
+            className="h-12 rounded-2xl border border-slate-200 px-4 text-slate-950 outline-none transition focus:border-[#ff6b3d] focus:ring-2 focus:ring-[#ff6b3d]/20"
+            placeholder="India"
             required
           />
         </label>

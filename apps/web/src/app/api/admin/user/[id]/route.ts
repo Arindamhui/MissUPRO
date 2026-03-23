@@ -12,7 +12,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     await assertCsrf(request, claims);
     const input = updateAdminUserSchema.parse(await readJson(request));
     const { id } = await params;
-    const result = await adminService.updateUser({ userId: claims.sub, publicId: claims.publicId ?? null, email: claims.email, role: claims.role, sessionId: claims.sid, agencyId: claims.agencyId ?? null }, id, input, context);
+    const result = await adminService.updateUser({ userId: claims.sub, publicId: claims.publicId ?? null, email: claims.email, role: claims.role, platformRole: claims.platformRole, agencyStatus: claims.agencyStatus, sessionId: claims.sid, agencyId: claims.agencyId ?? null }, id, input, context);
     return jsonSuccess(result, context);
   } catch (error) {
     return jsonError(error, context);

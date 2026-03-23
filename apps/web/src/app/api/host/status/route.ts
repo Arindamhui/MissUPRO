@@ -8,7 +8,7 @@ export async function GET(request: Request) {
 
   try {
     const claims = await authenticateRequest(request);
-    const result = await hostService.status({ userId: claims.sub, publicId: claims.publicId ?? null, email: claims.email, role: claims.role, sessionId: claims.sid, agencyId: claims.agencyId ?? null });
+    const result = await hostService.status({ userId: claims.sub, publicId: claims.publicId ?? null, email: claims.email, role: claims.role, platformRole: claims.platformRole, agencyStatus: claims.agencyStatus, sessionId: claims.sid, agencyId: claims.agencyId ?? null });
     return jsonSuccess(result, context);
   } catch (error) {
     return jsonError(error, context);

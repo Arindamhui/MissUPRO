@@ -1,6 +1,10 @@
 export type PublicIdKind = "USER" | "AGENCY" | "HOST" | "AGENCY_HOST";
 
-export type AppRole = "USER" | "HOST" | "ADMIN";
+export type AppRole = "USER" | "HOST" | "AGENCY" | "ADMIN";
+
+export type AgencyStatus = "NONE" | "PENDING" | "APPROVED" | "REJECTED";
+
+export type PlatformAccessRole = "USER" | "MODEL_INDEPENDENT" | "MODEL_AGENCY" | "AGENCY" | "ADMIN";
 
 export type HostRequestType = "PLATFORM" | "AGENCY";
 
@@ -16,6 +20,8 @@ export interface SessionActor {
   publicId: string | null;
   email: string;
   role: AppRole;
+  platformRole: PlatformAccessRole;
+  agencyStatus: AgencyStatus;
   sessionId: string;
   agencyId?: string | null;
 }
@@ -25,6 +31,8 @@ export interface AccessTokenClaims extends Record<string, unknown> {
   sid: string;
   role: AppRole;
   email: string;
+  platformRole: PlatformAccessRole;
+  agencyStatus: AgencyStatus;
   publicId?: string;
   agencyId?: string;
   deviceId: string;

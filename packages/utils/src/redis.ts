@@ -6,6 +6,10 @@ const inMemoryLocks = new Map<string, { token: string; expiresAt: number }>();
 const inMemoryCache = new Map<string, { value: string; expiresAt: number }>();
 const inMemoryPresence = new Map<string, { value: string; expiresAt: number }>();
 
+function isRedisDisabled() {
+  return process.env.DISABLE_REDIS === "1";
+}
+
 function now() {
   return Date.now();
 }
@@ -20,7 +24,7 @@ function markRedisUnavailable() {
 }
 
 function canUseRedis() {
-  return Boolean(process.env["REDIS_URL"]) && now() >= redisUnavailableUntil;
+  return !isRedisDisabled() && Boolean(process.env["REDIS_URL"]) && now() >= redisUnavailableUntil;
 }
 
 function readMemoryValue(store: Map<string, { value: string; expiresAt: number }>, key: string) {
@@ -67,6 +71,10 @@ function releaseLocalLock(key: string, token: string): boolean {
 }
 
 export function getRedis(): Redis {
+  if (isRedisDisabled()) {
+    throw new Error("Redis unavailable");
+  }
+
   if (!canUseRedis()) {
     throw new Error("Redis unavailable");
   }
@@ -165,7 +173,7 @@ export async function acquireLock(
   key: string,
   ttlMs: number,
 ): Promise<string | null> {
-  if (!process.env["REDIS_URL"]) {
+  if (isRedisDisabled() || !process.env["REDIS_URL"]) {
     return acquireLocalLock(key, ttlMs);
   }
 
@@ -185,7 +193,7 @@ export async function acquireLock(
 }
 
 export async function releaseLock(key: string, token: string): Promise<boolean> {
-  if (!process.env["REDIS_URL"]) {
+  if (isRedisDisabled() || !process.env["REDIS_URL"]) {
     return releaseLocalLock(key, token);
   }
 

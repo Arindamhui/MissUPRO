@@ -5,9 +5,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { GoogleAuthButton } from "@/components/google-auth-button";
 import { useAuthBridge } from "@/components/auth-bridge";
-import { buildPendingAgencySignupInput, retryAgencyAuthRequest } from "@/lib/agency-auth";
 import { buildAuthErrorHref } from "@/lib/auth-paths";
-import { completeAgencySignupRequest, fetchPortalSession, signInWithEmail, signInWithGoogle } from "@/lib/auth-api";
+import { fetchPortalSession, signInWithEmail, signInWithGoogle } from "@/lib/auth-api";
 
 const REASON_COPY: Record<string, string> = {
   session_expired: "Your session expired. Sign in again to continue.",
@@ -97,43 +96,6 @@ export default function LoginPageClient({
     try {
       const session = await signInWithGoogle({ idToken });
       auth.setSession(session);
-
-       if (role === "agency") {
-        const portalSession = await retryAgencyAuthRequest(() => fetchPortalSession(session.token, "signup"));
-
-        if (portalSession.status === "agency") {
-          router.replace("/agency/dashboard");
-          return;
-        }
-
-        if (portalSession.status === "agency_pending_approval") {
-          router.replace("/auth/pending-approval");
-          return;
-        }
-
-        if (portalSession.status === "needs_agency_profile") {
-          const verificationSession = await retryAgencyAuthRequest(
-            () => completeAgencySignupRequest(
-              session.token,
-              buildPendingAgencySignupInput({
-                displayName: session.user.displayName,
-                email: session.user.email,
-              }),
-            ),
-          );
-
-          if (verificationSession.status === "agency" || verificationSession.status === "agency_pending_approval") {
-            router.replace("/auth/pending-approval");
-            return;
-          }
-
-          router.replace(buildAuthErrorHref(verificationSession.reason ?? "unauthorized_role", "agency"));
-          return;
-        }
-
-        router.replace(buildAuthErrorHref(portalSession.reason ?? "unauthorized_role", "agency"));
-        return;
-      }
 
       await finishLogin(session.token);
     } catch (loginError) {

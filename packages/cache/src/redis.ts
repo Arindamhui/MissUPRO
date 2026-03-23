@@ -5,6 +5,10 @@ const memoryCache = new Map<string, { value: string; expiresAt: number }>();
 let redisClient: Redis | null = null;
 let redisUnavailableUntil = 0;
 
+function isRedisDisabled() {
+  return process.env.DISABLE_REDIS === "1";
+}
+
 function now() {
   return Date.now();
 }
@@ -38,10 +42,19 @@ function markRedisUnavailable() {
 }
 
 function canUseRedis() {
-  return now() >= redisUnavailableUntil;
+  return !isRedisDisabled() && now() >= redisUnavailableUntil;
 }
 
 export function getRedis() {
+  if (isRedisDisabled()) {
+    if (redisClient) {
+      redisClient.disconnect(false);
+      redisClient = null;
+    }
+
+    return null;
+  }
+
   if (!canUseRedis()) {
     return null;
   }
@@ -74,10 +87,16 @@ async function withRedis<T>(operation: (client: Redis) => Promise<T>) {
 
   try {
     if (client.status === "wait") {
-      await client.connect();
+      await Promise.race([
+        client.connect(),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Redis connect timeout")), 2000)),
+      ]);
     }
 
-    return await operation(client);
+    return await Promise.race([
+      operation(client),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Redis operation timeout")), 3000)),
+    ]);
   } catch (error) {
     markRedisUnavailable();
     throw error;

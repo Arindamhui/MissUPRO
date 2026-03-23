@@ -29,7 +29,7 @@ import { CampaignService } from "../campaigns/campaign.service";
 import { ModelService } from "../models/model.service";
 import { VipService } from "../vip/vip.service";
 import { eq, and, desc, asc, count, sum, between, like, isNull, isNotNull, or, sql, gt } from "drizzle-orm";
-import { decodeCursor, encodeCursor, generateIdempotencyKey } from "@missu/utils";
+import { decodeCursor, encodeCursor, generateIdempotencyKey, generateUniquePublicId } from "@missu/utils";
 import { cacheDel, getRedis } from "@missu/utils";
 
 function buildGiftCode(name: string) {
@@ -821,36 +821,141 @@ export class AdminService {
   }
 
   async approveAgency(agencyId: string, adminId: string) {
-    await db.update(agencies).set({ status: "ACTIVE" as any, approvalStatus: "APPROVED" as any, updatedAt: new Date() }).where(eq(agencies.id, agencyId));
+    const [agency] = await db
+      .select({
+        id: agencies.id,
+        publicId: agencies.publicId,
+        ownerId: agencies.ownerId,
+        userId: agencies.userId,
+        contactEmail: agencies.contactEmail,
+      })
+      .from(agencies)
+      .where(eq(agencies.id, agencyId))
+      .limit(1);
+
+    if (!agency) throw new Error("Agency not found");
+
+    const [adminRecord] = await db
+      .select({ id: admins.id })
+      .from(admins)
+      .where(eq(admins.userId, adminId))
+      .limit(1);
+
+    let linkedUserId = agency.ownerId ?? agency.userId ?? null;
+    if (!linkedUserId) {
+      const normalizedEmail = agency.contactEmail.trim().toLowerCase();
+      const [matchedUser] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(sql`lower(${users.email}) = ${normalizedEmail}`)
+        .limit(1);
+      linkedUserId = matchedUser?.id ?? null;
+    }
+
+    const now = new Date();
+    const agencyUpdate: Record<string, unknown> = {
+      status: "ACTIVE",
+      approvalStatus: "APPROVED",
+      approvedAt: now,
+      rejectedAt: null,
+      updatedAt: now,
+    };
+
+    if (!agency.publicId || !/^A\d{9}$/.test(agency.publicId)) {
+      agencyUpdate.publicId = await generateUniquePublicId({
+        prefix: "A",
+        digits: 9,
+        exists: async (candidate) => {
+          const [existingAgency] = await db
+            .select({ id: agencies.id })
+            .from(agencies)
+            .where(eq(agencies.publicId, candidate))
+            .limit(1);
+
+          return Boolean(existingAgency);
+        },
+      });
+    }
+
+    if (!agency.ownerId && linkedUserId) agencyUpdate.ownerId = linkedUserId;
+    if (!agency.userId && linkedUserId) agencyUpdate.userId = linkedUserId;
+    if (adminRecord?.id) agencyUpdate.approvedByAdminId = adminRecord.id;
+
+    await db.update(agencies).set(agencyUpdate as any).where(eq(agencies.id, agencyId));
+
+    if (linkedUserId) {
+      await db.insert(agencyHosts).values({
+        agencyId,
+        userId: linkedUserId,
+        status: "ACTIVE" as any,
+      }).onConflictDoNothing();
+
+      await db
+        .update(users)
+        .set({
+          authRole: "agency" as any,
+          platformRole: "AGENCY" as any,
+          updatedAt: now,
+        })
+        .where(eq(users.id, linkedUserId));
+    }
+
     await this.logAction(adminId, "agency_approve", { agencyId });
     return { success: true };
   }
 
   async listAgencyApplications(status?: string, cursor?: string, limit = 20) {
-    // Check the formal agencyApplications table first
+    // Fetch from both formal agencyApplications table AND agencies table,
+    // because the agency signup route creates entries directly in the agencies
+    // table with approvalStatus = PENDING.
     const formal = await this.agencyService.listAgencyApplications(status, cursor, limit);
-    if (formal.items.length > 0) return formal;
 
-    // Fallback: pull from agencies table where approvalStatus matches
-    // This covers agencies registered via registerAgency (missu-pro flow)
-    const offset = cursor ? decodeCursor(cursor) : 0;
-    const where = status
+    // Also pull pending agencies from the agencies table (signup-flow entries)
+    const pendingFilter = status
       ? eq(agencies.approvalStatus, status as any)
-      : undefined;
-    const rows = await db.select().from(agencies).where(where).orderBy(desc(agencies.createdAt)).limit(limit + 1).offset(offset);
-    const hasMore = rows.length > limit;
-    const items = (hasMore ? rows.slice(0, limit) : rows).map((a) => ({
+      : eq(agencies.approvalStatus, "PENDING" as any);
+    const pendingAgencies = await db
+      .select()
+      .from(agencies)
+      .where(pendingFilter)
+      .orderBy(desc(agencies.createdAt))
+      .limit(limit);
+
+    // Convert agencies rows to the same shape as formal applications
+    const agencyItems = pendingAgencies.map((a) => ({
       id: a.id,
       agencyName: a.agencyName,
       contactName: a.contactName,
       contactEmail: a.contactEmail,
       country: a.country,
+      notes: null as string | null,
       status: a.approvalStatus,
       createdAt: a.createdAt,
-      applicantUserId: a.userId,
-      createdAgencyId: a.id,
+      updatedAt: a.updatedAt ?? a.createdAt,
+      applicantUserId: a.userId ?? "",
+      createdAgencyId: a.id as string | null,
+      reviewedByAdminId: null as string | null,
+      reviewedAt: null as Date | null,
     }));
-    return { items, nextCursor: hasMore ? encodeCursor(offset + limit) : null };
+
+    // Merge: formal applications + agency-table entries, deduplicate by ID
+    const seen = new Set(formal.items.map((item) => item.id));
+    const merged = [...formal.items];
+    for (const item of agencyItems) {
+      if (!seen.has(item.id)) {
+        merged.push(item);
+        seen.add(item.id);
+      }
+    }
+
+    // Sort merged list by createdAt descending
+    merged.sort((a, b) => {
+      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return tb - ta;
+    });
+
+    return { items: merged.slice(0, limit), nextCursor: formal.nextCursor };
   }
 
   async listAgencyHosts(agencyId: string, cursor?: string, limit = 20) {

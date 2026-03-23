@@ -1,0 +1,1 @@
+200:{"status":"healthy","version":"dev","uptime":58.2276196,"timestamp":"2026-03-23T11:57:38.006Z","components":{"database":{"status":"healthy","latencyMs":2478},"redis":{"status":"degraded","latencyMs":5,"message":"redis_unreachable"}},"totalLatencyMs":2479}

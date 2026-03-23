@@ -1,0 +1,26 @@
+[2026-03-23T12:17:04.678Z] Sending signup for signup5-1774268224678@example.com
+[2026-03-23T12:17:04.725Z] Request sent
+[2026-03-23T12:17:19.730Z] Still waiting... 15s
+[2026-03-23T12:17:34.729Z] Still waiting... 30s
+[2026-03-23T12:17:49.736Z] Still waiting... 45s
+[2026-03-23T12:18:04.739Z] Still waiting... 60s
+[2026-03-23T12:18:19.745Z] Still waiting... 75s
+[2026-03-23T12:18:34.745Z] Still waiting... 90s
+[2026-03-23T12:18:49.751Z] Still waiting... 105s
+[2026-03-23T12:19:04.752Z] Still waiting... 120s
+[2026-03-23T12:19:19.765Z] Still waiting... 135s
+[2026-03-23T12:19:34.764Z] Still waiting... 150s
+[2026-03-23T12:19:49.764Z] Still waiting... 165s
+[2026-03-23T12:20:04.767Z] Still waiting... 180s
+[2026-03-23T12:20:19.771Z] Still waiting... 195s
+[2026-03-23T12:20:34.770Z] Still waiting... 210s
+[2026-03-23T12:20:49.776Z] Still waiting... 225s
+[2026-03-23T12:21:04.788Z] Still waiting... 240s
+[2026-03-23T12:21:17.099Z] Error: read ECONNRESET code=ECONNRESET (252390ms)
+[2026-03-23T12:21:17.100Z] DONE_ERROR
+[2026-03-23T12:21:19.792Z] Still waiting... 255s
+[2026-03-23T12:21:34.799Z] Still waiting... 270s
+[2026-03-23T12:21:49.803Z] Still waiting... 285s
+[2026-03-23T12:22:04.809Z] Still waiting... 300s
+[2026-03-23T12:22:19.818Z] Still waiting... 315s
+[2026-03-23T12:22:19.819Z] Gave up waiting

@@ -9,8 +9,12 @@ let queue: Queue<DomainEvent, void, string> | null = null;
 let deadLetterQueue: Queue<DomainEvent, void, string> | null = null;
 let queueEvents: QueueEvents | null = null;
 
+function isRedisDisabled() {
+  return process.env.DISABLE_REDIS === "1";
+}
+
 function hasRedisConfig() {
-  return Boolean(getEnv().REDIS_URL);
+  return !isRedisDisabled() && Boolean(getEnv().REDIS_URL);
 }
 
 function connection() {
@@ -28,7 +32,11 @@ function connection() {
     db: url.pathname && url.pathname !== "/" ? Number(url.pathname.slice(1)) || 0 : 0,
     maxRetriesPerRequest: 1,
     enableOfflineQueue: false,
+    enableReadyCheck: false,
     connectTimeout: 500,
+    commandTimeout: 500,
+    retryStrategy: () => null,
+    lazyConnect: true,
     tls: url.protocol === "rediss:" ? {} : undefined,
   };
 }
@@ -53,6 +61,7 @@ export function getDomainQueue() {
     },
   });
 
+  instance.on("error", () => { /* silenced — Redis unavailable */ });
   queue = instance;
   return instance;
 }
@@ -67,6 +76,7 @@ export function getDeadLetterQueue() {
     prefix: getEnv().BULLMQ_PREFIX,
   });
 
+  instance.on("error", () => { /* silenced — Redis unavailable */ });
   deadLetterQueue = instance;
   return instance;
 }

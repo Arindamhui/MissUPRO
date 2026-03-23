@@ -1,5 +1,6 @@
-import { db, users, hosts } from "@missu/db";
-import { and, count, desc, eq, isNull } from "drizzle-orm";
+import { db, users, hosts, agencies } from "@missu/db";
+import { and, count, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { normalizeAuthEmail } from "../lib/auth-identity";
 
 type DbClient = any;
 
@@ -8,6 +9,7 @@ const authUserColumns = {
   publicId: users.publicId,
   publicUserId: users.publicUserId,
   clerkId: users.clerkId,
+  googleId: users.googleId,
   email: users.email,
   phone: users.phone,
   passwordHash: users.passwordHash,
@@ -18,6 +20,7 @@ const authUserColumns = {
   platformRole: users.platformRole,
   authRole: users.authRole,
   authProvider: users.authProvider,
+  authMetadataJson: users.authMetadataJson,
   country: users.country,
   city: users.city,
   preferredLocale: users.preferredLocale,
@@ -27,7 +30,23 @@ const authUserColumns = {
 
 export const userRepository = {
   async findByEmail(email: string, dbClient: DbClient = db) {
-    const result = await dbClient.select(authUserColumns).from(users).where(eq(users.email, email)).limit(1);
+    const normalizedEmail = normalizeAuthEmail(email);
+    const result = await dbClient
+      .select(authUserColumns)
+      .from(users)
+      .where(sql`lower(${users.email}) = ${normalizedEmail}`)
+      .limit(1);
+
+    return result[0] ?? null;
+  },
+
+  async findByGoogleSub(googleSub: string, dbClient: DbClient = db) {
+    const result = await dbClient
+      .select(authUserColumns)
+      .from(users)
+      .where(eq(users.googleId, googleSub))
+      .limit(1);
+
     return result[0] ?? null;
   },
 
@@ -65,7 +84,14 @@ export const userRepository = {
     const userResult = await db.select(authUserColumns).from(users).where(eq(users.id, id)).limit(1);
     const user = userResult[0] ?? null;
     const host = await db.query.hosts.findFirst({ where: and(eq(hosts.userId, id), isNull(hosts.rejectedAt)) });
-    return { user, host };
+    const agency = await db.query.agencies.findFirst({
+      where: and(
+        or(eq(agencies.ownerId, id), eq(agencies.userId, id)),
+        isNull(agencies.deletedAt),
+      ),
+    });
+
+    return { user, host, agency };
   },
 
   async list(limit: number, offset: number) {

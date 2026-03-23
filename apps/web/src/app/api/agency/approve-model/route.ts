@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       actorUserId: claims.sub,
       scope: "agency.approve-model",
       payload: input,
-      execute: () => agencyService.approveModel({ userId: claims.sub, publicId: claims.publicId ?? null, email: claims.email, role: claims.role, sessionId: claims.sid, agencyId: claims.agencyId ?? null }, input, context),
+      execute: () => agencyService.approveModel({ userId: claims.sub, publicId: claims.publicId ?? null, email: claims.email, role: claims.role, platformRole: claims.platformRole, agencyStatus: claims.agencyStatus, sessionId: claims.sid, agencyId: claims.agencyId ?? null }, input, context),
     });
     return jsonSuccess(result, context);
   } catch (error) {

@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "worker": "tsx src/server/workers/run-worker.ts"
+    "worker": "tsx src/server/workers/run-worker.ts",
+    "verify:auth-agency": "tsx --tsconfig tsconfig.json scripts/verify-auth-agency-approval.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.577.0",

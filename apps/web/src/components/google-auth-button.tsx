@@ -16,7 +16,7 @@ declare global {
 }
 
 let googleScriptPromise: Promise<void> | null = null;
-let initializedGoogleClientId: string | null = null;
+let activeCredentialCallback: ((credential: string) => void) | null = null;
 
 function ensureGoogleScript() {
   if (typeof window === "undefined") {
@@ -79,17 +79,18 @@ export function GoogleAuthButton({
 
       containerRef.current.innerHTML = "";
 
-      if (initializedGoogleClientId !== clientId) {
-        window.google.accounts.id.initialize({
-          client_id: clientId,
-          callback: (response) => {
-            if (response.credential) {
-              onCredentialRef.current(response.credential);
-            }
-          },
-        });
-        initializedGoogleClientId = clientId;
-      }
+      activeCredentialCallback = (credential: string) => {
+        onCredentialRef.current(credential);
+      };
+
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: (response) => {
+          if (response.credential && activeCredentialCallback) {
+            activeCredentialCallback(response.credential);
+          }
+        },
+      });
 
       window.google.accounts.id.renderButton(containerRef.current, {
         theme: "outline",

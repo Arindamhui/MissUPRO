@@ -86,6 +86,9 @@ export const adminService = {
     });
 
     await deleteCache(agencyCacheKey(updated.id));
+    if (updated.ownerId) {
+      await deleteCache(userProfileCacheKey(updated.ownerId));
+    }
     return updated;
   },
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getAuthCookieNames } from "@missu/auth";
 import { WEB_AUTH_COOKIE_NAME } from "@/lib/web-auth";
 
 /** Routes that require admin auth — exclude public auth pages */
@@ -35,7 +36,7 @@ function buildLoginUrl(req: Request, role: "admin" | "agency") {
 }
 
 export default function proxy(req: any) {
-  const token = req.cookies.get(WEB_AUTH_COOKIE_NAME)?.value;
+  const token = req.cookies.get(getAuthCookieNames().access)?.value ?? req.cookies.get(WEB_AUTH_COOKIE_NAME)?.value;
   const pathname = req.nextUrl.pathname as string;
 
   if (isProtectedAdminRoute(pathname) && !token) {

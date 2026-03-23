@@ -9,6 +9,7 @@ export type WebAuthSession = {
     email: string;
     displayName: string;
     platformRole: "USER" | "MODEL_INDEPENDENT" | "MODEL_AGENCY" | "AGENCY" | "ADMIN" | null;
+    agencyStatus: "NONE" | "PENDING" | "APPROVED" | "REJECTED" | null;
     authProvider: "EMAIL" | "GOOGLE" | "FACEBOOK" | "PHONE_OTP" | "WHATSAPP_OTP" | "CUSTOM_OTP" | "UNKNOWN";
   };
 };

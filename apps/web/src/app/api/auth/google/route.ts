@@ -25,6 +25,7 @@ export async function POST(request: Request) {
         email: result.user.email,
         displayName: result.user.displayName,
         platformRole: result.platformRole ?? null,
+        agencyStatus: result.agencyStatus ?? "NONE",
         authProvider: result.rawAuthProvider ?? "GOOGLE",
       },
     });

@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       actorUserId: claims.sub,
       scope: "agency.create",
       payload: input,
-      execute: () => agencyService.create({ userId: claims.sub, publicId: claims.publicId ?? null, email: claims.email, role: claims.role, sessionId: claims.sid, agencyId: claims.agencyId ?? null }, input, context),
+      execute: () => agencyService.create({ userId: claims.sub, publicId: claims.publicId ?? null, email: claims.email, role: claims.role, platformRole: claims.platformRole, agencyStatus: claims.agencyStatus, sessionId: claims.sid, agencyId: claims.agencyId ?? null }, input, context),
     });
     return jsonSuccess(result, context, { status: 201 });
   } catch (error) {

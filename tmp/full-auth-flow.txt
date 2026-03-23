@@ -1,0 +1,37 @@
+[2026-03-23T12:34:48.940Z] === FULL AUTH FLOW TEST ===
+[2026-03-23T12:34:48.941Z] Email: test-flow-1774269288940@example.com
+[2026-03-23T12:34:48.941Z] 
+--- STEP 1: SIGNUP ---
+[2026-03-23T12:34:52.770Z] Status: 201 (3829ms)
+[2026-03-23T12:34:52.771Z] Token: present (549 chars)
+[2026-03-23T12:34:52.771Z] SessionId: 27a3e4aa-9079-4601-bd7f-d590691a3c66
+[2026-03-23T12:34:52.771Z] User: {"id":"e0a32f2c-68eb-47a5-a49f-064f16acb523","email":"test-flow-1774269288940@example.com","displayName":"Flow Test User","platformRole":"USER","agencyStatus":"NONE","authProvider":"EMAIL"}
+[2026-03-23T12:34:52.772Z] Cookies: 4 set
+[2026-03-23T12:34:52.772Z] 
+--- STEP 2: LOGIN ---
+[2026-03-23T12:34:55.997Z] Status: 200 (3225ms)
+[2026-03-23T12:34:55.998Z] Token: present
+[2026-03-23T12:34:55.998Z] SessionId: bfb3d06b-01b9-481a-a96e-ec530e811557
+[2026-03-23T12:34:55.998Z] 
+--- STEP 3: SESSION CHECK ---
+[2026-03-23T12:34:56.883Z] Status: 200 (884ms)
+[2026-03-23T12:34:56.884Z] User: {}
+[2026-03-23T12:34:56.885Z] Auth: {}
+[2026-03-23T12:34:56.885Z] 
+--- STEP 4: USER PROFILE ---
+[2026-03-23T12:34:57.174Z] Status: 200 (289ms)
+[2026-03-23T12:34:57.175Z] Profile: {"ok":true,"data":{"id":"e0a32f2c-68eb-47a5-a49f-064f16acb523","publicId":"U022524189","email":"test-flow-1774269288940@example.com","displayName":"Flow Test User","username":"testflow177426928894","role":"USER","phone":null,"authProvider":"EMAIL","agencyId":null,"createdAt":"2026-03-23T12:34:50.592Z"},"requestId":"test-1774269296885-v7rrl4"}
+[2026-03-23T12:34:57.176Z] 
+--- STEP 5: DUPLICATE SIGNUP ---
+[2026-03-23T12:34:57.353Z] Status: 409 (176ms)
+[2026-03-23T12:34:57.354Z] Error: [object Object]
+[2026-03-23T12:34:57.354Z] 
+=== SUMMARY ===
+[2026-03-23T12:34:57.355Z] Signup: PASS (201)
+[2026-03-23T12:34:57.355Z] Login: PASS (200)
+[2026-03-23T12:34:57.355Z] Session: PASS (200)
+[2026-03-23T12:34:57.356Z] Profile: PASS (200)
+[2026-03-23T12:34:57.356Z] Dup Check: PASS (409)
+[2026-03-23T12:34:57.356Z] 
+OVERALL: ALL PASS ✓
+[2026-03-23T12:34:57.356Z] DONE

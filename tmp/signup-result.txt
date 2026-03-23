@@ -1,0 +1,4 @@
+STARTING
+SENDING POST /api/auth/signup with 75 bytes
+REQUEST_SENT
+REQ_ERROR: 

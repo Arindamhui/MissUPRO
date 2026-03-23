@@ -21,19 +21,38 @@ export function successResponse<T>(data: T, requestId?: string): ApiSuccess<T> {
 }
 
 export function errorResponse(error: unknown, requestId?: string): { statusCode: number; body: ApiFailure } {
-  const appError = isAppError(error)
-    ? error
-    : new AppError(500, "INTERNAL_SERVER_ERROR", "An unexpected error occurred");
+  if (isAppError(error)) {
+    return {
+      statusCode: error.statusCode,
+      body: {
+        ok: false,
+        error: { code: error.code, message: error.message, details: error.details },
+        requestId,
+      },
+    };
+  }
+
+  // Zod validation errors
+  if (error && typeof error === "object" && "issues" in error && Array.isArray((error as any).issues)) {
+    return {
+      statusCode: 422,
+      body: {
+        ok: false,
+        error: {
+          code: "VALIDATION_FAILED",
+          message: "Validation failed",
+          details: (error as any).issues,
+        },
+        requestId,
+      },
+    };
+  }
 
   return {
-    statusCode: appError.statusCode,
+    statusCode: 500,
     body: {
       ok: false,
-      error: {
-        code: appError.code,
-        message: appError.message,
-        details: appError.details,
-      },
+      error: { code: "INTERNAL_SERVER_ERROR", message: "An unexpected error occurred" },
       requestId,
     },
   };

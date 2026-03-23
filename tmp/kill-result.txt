@@ -1,0 +1,7 @@
+Listening on 3001: 2 entries
+Found PID: 41140
+Killed PID 41140
+Found PID: 41140
+Failed to kill PID 41140: Command failed: taskkill /PID 41140 /F
+ERROR: The process with PID 41140 could not be terminated.
+Reason: The operation attempted is not supported.

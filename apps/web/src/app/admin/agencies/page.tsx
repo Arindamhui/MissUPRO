@@ -94,6 +94,15 @@ export default function AdminAgenciesPage() {
     approveAgency.mutate({ agencyId: agency.id });
   }
 
+  function handleApproveApplication(application: ApplicationRow) {
+    // Items from the agencies table have createdAgencyId === id; use approveAgency for those
+    if (application.createdAgencyId && application.createdAgencyId === application.id) {
+      approveAgency.mutate({ agencyId: application.id });
+    } else {
+      approveApplication.mutate({ applicationId: application.id });
+    }
+  }
+
   function handleReject(agency: AgencyRow) {
     setRejectModal({ id: agency.id, name: agency.agencyName });
     setRejectNotes("");
@@ -101,7 +110,13 @@ export default function AdminAgenciesPage() {
 
   function confirmReject() {
     if (!rejectModal) return;
-    rejectApplication.mutate({ applicationId: rejectModal.id, notes: rejectNotes || "Rejected by admin review" });
+    // Check if this is a direct agency (not from agency_applications)
+    const isDirectAgency = allAgencies.some((a) => a.id === rejectModal.id);
+    if (isDirectAgency) {
+      rejectApplication.mutate({ applicationId: rejectModal.id, notes: rejectNotes || "Rejected by admin review" });
+    } else {
+      rejectApplication.mutate({ applicationId: rejectModal.id, notes: rejectNotes || "Rejected by admin review" });
+    }
   }
 
   const agencyTabs = [
@@ -125,6 +140,59 @@ export default function AdminAgenciesPage() {
         <AdminMetricCard label="Commission Records" value={formatNumber(commissions.length)} icon={HandCoins} tone="sky" />
         <AdminMetricCard label="Total Commission" value={formatCurrency(totalCommission)} icon={Users} tone="emerald" />
       </div>
+
+      <AdminPanelCard
+        title="Agency Applications"
+        subtitle="Applications submitted for admin review before an agency account is approved."
+      >
+        <AdminDataTable
+          rows={applications}
+          rowKey={(row) => row.id}
+          isLoading={applicationsQuery.isLoading}
+          emptyMessage="No pending agency applications found."
+          columns={[
+            {
+              key: "agencyName", label: "Agency", sortable: true,
+              render: (row) => (
+                <div>
+                  <p className="font-semibold text-slate-900">{row.agencyName}</p>
+                  <p className="text-xs text-slate-500">Applicant: {row.contactName ?? "—"}</p>
+                </div>
+              ),
+            },
+            { key: "contactEmail", label: "Email", render: (row) => row.contactEmail ? <span className="text-xs text-slate-600">{row.contactEmail}</span> : "—" },
+            { key: "country", label: "Country", render: (row) => row.country ?? "—" },
+            { key: "status", label: "Status", render: (row) => <AdminStatusPill value={row.status ?? row.approvalStatus ?? "PENDING"} /> },
+            { key: "createdAt", label: "Submitted", render: (row) => row.createdAt ? formatDate(row.createdAt) : "—" },
+            {
+              key: "actions", label: "",
+              render: (row) => (
+                <div className="flex items-center gap-2">
+                  {String(row.status ?? "PENDING").toUpperCase() === "PENDING" ? (
+                    <>
+                      <AdminButton
+                        onClick={() => handleApproveApplication(row)}
+                        disabled={approveApplication.isPending || approveAgency.isPending}
+                        className="gap-1"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                      </AdminButton>
+                      <AdminButton
+                        variant="danger"
+                        onClick={() => setRejectModal({ id: row.id, name: row.agencyName })}
+                        disabled={rejectApplication.isPending}
+                        className="gap-1"
+                      >
+                        <XCircle className="h-3.5 w-3.5" /> Reject
+                      </AdminButton>
+                    </>
+                  ) : null}
+                </div>
+              ),
+            },
+          ]}
+        />
+      </AdminPanelCard>
 
       {/* Main Agency Table with Tabs */}
       <AdminPanelCard

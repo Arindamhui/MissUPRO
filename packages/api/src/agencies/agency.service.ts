@@ -5,6 +5,7 @@ import {
   agencyHosts,
   agencyApplications,
   agencyCommissionRecords,
+  admins,
   dmConversations,
   dmMessages,
   followers,
@@ -17,10 +18,26 @@ import {
 } from "@missu/db/schema";
 import { eq, and, desc, count, inArray, gte, sql, or } from "drizzle-orm";
 import { DEFAULTS } from "@missu/config";
-import { decodeCursor, encodeCursor } from "@missu/utils";
+import { decodeCursor, encodeCursor, generateUniquePublicId } from "@missu/utils";
 
 @Injectable()
 export class AgencyService {
+  private async generateAgencyPublicId() {
+    return generateUniquePublicId({
+      prefix: "A",
+      digits: 9,
+      exists: async (candidate) => {
+        const [existingAgency] = await db
+          .select({ id: agencies.id })
+          .from(agencies)
+          .where(eq(agencies.publicId, candidate))
+          .limit(1);
+
+        return Boolean(existingAgency);
+      },
+    });
+  }
+
   private getStartOfDay() {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -197,34 +214,35 @@ export class AgencyService {
       throw new Error("You are already in a squad");
     }
 
+    const [existingAgency] = await db
+      .select({ id: agencies.id })
+      .from(agencies)
+      .where(or(eq(agencies.ownerId, userId), eq(agencies.userId, userId)))
+      .limit(1);
+
+    if (existingAgency) {
+      throw new Error("Agency request already exists for this user");
+    }
+
+    const publicId = await this.generateAgencyPublicId();
+
     const [agency] = await db
       .insert(agencies)
       .values({
+        publicId,
+        ownerId: userId,
         userId,
         agencyName: data.name,
         contactName: data.contactName,
         contactEmail: data.contactEmail,
         country: data.country,
-        status: "ACTIVE",
+        status: "PENDING",
+        approvalStatus: "PENDING" as any,
         commissionTier: DEFAULTS.AGENCY_COMMISSION_TIERS[0]?.name ?? "STANDARD",
       })
       .returning();
 
     if (!agency) throw new Error("Failed to create agency");
-
-    // Make the applying user the first host with ACTIVE status
-    await db.insert(agencyHosts).values({
-      agencyId: agency.id,
-      userId,
-      status: "ACTIVE" as any,
-    });
-
-    // Align role system: agency operators are treated as HOST.
-    // (AGENCY role isn't a separate enum in this codebase.)
-    await db
-      .update(users)
-      .set({ role: "HOST" as any, authRole: "agency", updatedAt: new Date() })
-      .where(and(eq(users.id, userId), sql`${users.role} <> 'ADMIN'` as any));
 
     return agency;
   }
@@ -282,16 +300,31 @@ export class AgencyService {
       .limit(1);
     if (!application) throw new Error("Agency application not found");
 
+    const [adminRecord] = await db
+      .select({ id: admins.id })
+      .from(admins)
+      .where(eq(admins.userId, adminId))
+      .limit(1);
+
+    const now = new Date();
+    const publicId = await this.generateAgencyPublicId();
+
     const [agency] = await db
       .insert(agencies)
       .values({
+        publicId,
+        ownerId: application.applicantUserId,
+        userId: application.applicantUserId,
         agencyName: application.agencyName,
         contactName: application.contactName,
         contactEmail: application.contactEmail,
         country: application.country,
         status: "ACTIVE",
+        approvalStatus: "APPROVED" as any,
         commissionTier: DEFAULTS.AGENCY_COMMISSION_TIERS[0]?.name ?? "STANDARD",
-        approvedByAdminId: adminId,
+        approvedByAdminId: adminRecord?.id,
+        approvedAt: now,
+        updatedAt: now,
       })
       .returning();
 
@@ -301,14 +334,23 @@ export class AgencyService {
       status: "ACTIVE" as any,
     }).onConflictDoNothing();
 
+    await db
+      .update(users)
+      .set({
+        authRole: "agency" as any,
+        platformRole: "AGENCY" as any,
+        updatedAt: now,
+      })
+      .where(eq(users.id, application.applicantUserId));
+
     const [updated] = await db
       .update(agencyApplications)
       .set({
         status: "APPROVED" as any,
         createdAgencyId: agency!.id,
-        reviewedByAdminId: adminId,
-        reviewedAt: new Date(),
-        updatedAt: new Date(),
+        reviewedByAdminId: adminRecord?.id,
+        reviewedAt: now,
+        updatedAt: now,
       })
       .where(eq(agencyApplications.id, applicationId))
       .returning();

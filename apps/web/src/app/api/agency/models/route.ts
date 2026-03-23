@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const claims = await authenticateRequest(request);
     const query = paginationQuerySchema.parse(Object.fromEntries(new URL(request.url).searchParams.entries()));
     const offset = query.cursor ? decodeCursor(query.cursor) : 0;
-    const items = await agencyService.listModels({ userId: claims.sub, publicId: claims.publicId ?? null, email: claims.email, role: claims.role, sessionId: claims.sid, agencyId: claims.agencyId ?? null }, query.limit + 1, offset);
+    const items = await agencyService.listModels({ userId: claims.sub, publicId: claims.publicId ?? null, email: claims.email, role: claims.role, platformRole: claims.platformRole, agencyStatus: claims.agencyStatus, sessionId: claims.sid, agencyId: claims.agencyId ?? null }, query.limit + 1, offset);
     const nextCursor = items.length > query.limit ? encodeCursor(offset + query.limit) : null;
     return jsonSuccess({ items: items.slice(0, query.limit), nextCursor }, context);
   } catch (error) {

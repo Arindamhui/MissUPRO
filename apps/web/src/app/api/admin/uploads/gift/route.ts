@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { getAuthCookieNames } from "@missu/auth";
 import { fetchPortalSession } from "@/lib/auth-api";
 import { WEB_AUTH_COOKIE_NAME } from "@/lib/web-auth";
 import { storageService } from "@/server/services/storage-service";
@@ -10,7 +11,8 @@ function badRequest(message: string, status = 400) {
 
 export async function POST(request: Request) {
   const cookieStore = await cookies();
-  const token = cookieStore.get(WEB_AUTH_COOKIE_NAME)?.value
+  const token = cookieStore.get(getAuthCookieNames().access)?.value
+    ?? cookieStore.get(WEB_AUTH_COOKIE_NAME)?.value
     ?? request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
 
   if (!token) {

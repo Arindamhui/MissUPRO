@@ -34,6 +34,8 @@ export async function signAccessToken(actor: SessionActor, deviceId: string) {
   return new SignJWT({
     role: actor.role,
     email: actor.email,
+    platformRole: actor.platformRole,
+    agencyStatus: actor.agencyStatus,
     publicId: actor.publicId ?? undefined,
     agencyId: actor.agencyId ?? undefined,
     sid: actor.sessionId,
@@ -80,7 +82,16 @@ export async function verifyAccessToken(token: string): Promise<AccessTokenClaim
   try {
     const payload = await verifyJwt<JWTPayload>(token, accessSecret());
 
-    if (payload.type !== "access" || !payload.sub || !payload.sid || !payload.role || !payload.email || !payload.deviceId) {
+    if (
+      payload.type !== "access"
+      || !payload.sub
+      || !payload.sid
+      || !payload.role
+      || !payload.email
+      || !payload.deviceId
+      || !payload.platformRole
+      || !payload.agencyStatus
+    ) {
       throw new AuthenticationError("Invalid access token");
     }
 

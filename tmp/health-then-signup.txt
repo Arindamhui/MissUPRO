@@ -1,0 +1,9 @@
+[2026-03-23T11:37:44.660Z] Checking health...
+[2026-03-23T11:37:46.052Z] Health: status=200 elapsed=1390ms body={"status":"healthy","version":"dev","uptime":8542.9539324,"timestamp":"2026-03-23T11:37:46.048Z","components":{"database":{"status":"healthy","latencyMs":1355},"redis":{"status":"degraded","latencyMs"
+[2026-03-23T11:37:46.052Z] Redis status: [object Object]
+[2026-03-23T11:37:46.053Z] DB status: [object Object]
+[2026-03-23T11:37:46.053Z] 
+Sending signup for test-hs-1774265866053@example.com...
+[2026-03-23T11:39:46.065Z] Signup error: timeout elapsed=120011ms
+[2026-03-23T11:39:46.065Z] 
+DONE

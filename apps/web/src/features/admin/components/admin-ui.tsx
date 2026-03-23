@@ -205,8 +205,8 @@ export function AdminDataTable<T extends Record<string, unknown>>({
                 {columns.map((column) => <td key={column.key} className="px-4 py-4"><div className="h-4 w-full animate-pulse rounded-full bg-slate-100" /></td>)}
               </tr>
             )) : null}
-            {!isLoading && sortedRows.map((row) => (
-              <tr key={rowKey(row)} className={cn("transition hover:bg-slate-50/80", onRowClick ? "cursor-pointer" : undefined)} onClick={() => onRowClick?.(row)}>
+            {!isLoading && sortedRows.map((row, index) => (
+              <tr key={`${rowKey(row)}-${index}`} className={cn("transition hover:bg-slate-50/80", onRowClick ? "cursor-pointer" : undefined)} onClick={() => onRowClick?.(row)}>
                 {columns.map((column) => <td key={column.key} className={cn("px-4 py-4 align-top text-slate-700", column.className)}>{column.render(row)}</td>)}
               </tr>
             ))}

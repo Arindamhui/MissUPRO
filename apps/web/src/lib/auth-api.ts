@@ -7,6 +7,7 @@ export type PortalSession = {
   reason?: "admin_signup_forbidden" | "unauthorized_role" | "agency_record_missing" | "service_unavailable" | "agency_pending_approval";
   role: "admin" | "agency" | null;
   platformRole: "USER" | "MODEL_INDEPENDENT" | "MODEL_AGENCY" | "AGENCY" | "ADMIN" | null;
+  agencyStatus: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
   userId: string;
   email: string;
   sessionId: string | null;

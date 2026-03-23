@@ -1,10 +1,14 @@
 import * as Google from "expo-auth-session/providers/google";
+import { makeRedirectUri } from "expo-auth-session";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { KeyboardAvoidingView, Platform, Text, TouchableOpacity, View } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AnimatedSnow } from "@/components/AnimatedSnow";
+import { BackgroundCollage } from "@/components/BackgroundCollage";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Button, Input, Screen } from "@/components/ui";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
@@ -12,6 +16,8 @@ import { signInWithGoogle, signUpWithEmail } from "@/lib/auth-api";
 import { persistMobileAuthSession } from "@/lib/auth-session";
 import { useAuthStore } from "@/store";
 import { COLORS, FONT, RADIUS, SPACING } from "@/theme";
+
+WebBrowser.maybeCompleteAuthSession();
 
 function resolveGoogleClientIds() {
   const shared = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
@@ -22,6 +28,11 @@ function resolveGoogleClientIds() {
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? shared,
   };
 }
+
+const googleRedirectUri = makeRedirectUri({
+  scheme: "missupro",
+  path: "oauthredirect",
+});
 
 export default function SignupScreen() {
   const insets = useSafeAreaInsets();
@@ -40,6 +51,7 @@ export default function SignupScreen() {
     androidClientId: googleClientIds.androidClientId,
     iosClientId: googleClientIds.iosClientId,
     webClientId: googleClientIds.webClientId,
+    redirectUri: googleRedirectUri,
     scopes: ["openid", "profile", "email"],
   });
 
@@ -155,104 +167,120 @@ export default function SignupScreen() {
   };
 
   return (
-    <Screen style={{ backgroundColor: "#08122E" }}>
+    <Screen style={{ backgroundColor: "#08122E", padding: 0 }}>
+      <BackgroundCollage variant="auth" />
+      <AnimatedSnow density={16} />
       <StatusBar style="light" />
       <LinearGradient
-        colors={["#10204B", "#08122E", "#060A1D"]}
+        colors={["rgba(5,10,31,0.22)", "rgba(10,16,48,0.44)", "rgba(5,8,26,0.9)"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{ flex: 1 }}
       >
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-          <View style={{ flex: 1, paddingTop: insets.top + SPACING.xl, paddingBottom: Math.max(insets.bottom, SPACING.lg), paddingHorizontal: SPACING.lg }}>
-            <View style={{ alignItems: "center", marginTop: SPACING.xl, marginBottom: SPACING.xl }}>
-              <BrandLogo size={116} />
-              <Text style={{ color: COLORS.white, fontSize: FONT.sizes.xl, fontWeight: "700", marginTop: SPACING.md }}>
-                Create your account
-              </Text>
-              <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: FONT.sizes.sm, marginTop: 6, textAlign: "center" }}>
-                Sign up with email or Google and finish onboarding in the app.
-              </Text>
-            </View>
-
-            <View style={{ backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 28, padding: SPACING.lg, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
-              <Input
-                label="Display name"
-                placeholder="How people will see you"
-                value={displayName}
-                onChangeText={setDisplayName}
-                autoCapitalize="words"
-                style={{ backgroundColor: "rgba(255,255,255,0.12)", color: COLORS.white }}
-              />
-              <Input
-                label="Email"
-                placeholder="you@gmail.com"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={{ backgroundColor: "rgba(255,255,255,0.12)", color: COLORS.white }}
-              />
-              <Input
-                label="Password"
-                placeholder="At least 8 characters"
-                value={password}
-                onChangeText={setPassword}
-                secure
-                style={{ backgroundColor: "rgba(255,255,255,0.12)", color: COLORS.white }}
-              />
-              <Input
-                label="Confirm password"
-                placeholder="Re-enter your password"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secure
-                style={{ backgroundColor: "rgba(255,255,255,0.12)", color: COLORS.white }}
-              />
-              <Input
-                label="Referral code"
-                placeholder="Optional"
-                value={referralCode}
-                onChangeText={setReferralCode}
-                autoCapitalize="characters"
-                style={{ backgroundColor: "rgba(255,255,255,0.12)", color: COLORS.white }}
-              />
-
-              {error ? (
-                <View style={{ backgroundColor: "rgba(225,112,85,0.16)", borderRadius: RADIUS.md, padding: SPACING.md, marginBottom: SPACING.md }}>
-                  <Text style={{ color: "#FFC5B7", fontSize: FONT.sizes.sm, textAlign: "center" }}>{error}</Text>
-                </View>
-              ) : null}
-
-              <Button
-                title="Create account"
-                onPress={handleSignup}
-                loading={busyAction === "email"}
-                style={{ marginTop: SPACING.sm }}
-              />
-              <Button
-                title="Continue with Google"
-                onPress={() => void handleGoogleSignup()}
-                loading={busyAction === "google"}
-                variant="outline"
-                disabled={!request}
-                style={{ marginTop: SPACING.md, borderColor: "rgba(255,255,255,0.5)" }}
-              />
-
-              <Text style={{ color: "rgba(255,255,255,0.58)", fontSize: FONT.sizes.xs, textAlign: "center", marginTop: SPACING.md, lineHeight: 18 }}>
-                By continuing, you agree to the Terms and Privacy Policy configured for MissU Pro.
-              </Text>
-            </View>
-
-            <View style={{ marginTop: "auto", alignItems: "center", paddingTop: SPACING.xl }}>
-              <TouchableOpacity onPress={() => router.replace("/(auth)/login")}>
-                <Text style={{ color: COLORS.white, fontSize: FONT.sizes.md }}>
-                  Already have an account? <Text style={{ fontWeight: "700" }}>Sign in</Text>
+          <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <View style={{ flex: 1, paddingTop: insets.top + SPACING.xl, paddingBottom: Math.max(insets.bottom, SPACING.lg), paddingHorizontal: SPACING.lg }}>
+              <View style={{ alignItems: "center", marginTop: SPACING.lg, marginBottom: SPACING.xl + 4 }}>
+                <BrandLogo size={116} />
+                <Text style={{ color: COLORS.white, fontSize: FONT.sizes.xl, fontWeight: "700", marginTop: SPACING.md }}>
+                  Create your account
                 </Text>
-              </TouchableOpacity>
+                <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: FONT.sizes.sm, marginTop: 6, textAlign: "center" }}>
+                  Sign up with email or Google and finish onboarding in the app.
+                </Text>
+              </View>
+
+              <View
+                style={{
+                  backgroundColor: "rgba(9,16,46,0.54)",
+                  borderRadius: 32,
+                  padding: SPACING.lg,
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.14)",
+                  shadowColor: "#000000",
+                  shadowOpacity: 0.28,
+                  shadowRadius: 22,
+                  shadowOffset: { width: 0, height: 14 },
+                }}
+              >
+                <Input
+                  label="Display name"
+                  placeholder="How people will see you"
+                  value={displayName}
+                  onChangeText={setDisplayName}
+                  autoCapitalize="words"
+                  style={{ backgroundColor: "rgba(255,255,255,0.12)", color: COLORS.white, borderRadius: RADIUS.xl, minHeight: 54 }}
+                />
+                <Input
+                  label="Email"
+                  placeholder="you@gmail.com"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  style={{ backgroundColor: "rgba(255,255,255,0.12)", color: COLORS.white, borderRadius: RADIUS.xl, minHeight: 54 }}
+                />
+                <Input
+                  label="Password"
+                  placeholder="At least 8 characters"
+                  value={password}
+                  onChangeText={setPassword}
+                  secure
+                  style={{ backgroundColor: "rgba(255,255,255,0.12)", color: COLORS.white, borderRadius: RADIUS.xl, minHeight: 54 }}
+                />
+                <Input
+                  label="Confirm password"
+                  placeholder="Re-enter your password"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secure
+                  style={{ backgroundColor: "rgba(255,255,255,0.12)", color: COLORS.white, borderRadius: RADIUS.xl, minHeight: 54 }}
+                />
+                <Input
+                  label="Referral code"
+                  placeholder="Optional"
+                  value={referralCode}
+                  onChangeText={setReferralCode}
+                  autoCapitalize="characters"
+                  style={{ backgroundColor: "rgba(255,255,255,0.12)", color: COLORS.white, borderRadius: RADIUS.xl, minHeight: 54 }}
+                />
+
+                {error ? (
+                  <View style={{ backgroundColor: "rgba(225,112,85,0.16)", borderRadius: RADIUS.md, padding: SPACING.md, marginBottom: SPACING.md }}>
+                    <Text style={{ color: "#FFC5B7", fontSize: FONT.sizes.sm, textAlign: "center" }}>{error}</Text>
+                  </View>
+                ) : null}
+
+                <Button
+                  title="Create account"
+                  onPress={handleSignup}
+                  loading={busyAction === "email"}
+                  style={{ marginTop: SPACING.sm, borderRadius: RADIUS.full, height: 54, backgroundColor: "#6F63F6" }}
+                />
+                <Button
+                  title="Continue with Google"
+                  onPress={() => void handleGoogleSignup()}
+                  loading={busyAction === "google"}
+                  variant="outline"
+                  disabled={!request}
+                  style={{ marginTop: SPACING.md, borderColor: "rgba(135,188,255,0.72)", borderRadius: RADIUS.full, height: 54, backgroundColor: "rgba(64,136,245,0.16)" }}
+                />
+
+                <Text style={{ color: "rgba(255,255,255,0.74)", fontSize: FONT.sizes.xs, textAlign: "center", marginTop: SPACING.md, lineHeight: 18 }}>
+                  By continuing, you agree to the Terms and Privacy Policy configured for MissU Pro.
+                </Text>
+              </View>
+
+              <View style={{ marginTop: "auto", alignItems: "center", paddingTop: SPACING.xl }}>
+                <TouchableOpacity onPress={() => router.replace("/(auth)/login")}>
+                  <Text style={{ color: COLORS.white, fontSize: FONT.sizes.md }}>
+                    Already have an account? <Text style={{ fontWeight: "700" }}>Sign in</Text>
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </LinearGradient>
     </Screen>

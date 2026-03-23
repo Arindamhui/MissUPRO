@@ -7,6 +7,7 @@ const path = require("node:path");
 
 const APP_ID = process.env.MOBILE_ANDROID_APPLICATION_ID || "com.missupro.app";
 const DEFAULT_METRO_PORT = Number(process.env.MOBILE_ANDROID_METRO_PORT || 8081);
+const FALLBACK_REACT_NATIVE_PORT = 8081;
 const mode = process.argv[2] || "emulator";
 const extraArgs = process.argv.slice(3);
 
@@ -153,6 +154,20 @@ function reverseMetroPort(adb, serial, metroPort) {
   }
 }
 
+function reverseMetroPorts(adb, serial, metroPort) {
+  reverseMetroPort(adb, serial, metroPort);
+
+  if (metroPort !== FALLBACK_REACT_NATIVE_PORT) {
+    const result = run(adb, ["-s", serial, "reverse", `tcp:${FALLBACK_REACT_NATIVE_PORT}`, `tcp:${metroPort}`]);
+    if (result.error || result.status !== 0) {
+      const output = `${result.stdout || ""}${result.stderr || ""}`.trim();
+      console.warn(
+        `[android] Could not map tcp:${FALLBACK_REACT_NATIVE_PORT} to tcp:${metroPort}: ${output || result.error?.message || result.status}`
+      );
+    }
+  }
+}
+
 function buildApp(env, metroPort) {
   const gradleArgs = [
     "app:assembleDebug",
@@ -202,6 +217,9 @@ function startMetro(env) {
       "--dev-client",
       "--port",
       String(metroPort),
+      "--host",
+      "localhost",
+      "--non-interactive",
       ...extraArgs,
     ],
     {
@@ -416,7 +434,7 @@ async function main() {
   console.log(`[android] Removing existing ${APP_ID} from ${serial} before install.`);
   uninstallExistingApp(adb, serial);
 
-  reverseMetroPort(adb, serial, metroPort);
+  reverseMetroPorts(adb, serial, metroPort);
 
   console.log(`[android] Installing ${path.basename(apkPath)} on ${serial}.`);
   installApp(adb, serial, apkPath);
