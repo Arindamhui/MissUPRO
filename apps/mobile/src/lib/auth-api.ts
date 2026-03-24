@@ -48,7 +48,26 @@ async function parseError(response: Response) {
 }
 
 async function sendJson<T>(path: string, init: RequestInit) {
-  const response = await fetch(`${resolveApiBaseUrl()}${path}`, init);
+  const url = `${resolveApiBaseUrl()}${path}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Authentication request timed out. Check that the API server is running and reachable from the mobile app.");
+    }
+
+    throw new Error(`Authentication request failed. Check that the API server is running at ${resolveApiBaseUrl()}.`);
+  } finally {
+    clearTimeout(timeout);
+  }
+
   if (!response.ok) {
     throw new Error(await parseError(response));
   }

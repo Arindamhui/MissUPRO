@@ -217,9 +217,6 @@ function startMetro(env) {
       "--dev-client",
       "--port",
       String(metroPort),
-      "--host",
-      "localhost",
-      "--non-interactive",
       ...extraArgs,
     ],
     {
@@ -243,7 +240,7 @@ function sleep(ms) {
 
 function isMetroRunningOnPort(port) {
   return new Promise((resolve) => {
-    const request = http.get(`http://127.0.0.1:${port}/status`, (response) => {
+    const request = http.get(`http://localhost:${port}/status`, (response) => {
       let body = "";
 
       response.on("data", (chunk) => {
@@ -345,7 +342,7 @@ function isMetroCompatible(port) {
     ].join("&");
 
     const request = http.get(
-      `http://127.0.0.1:${port}/.expo/.virtual-metro-entry.bundle?${query}`,
+      `http://localhost:${port}/.expo/.virtual-metro-entry.bundle?${query}`,
       (response) => {
         let body = "";
 

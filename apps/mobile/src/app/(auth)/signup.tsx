@@ -1,10 +1,7 @@
-import * as Google from "expo-auth-session/providers/google";
-import { makeRedirectUri } from "expo-auth-session";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AnimatedSnow } from "@/components/AnimatedSnow";
@@ -14,29 +11,14 @@ import { Button, Input, Screen } from "@/components/ui";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { signInWithGoogle, signUpWithEmail } from "@/lib/auth-api";
 import { persistMobileAuthSession } from "@/lib/auth-session";
+import { useGoogleAuth } from "@/lib/google-auth";
 import { useAuthStore } from "@/store";
 import { COLORS, FONT, RADIUS, SPACING } from "@/theme";
-
-WebBrowser.maybeCompleteAuthSession();
-
-function resolveGoogleClientIds() {
-  const shared = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
-  return {
-    clientId: shared,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ?? shared,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? shared,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? shared,
-  };
-}
-
-const googleRedirectUri = makeRedirectUri({
-  scheme: "missupro",
-  path: "oauthredirect",
-});
 
 export default function SignupScreen() {
   const insets = useSafeAreaInsets();
   const setMobilePanel = useAuthStore((state) => state.setMobilePanel);
+  const { isReady: isGoogleReady, promptGoogleAuth } = useGoogleAuth();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -45,52 +27,6 @@ export default function SignupScreen() {
   const [error, setError] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<"email" | "google" | null>(null);
   const googleMetadataRef = useRef<{ displayName?: string; referralCode?: string }>({});
-  const googleClientIds = useMemo(resolveGoogleClientIds, []);
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: googleClientIds.clientId,
-    androidClientId: googleClientIds.androidClientId,
-    iosClientId: googleClientIds.iosClientId,
-    webClientId: googleClientIds.webClientId,
-    redirectUri: googleRedirectUri,
-    scopes: ["openid", "profile", "email"],
-  });
-
-  useEffect(() => {
-    if (!response) {
-      return;
-    }
-
-    if (response.type !== "success") {
-      if (response.type !== "dismiss" && response.type !== "cancel") {
-        setBusyAction(null);
-      }
-      return;
-    }
-
-    const idToken = response.params?.id_token;
-    if (!idToken) {
-      setBusyAction(null);
-      setError("Google did not return an ID token.");
-      return;
-    }
-
-    void (async () => {
-      try {
-        const session = await signInWithGoogle({
-          idToken,
-          displayName: googleMetadataRef.current.displayName,
-          referralCode: googleMetadataRef.current.referralCode,
-        });
-        await persistMobileAuthSession(session);
-        setMobilePanel("user");
-        router.replace("/onboarding");
-      } catch (authError) {
-        setError(getAuthErrorMessage(authError, "Google sign up failed"));
-      } finally {
-        setBusyAction(null);
-      }
-    })();
-  }, [response, setMobilePanel]);
 
   const validate = () => {
     if (!displayName.trim()) {
@@ -147,21 +83,26 @@ export default function SignupScreen() {
       referralCode: referralCode.trim() || undefined,
     };
 
-    if (!request) {
-      setError("Google sign in is still loading. Try again in a moment.");
-      return;
-    }
-
-    if (!googleClientIds.clientId && !googleClientIds.androidClientId && !googleClientIds.iosClientId && !googleClientIds.webClientId) {
-      setError("Google sign in is not configured for the mobile app.");
-      return;
-    }
-
     setError(null);
     setBusyAction("google");
 
-    const result = await promptAsync();
-    if (result.type !== "success") {
+    try {
+      const idToken = await promptGoogleAuth();
+      if (!idToken) {
+        setBusyAction(null);
+        return;
+      }
+      const session = await signInWithGoogle({
+        idToken,
+        displayName: googleMetadataRef.current.displayName,
+        referralCode: googleMetadataRef.current.referralCode,
+      });
+      await persistMobileAuthSession(session);
+      setMobilePanel("user");
+      router.replace("/onboarding");
+    } catch (authError) {
+      setError(getAuthErrorMessage(authError, "Google sign up failed"));
+    } finally {
       setBusyAction(null);
     }
   };
@@ -262,8 +203,8 @@ export default function SignupScreen() {
                   title="Continue with Google"
                   onPress={() => void handleGoogleSignup()}
                   loading={busyAction === "google"}
+                  disabled={!isGoogleReady}
                   variant="outline"
-                  disabled={!request}
                   style={{ marginTop: SPACING.md, borderColor: "rgba(135,188,255,0.72)", borderRadius: RADIUS.full, height: 54, backgroundColor: "rgba(64,136,245,0.16)" }}
                 />
 

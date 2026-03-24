@@ -18,15 +18,6 @@ const agencySignupSchema = z.object({
   country: z.string().trim().min(2).max(80),
 });
 
-function generateCode(prefix: string, length: number) {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let result = prefix;
-  for (let i = 0; i < length; i++) {
-    result += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return result;
-}
-
 export async function POST(request: Request) {
   const context = getRequestContext(request);
   const authHeader = request.headers.get("authorization");
@@ -74,7 +65,6 @@ export async function POST(request: Request) {
     let existingAgency = (await resolveAgencyAccessForUser(appUser.id, email))?.agency;
 
     if (!existingAgency) {
-      const agencyCode = generateCode("AG-", 6);
       const publicId = await generateUniquePublicId({
         prefix: "A",
         digits: 9,
@@ -94,11 +84,11 @@ export async function POST(request: Request) {
         ownerId: appUser.id,
         agencyName: input.agencyName,
         publicId,
-        agencyCode,
+        agencyCode: publicId,
         contactName: input.contactName,
         contactEmail: input.contactEmail.trim().toLowerCase(),
         country: input.country,
-        status: "PENDING",
+        status: "APPLICATION",
         approvalStatus: "PENDING",
         metadataJson: { panel: "agency", createdBy: "portal_signup" },
         commissionTier: "STANDARD",

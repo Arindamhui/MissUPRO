@@ -556,7 +556,6 @@ export class AuthService {
     let agency = await this.getOwnedAgencyForUser(identity.appUser.id);
 
     if (!agency) {
-      const agencyCode = await this.generateUniqueAgencyCode(input.agencyName);
       const agencyPublicId = await this.generateUniqueAgencyPublicId();
       const [createdAgency] = await db
         .insert(agencies)
@@ -565,11 +564,11 @@ export class AuthService {
           clerkId: identity.identityKey,
           agencyName: input.agencyName,
           publicId: agencyPublicId,
-          agencyCode,
+          agencyCode: agencyPublicId,
           contactName: input.contactName,
           contactEmail: normalizeEmail(input.contactEmail),
           country: input.country,
-          status: "PENDING",
+          status: "APPLICATION",
           approvalStatus: "PENDING" as any,
           metadataJson: { panel: "agency", createdBy: "portal_signup" },
           commissionTier: DEFAULTS.AGENCY_COMMISSION_TIERS[0]?.name ?? "STANDARD",
@@ -699,6 +698,42 @@ export class AuthService {
   private resolveDisplayName(value: string | null | undefined, email: string) {
     const trimmed = value?.trim();
     return trimmed && trimmed.length > 0 ? trimmed : (email.split("@")[0] ?? "MissU User");
+  }
+
+  /**
+   * Exchange a Google authorization code for an id_token.
+   * Used by the mobile OAuth callback (loopback redirect flow).
+   */
+  async exchangeGoogleCodeForIdToken(code: string): Promise<string> {
+    const clientId = this.env.GOOGLE_INSTALLED_CLIENT_ID;
+    const clientSecret = this.env.GOOGLE_INSTALLED_CLIENT_SECRET;
+    if (!clientId || !clientSecret) {
+      throw new Error("GOOGLE_INSTALLED_CLIENT_ID or GOOGLE_INSTALLED_CLIENT_SECRET not configured");
+    }
+
+    const response = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+        grant_type: "authorization_code",
+        redirect_uri: `http://127.0.0.1:${this.env.PORT}/auth/google/callback/mobile`,
+      }).toString(),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Google token exchange failed: ${text}`);
+    }
+
+    const data = (await response.json()) as { id_token?: string };
+    if (!data.id_token) {
+      throw new Error("Google did not return an id_token");
+    }
+
+    return data.id_token;
   }
 
   private async verifyGoogleIdToken(idToken: string): Promise<GoogleTokenInfo> {
@@ -1556,7 +1591,7 @@ export class AuthService {
 
     await db
       .update(agencies)
-      .set({ status: "REJECTED", approvalStatus: "REJECTED" as any, rejectedAt: new Date(), updatedAt: new Date() })
+      .set({ status: "SUSPENDED", approvalStatus: "REJECTED" as any, rejectedAt: new Date(), updatedAt: new Date() })
       .where(and(eq(agencies.id, agencyId), eq(agencies.approvalStatus, "PENDING" as any)));
 
     await this.logAuditEvent({

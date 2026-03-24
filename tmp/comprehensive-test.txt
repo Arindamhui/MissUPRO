@@ -1,0 +1,86 @@
+[2026-03-24T04:01:34.694Z] ========================================
+[2026-03-24T04:01:34.696Z]   COMPREHENSIVE RUNTIME TEST
+[2026-03-24T04:01:34.696Z] ========================================
+
+[2026-03-24T04:01:34.696Z] --- 1. HEALTH ---
+[2026-03-24T04:01:36.288Z]   PASS Health endpoint: 200 (1590ms)
+[2026-03-24T04:01:36.308Z]     DB: healthy (1559ms)
+[2026-03-24T04:01:36.309Z]     Redis: degraded (redis_unreachable)
+[2026-03-24T04:01:36.309Z] 
+--- 2. SIGNUP ---
+[2026-03-24T04:01:40.354Z]   PASS Signup: 201 (4043ms)
+[2026-03-24T04:01:40.354Z]     User ID: d846e3ca-3b34-4c62-9e55-388fbb11532e
+[2026-03-24T04:01:40.355Z]     Public ID: from-profile
+[2026-03-24T04:01:40.355Z]     Email: comp-1774324894694@example.com
+[2026-03-24T04:01:40.355Z]     PlatformRole: USER
+[2026-03-24T04:01:40.355Z]     AgencyStatus: NONE
+[2026-03-24T04:01:40.356Z]     Token: 543 chars
+[2026-03-24T04:01:40.356Z]     SessionId: 9dede377-c5c6-48da-a219-1c1e4ebc4e83
+[2026-03-24T04:01:40.356Z]     Cookies: 4
+[2026-03-24T04:01:40.357Z] 
+--- 3. LOGIN ---
+[2026-03-24T04:01:43.487Z]   PASS Login: 200 (3130ms)
+[2026-03-24T04:01:43.488Z]     New SessionId: 09ee676e-cb47-4b9b-ab39-4b9ade3f456d
+[2026-03-24T04:01:43.488Z]     Token: present
+[2026-03-24T04:01:43.489Z] 
+--- 4. SESSION CHECK ---
+[2026-03-24T04:01:44.209Z]   PASS Session: 200 (720ms)
+[2026-03-24T04:01:44.210Z]     Session data keys: status, reason, role, platformRole, agencyStatus, userId, email, sessionId
+[2026-03-24T04:01:44.210Z] 
+--- 5. USER PROFILE ---
+[2026-03-24T04:01:44.249Z]   PASS Profile: 200 (38ms)
+[2026-03-24T04:01:44.249Z]     PublicId: U654114159
+[2026-03-24T04:01:44.250Z]     Username: comp1774324894694
+[2026-03-24T04:01:44.250Z]     Role: USER
+[2026-03-24T04:01:44.250Z]     AuthProvider: EMAIL
+[2026-03-24T04:01:44.251Z] 
+--- 6. DUPLICATE SIGNUP ---
+[2026-03-24T04:01:44.486Z]   PASS Duplicate rejected: 409 (235ms)
+[2026-03-24T04:01:44.487Z]     Error code: CONFLICT
+[2026-03-24T04:01:44.487Z] 
+--- 7. VALIDATION ---
+[2026-03-24T04:01:44.534Z]   PASS Bad input rejected: 422 (46ms)
+[2026-03-24T04:01:44.535Z]     Error code: VALIDATION_FAILED
+[2026-03-24T04:01:44.535Z] 
+--- 8. AGENCY SIGNUP (bearer auth) ---
+[2026-03-24T04:01:47.688Z]   PASS Agency signup: 200 (3152ms)
+[2026-03-24T04:01:47.689Z]     Response: {"status":"agency_pending_approval","reason":"agency_pending_approval","role":"agency","platformRole":"AGENCY","agencyStatus":"PENDING","userId":"d846e3ca-3b34-4c62-9e55-388fbb11532e","email":"comp-1774324894694@example.com","sessionId":"9dede377-c5c6-48da-a219-1c1e4ebc4e83","agencyId":"7eb9dceb-331
+[2026-03-24T04:01:47.689Z] 
+--- 9. HOST APPLICATION ---
+[2026-03-24T04:01:47.917Z]   PASS Host apply: 409 (226ms)
+[2026-03-24T04:01:47.917Z]     Response: {"ok":false,"error":{"code":"CONFLICT","message":"Independent host applications require documents"},"requestId":"test-1774324907690-szpuph"}
+[2026-03-24T04:01:47.918Z] 
+--- 10. HOST STATUS ---
+[2026-03-24T04:01:48.448Z]   PASS Host status: 200 (530ms)
+[2026-03-24T04:01:48.449Z]     Data: {}
+[2026-03-24T04:01:48.449Z] 
+--- 11. PAGE PROTECTION ---
+[2026-03-24T04:01:48.466Z]   PASS Admin requires auth: 307 (15ms)
+[2026-03-24T04:01:48.466Z]     Redirects to: /admin-login?reason=session_expired
+[2026-03-24T04:01:48.471Z]   PASS Agency requires auth: 307 (5ms)
+[2026-03-24T04:01:48.472Z]     Redirects to: /agency-login?reason=session_expired
+[2026-03-24T04:01:48.472Z] 
+--- 12. PUBLIC PAGES ---
+[2026-03-24T04:01:48.533Z]   PASS /: 200 (61ms)
+[2026-03-24T04:01:48.580Z]   PASS /admin-login: 200 (46ms)
+[2026-03-24T04:01:48.627Z]   PASS /agency-login: 200 (46ms)
+[2026-03-24T04:01:48.697Z]   PASS /agency-signup: 200 (70ms)
+[2026-03-24T04:01:48.763Z]   PASS /signup: 307 (66ms)
+[2026-03-24T04:01:48.763Z] 
+--- 13. ADMIN ENDPOINTS (no auth - expect 401) ---
+[2026-03-24T04:01:48.778Z]   PASS /api/admin/dashboard: 401 (14ms)
+[2026-03-24T04:01:48.789Z]   PASS /api/admin/users: 401 (11ms)
+[2026-03-24T04:01:48.802Z]   PASS /api/admin/agencies: 401 (12ms)
+[2026-03-24T04:01:48.816Z]   PASS /api/admin/hosts: 401 (13ms)
+[2026-03-24T04:01:48.817Z] 
+--- 14. LOGOUT ---
+[2026-03-24T04:01:49.098Z]   PASS Logout: 200 (280ms)
+[2026-03-24T04:01:49.099Z] 
+--- 15. SESSION AFTER LOGOUT ---
+[2026-03-24T04:01:49.805Z]   PASS Post-logout session: 200 (706ms)
+[2026-03-24T04:01:49.806Z] 
+========================================
+[2026-03-24T04:01:49.806Z]   RESULTS: 23 passed, 0 failed, 23 total
+[2026-03-24T04:01:49.807Z]   ALL TESTS PASSED ✓
+[2026-03-24T04:01:49.807Z] ========================================
+[2026-03-24T04:01:49.807Z] DONE

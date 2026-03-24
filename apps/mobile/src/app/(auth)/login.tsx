@@ -1,10 +1,7 @@
-import * as Google from "expo-auth-session/providers/google";
-import { makeRedirectUri } from "expo-auth-session";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -22,80 +19,25 @@ import { Button, Input, Screen } from "@/components/ui";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { signInWithEmail, signInWithGoogle, type MobileAuthSession } from "@/lib/auth-api";
 import { persistMobileAuthSession } from "@/lib/auth-session";
+import { useGoogleAuth } from "@/lib/google-auth";
 import { useAuthStore } from "@/store";
 import { COLORS, FONT, RADIUS, SPACING } from "@/theme";
-
-WebBrowser.maybeCompleteAuthSession();
-
-function resolveGoogleClientIds() {
-  const shared = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
-  return {
-    clientId: shared,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ?? shared,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? shared,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? shared,
-  };
-}
-
-const googleRedirectUri = makeRedirectUri({
-  scheme: "missupro",
-  path: "oauthredirect",
-});
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const continueAsGuest = useAuthStore((state) => state.continueAsGuest);
   const setMobilePanel = useAuthStore((state) => state.setMobilePanel);
+  const { isReady: isGoogleReady, promptGoogleAuth } = useGoogleAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<"email" | "google" | "guest" | null>(null);
-  const googleClientIds = useMemo(resolveGoogleClientIds, []);
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: googleClientIds.clientId,
-    androidClientId: googleClientIds.androidClientId,
-    iosClientId: googleClientIds.iosClientId,
-    webClientId: googleClientIds.webClientId,
-    redirectUri: googleRedirectUri,
-    scopes: ["openid", "profile", "email"],
-  });
 
   const finalizeSignIn = useCallback(async (session: MobileAuthSession) => {
     await persistMobileAuthSession(session);
     setMobilePanel("user");
     router.replace("/(tabs)");
   }, [setMobilePanel]);
-
-  useEffect(() => {
-    if (!response) {
-      return;
-    }
-
-    if (response.type !== "success") {
-      if (response.type !== "dismiss" && response.type !== "cancel") {
-        setBusyAction(null);
-      }
-      return;
-    }
-
-    const idToken = response.params?.id_token;
-    if (!idToken) {
-      setBusyAction(null);
-      setError("Google did not return an ID token.");
-      return;
-    }
-
-    void (async () => {
-      try {
-        const session = await signInWithGoogle({ idToken });
-        await finalizeSignIn(session);
-      } catch (authError) {
-        setError(getAuthErrorMessage(authError, "Google sign in failed"));
-      } finally {
-        setBusyAction(null);
-      }
-    })();
-  }, [finalizeSignIn, response]);
 
   const validateForm = () => {
     if (!email.trim() || !email.includes("@")) {
@@ -133,21 +75,20 @@ export default function LoginScreen() {
   };
 
   const handleGoogleLogin = async () => {
-    if (!request) {
-      setError("Google sign in is still loading. Try again in a moment.");
-      return;
-    }
-
-    if (!googleClientIds.clientId && !googleClientIds.androidClientId && !googleClientIds.iosClientId && !googleClientIds.webClientId) {
-      setError("Google sign in is not configured for the mobile app.");
-      return;
-    }
-
     setError(null);
     setBusyAction("google");
 
-    const result = await promptAsync();
-    if (result.type !== "success") {
+    try {
+      const idToken = await promptGoogleAuth();
+      if (!idToken) {
+        setBusyAction(null);
+        return;
+      }
+      const session = await signInWithGoogle({ idToken });
+      await finalizeSignIn(session);
+    } catch (authError) {
+      setError(getAuthErrorMessage(authError, "Google sign in failed"));
+    } finally {
       setBusyAction(null);
     }
   };
@@ -241,8 +182,8 @@ export default function LoginScreen() {
                   title="Continue with Google"
                   onPress={() => void handleGoogleLogin()}
                   loading={busyAction === "google"}
+                  disabled={!isGoogleReady}
                   variant="outline"
-                  disabled={!request}
                   style={{ marginTop: SPACING.md, borderColor: "rgba(135,188,255,0.72)", borderRadius: RADIUS.full, height: 54, backgroundColor: "rgba(64,136,245,0.16)" }}
                 />
                 <Button

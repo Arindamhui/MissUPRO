@@ -28,6 +28,8 @@ const envSchema = z.object({
   COOKIE_DOMAIN: z.string().default(""),
   GOOGLE_CLIENT_IDS: z.string().default(""),
   GOOGLE_CLIENT_ID: z.string().default(""),
+  GOOGLE_INSTALLED_CLIENT_ID: z.string().default(""),
+  GOOGLE_INSTALLED_CLIENT_SECRET: z.string().default(""),
 
   // Stripe
   STRIPE_SECRET_KEY: z.string().default(""),

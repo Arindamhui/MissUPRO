@@ -10,6 +10,19 @@ const config = getDefaultConfig(projectRoot);
 const workspaceNodeModulesPath = path.resolve(workspaceRoot, "node_modules");
 
 config.watchFolders = [workspaceRoot];
+
+// Exclude build artifacts and non-mobile directories from Metro's file watcher
+// to prevent ENOENT crashes (e.g. apps/web/.next/export)
+config.resolver.blockList = [
+  /apps[\\/]web[\\/]\.next[\\/].*/,
+  /apps[\\/]web[\\/]node_modules[\\/].*/,
+  /apps[\\/]mobile[\\/]android[\\/].*/,
+  /apps[\\/]mobile[\\/]dist[\\/].*/,
+  /infra[\\/].*/,
+  /services[\\/].*/,
+  /tmp[\\/].*/,
+  /\.turbo[\\/].*/,
+];
 config.resolver.nodeModulesPaths = [workspaceNodeModulesPath].filter((nodeModulesPath) => {
   if (!fs.existsSync(nodeModulesPath)) {
     return false;

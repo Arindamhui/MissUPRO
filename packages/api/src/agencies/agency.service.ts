@@ -230,13 +230,14 @@ export class AgencyService {
       .insert(agencies)
       .values({
         publicId,
+        agencyCode: publicId,
         ownerId: userId,
         userId,
         agencyName: data.name,
         contactName: data.contactName,
         contactEmail: data.contactEmail,
         country: data.country,
-        status: "PENDING",
+        status: "APPLICATION",
         approvalStatus: "PENDING" as any,
         commissionTier: DEFAULTS.AGENCY_COMMISSION_TIERS[0]?.name ?? "STANDARD",
       })
@@ -313,6 +314,7 @@ export class AgencyService {
       .insert(agencies)
       .values({
         publicId,
+        agencyCode: publicId,
         ownerId: application.applicantUserId,
         userId: application.applicantUserId,
         agencyName: application.agencyName,

@@ -7,9 +7,10 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UnauthorizedException,
 } from "@nestjs/common";
-import type { Request } from "express";
+import type { Request, Response } from "express";
 import { ZodError } from "zod";
 import { AuthService } from "./auth.service";
 import {
@@ -193,6 +194,34 @@ export class AuthController {
         throw new BadRequestException(error.flatten());
       }
       throw new UnauthorizedException("Invalid bearer token");
+    }
+  }
+
+  /**
+   * Mobile Google OAuth callback.
+   * Google redirects here with ?code=...&state=...
+   * We exchange the code for an id_token and redirect to the app's custom scheme.
+   */
+  @Get("google/callback/mobile")
+  async googleMobileCallback(
+    @Query("code") code: string | undefined,
+    @Query("state") state: string | undefined,
+    @Query("error") error: string | undefined,
+    @Res() res: Response,
+  ) {
+    const APP_SCHEME = "missupro";
+
+    if (error || !code) {
+      return res.redirect(`${APP_SCHEME}://oauthredirect?error=${encodeURIComponent(error || "no_code")}`);
+    }
+
+    try {
+      const idToken = await this.authService.exchangeGoogleCodeForIdToken(code);
+      const redirectUrl = `${APP_SCHEME}://oauthredirect?id_token=${encodeURIComponent(idToken)}${state ? `&state=${encodeURIComponent(state)}` : ""}`;
+      return res.redirect(redirectUrl);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "token_exchange_failed";
+      return res.redirect(`${APP_SCHEME}://oauthredirect?error=${encodeURIComponent(msg)}`);
     }
   }
 

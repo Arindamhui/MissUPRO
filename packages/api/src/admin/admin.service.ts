@@ -1010,7 +1010,7 @@ export class AdminService {
       return result;
     }
     // Fallback: reject agency directly
-    await db.update(agencies).set({ status: "REJECTED" as any, approvalStatus: "REJECTED" as any, updatedAt: new Date() }).where(eq(agencies.id, applicationId));
+    await db.update(agencies).set({ status: "SUSPENDED" as any, approvalStatus: "REJECTED" as any, updatedAt: new Date() }).where(eq(agencies.id, applicationId));
     await this.logAction(adminId, "agency_application_reject", { applicationId });
     return { status: "REJECTED" };
   }

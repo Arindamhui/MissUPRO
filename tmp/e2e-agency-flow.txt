@@ -1,0 +1,52 @@
+[2026-03-24T03:57:50.933Z] === E2E AGENCY FLOW TEST ===
+
+[2026-03-24T03:57:50.933Z] --- STEP 1: Agency owner signup ---
+[2026-03-24T03:57:56.605Z]   PASS Owner signup: 201
+[2026-03-24T03:57:56.606Z]   Token: present (553 chars)
+[2026-03-24T03:57:56.606Z] 
+--- STEP 2: Register agency ---
+[2026-03-24T03:58:00.452Z]   PASS Agency registration: 200
+[2026-03-24T03:58:00.453Z]   AgencyId: 33eb177c-92d2-4977-bf2b-5b73717b5f7f
+[2026-03-24T03:58:00.453Z]   AgencyCode: A397623360
+[2026-03-24T03:58:00.454Z]   AgencyStatus: PENDING
+[2026-03-24T03:58:00.454Z]   Status: agency_pending_approval
+[2026-03-24T03:58:00.454Z]   PASS Agency pending approval: agency_pending_approval
+[2026-03-24T03:58:00.455Z]   PASS Agency code format (A+9): true
+[2026-03-24T03:58:00.456Z] 
+--- STEP 3: Agency session check (pending) ---
+[2026-03-24T03:58:01.247Z]   PASS Pending session status: agency_pending_approval
+[2026-03-24T03:58:01.248Z]   PASS Pending session agencyStatus: PENDING
+[2026-03-24T03:58:01.248Z]   AgencyCode in session: A397623360
+[2026-03-24T03:58:01.249Z] 
+--- STEP 4: Admin approval ---
+[2026-03-24T03:58:01.249Z]   (Simulating admin approval via direct API call)
+[2026-03-24T03:58:01.528Z]   Admin login attempt: 401
+[2026-03-24T03:58:01.529Z]   No admin account available — will test approval logic separately
+[2026-03-24T03:58:01.529Z] 
+--- STEP 6: Host user signup ---
+[2026-03-24T03:58:05.653Z]   PASS Host user signup: 201
+[2026-03-24T03:58:05.654Z]   Host token: present
+[2026-03-24T03:58:05.654Z] 
+--- STEP 7: Host apply (platform - no agency approval yet) ---
+[2026-03-24T03:58:05.927Z]   Host platform apply status: 409
+[2026-03-24T03:58:05.928Z]   Response: {"ok":false,"error":{"code":"CONFLICT","message":"Independent host applications require documents"},"requestId":"e2e-1774324685655-9jpu32"}
+[2026-03-24T03:58:05.928Z]   PASS Host platform apply (docs required): 409
+[2026-03-24T03:58:05.929Z] 
+--- STEP 8: Host status check ---
+[2026-03-24T03:58:06.409Z]   PASS Host status endpoint: 200
+[2026-03-24T03:58:06.410Z]   Host data: {}
+[2026-03-24T03:58:06.410Z] 
+--- STEP 9: Agency owner re-login ---
+[2026-03-24T03:58:09.609Z]   PASS Owner re-login: 200
+[2026-03-24T03:58:09.609Z]   New token: present
+[2026-03-24T03:58:09.610Z] 
+--- STEP 10: Agency ID verification ---
+[2026-03-24T03:58:09.610Z]   PASS Agency code starts with A: true
+[2026-03-24T03:58:09.611Z]   PASS Agency code is A+9digits: true
+[2026-03-24T03:58:09.611Z]   Agency code: A397623360
+[2026-03-24T03:58:09.611Z] 
+========================================
+[2026-03-24T03:58:09.612Z]   RESULTS: 12 passed, 0 failed, 12 total
+[2026-03-24T03:58:09.612Z]   ALL TESTS PASSED
+[2026-03-24T03:58:09.612Z] ========================================
+[2026-03-24T03:58:09.613Z] DONE

@@ -2,7 +2,6 @@ package com.missupro.app
 
 import android.app.Application
 import android.content.res.Configuration
-import android.preference.PreferenceManager
 
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
@@ -30,15 +29,6 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
-
-    if (BuildConfig.DEBUG) {
-      // Force a stable local host target to avoid LAN-IP resolution failures
-      // that can leave the app on a black startup screen.
-      val debugServerPort = resources.getInteger(R.integer.react_native_dev_server_port)
-      val preferences = PreferenceManager.getDefaultSharedPreferences(this)
-      preferences.edit().putString("debug_http_host", "localhost:$debugServerPort").apply()
-    }
-
     DefaultNewArchitectureEntryPoint.releaseLevel = try {
       ReleaseLevel.valueOf(BuildConfig.REACT_NATIVE_RELEASE_LEVEL.uppercase())
     } catch (e: IllegalArgumentException) {

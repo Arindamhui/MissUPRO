@@ -218,7 +218,7 @@ export class MissuProService {
         country: input.country,
         publicId: agencyPublicId,
         agencyCode: agencyPublicId,
-        status: "PENDING",
+        status: "APPLICATION",
         approvalStatus: "PENDING",
         metadataJson,
       })
@@ -545,7 +545,7 @@ export class MissuProService {
     };
 
     const approvalStatus = input.action === "approve" ? "APPROVED" : "REJECTED";
-    const status = input.action === "approve" ? "ACTIVE" : "REJECTED";
+    const status = input.action === "approve" ? "ACTIVE" : "SUSPENDED";
 
     const [updatedAgency] = await db
       .update(agencies)
