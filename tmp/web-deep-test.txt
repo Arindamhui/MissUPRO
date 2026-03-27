@@ -1,0 +1,65 @@
+Deep Web Test - 2026-03-24T12:13:08.161Z
+Base: http://localhost:3010
+
+/: 200 len=45082
+/login: 307 len=25159 -> /agency-login
+/signup: 307 len=24524 -> /agency-signup
+/admin: 307 len=35 -> /admin-login?reason=session_expired
+/admin-login: 200 len=29531
+/admin/dashboard: 307 len=35 -> /admin-login?reason=session_expired
+/admin/users: 307 len=35 -> /admin-login?reason=session_expired
+/admin/agencies: 307 len=35 -> /admin-login?reason=session_expired
+/admin/gifts: 307 len=35 -> /admin-login?reason=session_expired
+/admin/settings: 307 len=35 -> /admin-login?reason=session_expired
+/admin/finance: 307 len=35 -> /admin-login?reason=session_expired
+/admin/live: 307 len=35 -> /admin-login?reason=session_expired
+/admin/moderation: 307 len=35 -> /admin-login?reason=session_expired
+/admin/notifications: 307 len=35 -> /admin-login?reason=session_expired
+/admin/levels: 307 len=35 -> /admin-login?reason=session_expired
+/admin/leaderboards: 307 len=35 -> /admin-login?reason=session_expired
+/admin/wallet: 307 len=35 -> /admin-login?reason=session_expired
+/admin/vip: 307 len=35 -> /admin-login?reason=session_expired
+/admin/party: 307 len=35 -> /admin-login?reason=session_expired
+/admin/group-audio: 307 len=35 -> /admin-login?reason=session_expired
+/admin/hosts: 307 len=35 -> /admin-login?reason=session_expired
+/admin/models: 307 len=35 -> /admin-login?reason=session_expired
+/admin/payouts: 307 len=35 -> /admin-login?reason=session_expired
+/admin/referrals: 307 len=35 -> /admin-login?reason=session_expired
+/admin/analytics: 307 len=35 -> /admin-login?reason=session_expired
+/admin/fraud: 307 len=35 -> /admin-login?reason=session_expired
+/admin/roles: 307 len=35 -> /admin-login?reason=session_expired
+/admin/sessions: 307 len=35 -> /admin-login?reason=session_expired
+/admin/coin-packages: 307 len=35 -> /admin-login?reason=session_expired
+/admin/commission: 307 len=35 -> /admin-login?reason=session_expired
+/admin/daily-checkin: 307 len=35 -> /admin-login?reason=session_expired
+/admin/events: 307 len=35 -> /admin-login?reason=session_expired
+/admin/feature-flags: 307 len=35 -> /admin-login?reason=session_expired
+/admin/host-requests: 307 len=35 -> /admin-login?reason=session_expired
+/admin/host-tags: 307 len=35 -> /admin-login?reason=session_expired
+/admin/homepage: 307 len=35 -> /admin-login?reason=session_expired
+/admin/campaigns: 307 len=35 -> /admin-login?reason=session_expired
+/admin/promotions: 307 len=35 -> /admin-login?reason=session_expired
+/admin/themes: 307 len=35 -> /admin-login?reason=session_expired
+/admin/ui-layouts: 307 len=35 -> /admin-login?reason=session_expired
+/admin/transactions: 307 len=35 -> /admin-login?reason=session_expired
+/admin/missu-pro: 307 len=35 -> /admin-login?reason=session_expired
+/admin/plan-history: 307 len=35 -> /admin-login?reason=session_expired
+/agency-login: 200 len=32347
+/agency-signup: 200 len=32492
+/agency/dashboard: 307 len=36 -> /agency-login?reason=session_expired
+/agency/models: 307 len=36 -> /agency-login?reason=session_expired
+/agency/analytics: 307 len=36 -> /agency-login?reason=session_expired
+/agency/payments: 307 len=36 -> /agency-login?reason=session_expired
+/agency/settings: 307 len=36 -> /agency-login?reason=session_expired
+/agency/missu-pro: 307 len=36 -> /agency-login?reason=session_expired
+/discover: 200 len=35182
+/auth/pending-approval: 200 len=31378
+/api/health: 200 len=257
+/api/auth/session: 401 len=149
+
+=== SUMMARY ===
+OK routes: 55
+Errors: 0
+Timeouts: 0
+
+=== DONE ===

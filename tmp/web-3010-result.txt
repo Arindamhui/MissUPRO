@@ -1,0 +1,17 @@
+Web App Test on 3010 - 2026-03-24T12:09:56.755Z
+
+--- GET / ---
+status=200 len=45088 err=none
+
+--- GET /login ---
+status=307 len=25153 err=none
+
+--- GET /admin ---
+status=307 len=35 err=none
+
+--- GET /signup ---
+status=307 len=24508 err=none
+
+--- GET /api/health ---
+status=200 len=255 err=none
+body: {"status":"healthy","version":"dev","uptime":31.6424095,"timestamp":"2026-03-24T12:10:01.580Z","components":{"database":{"status":"healthy","latencyMs":1299},"redis":{"status":"degraded","latencyMs":8

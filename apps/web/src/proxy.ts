@@ -35,9 +35,9 @@ function buildLoginUrl(req: Request, role: "admin" | "agency") {
   return url;
 }
 
-export default function proxy(req: any) {
+export default function proxy(req: import("next/server").NextRequest) {
   const token = req.cookies.get(getAuthCookieNames().access)?.value ?? req.cookies.get(WEB_AUTH_COOKIE_NAME)?.value;
-  const pathname = req.nextUrl.pathname as string;
+  const pathname = req.nextUrl.pathname;
 
   if (isProtectedAdminRoute(pathname) && !token) {
     return NextResponse.redirect(buildLoginUrl(req, "admin"));

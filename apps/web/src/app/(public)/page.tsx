@@ -2,6 +2,9 @@
 import Image from "next/image";
 import { useI18n } from "@/i18n";
 
+const iosDownloadHref = process.env.NEXT_PUBLIC_IOS_DOWNLOAD_URL || "/discover";
+const androidDownloadHref = process.env.NEXT_PUBLIC_ANDROID_DOWNLOAD_URL || "/discover";
+
 const featureCards = [
   { icon: "Video", titleKey: "public.featureCards.callsTitle", descKey: "public.featureCards.callsDesc" },
   { icon: "Live", titleKey: "public.featureCards.liveTitle", descKey: "public.featureCards.liveDesc" },
@@ -49,13 +52,13 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center" id="download">
             <a
-              href="#"
+              href={iosDownloadHref}
               className="inline-flex items-center justify-center px-8 py-4 bg-gray-900 text-white rounded-xl text-lg font-semibold hover:bg-gray-800 transition"
             >
               {t("public.hero.ios")}
             </a>
             <a
-              href="#"
+              href={androidDownloadHref}
               className="inline-flex items-center justify-center px-8 py-4 bg-primary text-white rounded-xl text-lg font-semibold hover:opacity-90 transition"
             >
               {t("public.hero.android")}
@@ -219,6 +222,68 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className="py-20 px-4" id="pricing">
+        <div className="max-w-6xl mx-auto">
+          <div className="max-w-3xl">
+            <h2 className="text-3xl font-bold text-gray-900">Transparent pricing and creator economics</h2>
+            <p className="mt-4 text-lg text-gray-600">
+              MissU Pro combines per-minute calling, gifting, creator payouts, and agency commissions into one live
+              economy. Fans get clear pricing, and creators keep track of earnings in real time.
+            </p>
+          </div>
+          <div className="mt-10 grid gap-6 md:grid-cols-3">
+            <div className="rounded-2xl border bg-white p-6 shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-900">For viewers</h3>
+              <p className="mt-3 text-sm leading-6 text-gray-600">Recharge coins, join streams, send gifts, and pay only for the sessions you actually use.</p>
+            </div>
+            <div id="creator-guidelines" className="rounded-2xl border bg-white p-6 shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-900">Creator guidelines</h3>
+              <p className="mt-3 text-sm leading-6 text-gray-600">Go live, take calls, follow platform rules, and build your audience with predictable moderation and approvals.</p>
+            </div>
+            <div id="earnings" className="rounded-2xl border bg-white p-6 shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-900">Earnings visibility</h3>
+              <p className="mt-3 text-sm leading-6 text-gray-600">Track gifts, calls, commissions, and payout activity from your web and agency dashboards.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-20 bg-gray-50 px-4" id="about">
+        <div className="max-w-6xl mx-auto grid gap-6 lg:grid-cols-3">
+          <div className="rounded-2xl border bg-white p-6 shadow-sm">
+            <h3 className="text-lg font-semibold text-gray-900">About MissU Pro</h3>
+            <p className="mt-3 text-sm leading-6 text-gray-600">Built for live entertainment, MissU Pro connects fans, creators, agencies, and operations teams in one platform.</p>
+          </div>
+          <div id="blog" className="rounded-2xl border bg-white p-6 shadow-sm">
+            <h3 className="text-lg font-semibold text-gray-900">Product updates</h3>
+            <p className="mt-3 text-sm leading-6 text-gray-600">Explore the latest platform highlights through featured streams, creator tools, and agency workflow improvements.</p>
+          </div>
+          <div id="careers" className="rounded-2xl border bg-white p-6 shadow-sm">
+            <h3 className="text-lg font-semibold text-gray-900">Careers and partnerships</h3>
+            <p className="mt-3 text-sm leading-6 text-gray-600">Work with creators, agencies, and internal operators to scale moderation, growth, and monetization across the platform.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-20 px-4" id="terms">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid gap-6 md:grid-cols-3">
+            <div className="rounded-2xl border bg-white p-6 shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-900">Terms of service</h3>
+              <p className="mt-3 text-sm leading-6 text-gray-600">Platform access, payment usage, and account responsibilities are governed through operational and content policies.</p>
+            </div>
+            <div id="privacy" className="rounded-2xl border bg-white p-6 shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-900">Privacy policy</h3>
+              <p className="mt-3 text-sm leading-6 text-gray-600">Authentication, profile data, earnings records, and moderation logs are handled with role-aware access controls.</p>
+            </div>
+            <div id="community" className="rounded-2xl border bg-white p-6 shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-900">Community guidelines</h3>
+              <p className="mt-3 text-sm leading-6 text-gray-600">Live sessions, creator conduct, and agency operations follow moderation and approval standards across the platform.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="py-20 bg-primary px-4">
         <div className="max-w-3xl mx-auto text-center text-white">
           <h2 className="text-3xl font-bold mb-4">{t("public.sections.ctaTitle")}</h2>
@@ -226,7 +291,7 @@ export default function LandingPage() {
             {t("public.sections.ctaBody")}
           </p>
           <a
-            href="#download"
+            href="/discover"
             className="inline-flex items-center justify-center px-8 py-4 bg-white text-primary rounded-xl text-lg font-semibold hover:bg-gray-100 transition"
           >
             {t("public.sections.ctaButton")}

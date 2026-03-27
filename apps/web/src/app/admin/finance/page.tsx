@@ -11,16 +11,16 @@ export default function FinancePage() {
   const [selectedWithdrawal, setSelectedWithdrawal] = useState<any>(null);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string | undefined>(undefined);
 
-  const overview = trpc.admin.getFinancialOverview.useQuery(undefined, { retry: false });
-  const withdrawals = trpc.admin.listWithdrawRequests.useQuery({ status: tab === "withdrawals" ? "PENDING" : undefined, limit: 20 }, { retry: false });
-  const payments = trpc.admin.listPayments.useQuery({ limit: 30, status: paymentStatusFilter }, { retry: false, enabled: tab === "payments" });
-  const paymentDisputes = trpc.admin.listPaymentDisputes.useQuery({ limit: 20 }, { retry: false, enabled: tab === "payments" });
-  const ledgerMismatches = trpc.admin.listLedgerMismatches.useQuery({ limit: 50 }, { retry: false, enabled: tab === "reconciliation" });
-  const paymentRecon = trpc.admin.runPaymentReconciliation.useQuery({ limit: 500 }, { retry: false, enabled: tab === "reconciliation" });
-  const webhookEvents = trpc.admin.listWebhookEvents.useQuery({ limit: 20 }, { retry: false, enabled: tab === "reconciliation" });
+  const overview = trpc.admin.getFinancialOverview.useQuery(undefined, { retry: false, staleTime: 60_000 });
+  const withdrawals = trpc.admin.listWithdrawRequests.useQuery({ status: tab === "withdrawals" ? "PENDING" : undefined, limit: 20 }, { retry: false, staleTime: 15_000 });
+  const payments = trpc.admin.listPayments.useQuery({ limit: 30, status: paymentStatusFilter }, { retry: false, enabled: tab === "payments", staleTime: 15_000 });
+  const paymentDisputes = trpc.admin.listPaymentDisputes.useQuery({ limit: 20 }, { retry: false, enabled: tab === "payments", staleTime: 30_000 });
+  const ledgerMismatches = trpc.admin.listLedgerMismatches.useQuery({ limit: 50 }, { retry: false, enabled: tab === "reconciliation", staleTime: 30_000 });
+  const paymentRecon = trpc.admin.runPaymentReconciliation.useQuery({ limit: 500 }, { retry: false, enabled: tab === "reconciliation", staleTime: 60_000 });
+  const webhookEvents = trpc.admin.listWebhookEvents.useQuery({ limit: 20 }, { retry: false, enabled: tab === "reconciliation", staleTime: 30_000 });
   const revenueQuery = trpc.analytics.getRevenueAnalytics.useQuery(
     { startDate: new Date(Date.now() - 30 * 86400000), endDate: new Date() },
-    { retry: false },
+    { retry: false, staleTime: 60_000 },
   );
   const processMut = trpc.admin.processWithdrawRequest.useMutation({
     onSuccess: () => { withdrawals.refetch(); setSelectedWithdrawal(null); },

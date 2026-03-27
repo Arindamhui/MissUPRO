@@ -72,14 +72,14 @@ export function useCallSocket() {
 
     const unsub1 = on(SOCKET_EVENTS.CALL.INCOMING, (data: any) => {
       if (data?.deliveryId) {
-        useSocketAck(data.deliveryId);
+        sendSocketAck(data.deliveryId);
       }
       useCallStore.getState().startCall(data.callSessionId, data.callType, data.callerId, "incoming");
       router.push(`/call/${data.callSessionId}`);
     });
     const unsub2 = on(SOCKET_EVENTS.CALL.ACCEPTED, (data: any) => {
       if (data?.deliveryId) {
-        useSocketAck(data.deliveryId);
+        sendSocketAck(data.deliveryId);
       }
       acceptCall(data.callSessionId, data.agoraChannel, data.agoraToken, data.agoraAppId, data.expiresAt);
     });
@@ -101,7 +101,7 @@ export function useCallSocket() {
     });
     const unsub8 = on(SOCKET_EVENTS.NOTIFICATION.NEW, (payload: any) => {
       if (payload?.deliveryId) {
-        useSocketAck(payload.deliveryId);
+        sendSocketAck(payload.deliveryId);
       }
       invalidateNotifications();
     });
@@ -138,7 +138,9 @@ export function usePresence() {
   return { subscribe, watchUsers };
 }
 
-function useSocketAck(deliveryId: string) {
-  const socket = useAuthStore.getState().token ? getSocket(useAuthStore.getState().token!) : null;
+function sendSocketAck(deliveryId: string) {
+  const token = useAuthStore.getState().token;
+  if (!token) return;
+  const socket = getSocket(token);
   socket?.emit(SOCKET_EVENTS.DELIVERY.ACK, { deliveryId });
 }

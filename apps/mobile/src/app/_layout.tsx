@@ -4,6 +4,7 @@ import { I18nProvider, useI18n } from "@/i18n";
 import { clearStoredAuthSession, loadStoredAuthSession } from "@/lib/auth-storage";
 import { useAuthStore } from "@/store";
 import { Stack, router, useSegments } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, Text, View } from "react-native";
 import React, { Component, useEffect, useState } from "react";
@@ -237,6 +238,18 @@ function RootLayoutNav() {
         getToken: async () => useAuthStore.getState().token,
       }),
   );
+
+  useEffect(() => {
+    void SplashScreen.hideAsync().catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    void SplashScreen.hideAsync().catch(() => undefined);
+  }, [isHydrated]);
 
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>

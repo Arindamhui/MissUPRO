@@ -1,0 +1,152 @@
+--------- beginning of main
+03-25 02:35:06.862  7184  7184 I om.missupro.app: Late-enabling -Xcheck:jni
+03-25 02:35:06.888  7184  7184 I om.missupro.app: Using CollectorTypeCC GC.
+03-25 02:35:06.889  7184  7184 W om.missupro.app: Unexpected CPU variant for x86: x86_64.
+03-25 02:35:06.889  7184  7184 W om.missupro.app: Known variants: atom, sandybridge, silvermont, goldmont, goldmont-plus, goldmont-without-sha-xsaves, tremont, kabylake, alderlake, default
+03-25 02:35:06.897  7184  7184 D nativeloader: Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+03-25 02:35:07.694  7184  7184 D nativeloader: Configuring clns-9 for other apk /data/app/~~mswdg_8in8xd-83BrsTywQ==/com.missupro.app-40q0cRVzBkiILAp8VSpb_A==/base.apk. target_sdk_version=36, uses_libraries=, library_path=/data/app/~~mswdg_8in8xd-83BrsTywQ==/com.missupro.app-40q0cRVzBkiILAp8VSpb_A==/lib/x86_64:/data/app/~~mswdg_8in8xd-83BrsTywQ==/com.missupro.app-40q0cRVzBkiILAp8VSpb_A==/base.apk!/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.missupro.app
+03-25 02:35:07.698  7184  7184 I om.missupro.app: AssetManager2(0x7c79f80c2778) locale list changing from [] to [en-US]
+03-25 02:35:07.713  7184  7184 V GraphicsEnvironment: Currently set values for:
+03-25 02:35:07.713  7184  7184 V GraphicsEnvironment:   angle_gl_driver_selection_pkgs=[]
+03-25 02:35:07.713  7184  7184 V GraphicsEnvironment:   angle_gl_driver_selection_values=[]
+03-25 02:35:07.713  7184  7184 V GraphicsEnvironment: com.missupro.app is not listed in per-application setting
+03-25 02:35:07.713  7184  7184 V GraphicsEnvironment: ANGLE allowlist from config: com.dreamgames.royalmatch com.dts.freefiremax com.dxx.firenow com.gramgames.mergedragons com.ludo.king com.mojang.minecraftpe com.my.defense com.nintendo.zaka com.os.airforce com.playrix.fishdomdd.gplay io.teslatech.callbreak jp.konami.prospia net.peakgames.toonblast
+03-25 02:35:07.713  7184  7184 V GraphicsEnvironment: com.missupro.app is not listed in ANGLE allowlist or settings, returning default
+03-25 02:35:07.713  7184  7184 V GraphicsEnvironment: Neither updatable production driver nor prerelease driver is supported.
+03-25 02:35:08.070  7184  7184 I FirebaseApp: Device unlocked: initializing all Firebase APIs for app [DEFAULT]
+03-25 02:35:08.178  7184  7184 I FirebaseInitProvider: FirebaseApp initialization successful
+03-25 02:35:08.400  7184  7184 W SoLoader: Initializing SoLoader: 0
+03-25 02:35:08.407  7184  7184 W SoLoader: Recording new base apk path: /data/app/~~mswdg_8in8xd-83BrsTywQ==/com.missupro.app-40q0cRVzBkiILAp8VSpb_A==/base.apk
+03-25 02:35:08.407  7184  7184 W SoLoader: Previously recorded 0 base apk paths.
+03-25 02:35:08.424  7184  7184 I SoLoader: Preparing SO source: DirectorySoSource[root = /vendor/lib64 flags = 2]
+03-25 02:35:08.428  7184  7184 I SoLoader: Preparing SO source: DirectorySoSource[root = /system/lib64 flags = 2]
+03-25 02:35:08.428  7184  7184 I SoLoader: Preparing SO source: DirectApkSoSource[root = [/data/app/~~mswdg_8in8xd-83BrsTywQ==/com.missupro.app-40q0cRVzBkiILAp8VSpb_A==/base.apk!/lib/x86_64]]
+03-25 02:35:08.477  7184  7184 I SoLoader: Preparing SO source: ApplicationSoSource[DirectorySoSource[root = /data/app/~~mswdg_8in8xd-83BrsTywQ==/com.missupro.app-40q0cRVzBkiILAp8VSpb_A==/lib/x86_64 flags = 0]]
+03-25 02:35:08.477  7184  7184 I SoLoader: init finish: 4 SO sources prepared
+03-25 02:35:08.479  7184  7184 W SoLoader: SoLoader initialized: 8
+03-25 02:35:08.645  7184  7184 D nativeloader: Load /data/app/~~mswdg_8in8xd-83BrsTywQ==/com.missupro.app-40q0cRVzBkiILAp8VSpb_A==/base.apk!/lib/x86_64/libc++_shared.so using class loader ns clns-9 (caller=/data/app/~~mswdg_8in8xd-83BrsTywQ==/com.missupro.app-40q0cRVzBkiILAp8VSpb_A==/base.apk!classes20.dex): ok
+03-25 02:35:08.703  7184  7184 D nativeloader: Load /data/app/~~mswdg_8in8xd-83BrsTywQ==/com.missupro.app-40q0cRVzBkiILAp8VSpb_A==/base.apk!/lib/x86_64/libjsi.so using class loader ns clns-9 (caller=/data/app/~~mswdg_8in8xd-83BrsTywQ==/com.missupro.app-40q0cRVzBkiILAp8VSpb_A==/base.apk!classes20.dex): ok
+03-25 02:35:08.737  7184  7184 D nativeloader: Load /data/app/~~mswdg_8in8xd-83BrsTywQ==/com.missupro.app-40q0cRVzBkiILAp8VSpb_A==/base.apk!/lib/x86_64/libfbjni.so using class loader ns clns-9 (caller=/data/app/~~mswdg_8in8xd-83BrsTywQ==/com.missupro.app-40q0cRVzBkiILAp8VSpb_A==/base.apk!classes20.dex): ok
+03-25 02:35:08.751  7184  7184 D nativeloader: Load /data/app/~~mswdg_8in8xd-83BrsTywQ==/com.missupro.app-40q0cRVzBkiILAp8VSpb_A==/base.apk!/lib/x86_64/libreactnative.so using class loader ns clns-9 (caller=/data/app/~~mswdg_8in8xd-83BrsTywQ==/com.missupro.app-40q0cRVzBkiILAp8VSpb_A==/base.apk!classes20.dex): ok
+03-25 02:35:08.751  7184  7184 D jni_lib_merge: Entering merged library JNI_OnLoad.
+03-25 02:35:08.751  7184  7184 D jni_lib_merge: Preparing 12 pre-merged libs (including stub)
+03-25 02:35:08.751  7184  7184 D jni_lib_merge: Preparing to register libfabricjni_so.  onload_func: 0x7c791dd52730
+03-25 02:35:08.751  7184  7184 D jni_lib_merge: Preparing to register libreact_devsupportjni_so.  onload_func: 0x7c791df4f190
+03-25 02:35:08.751  7184  7184 D jni_lib_merge: Preparing to register libreact_featureflagsjni_so.  onload_func: 0x7c791df60910
+03-25 02:35:08.752  7184  7184 D jni_lib_merge: Preparing to register libreact_newarchdefaults_so.  onload_func: 0x7c791e001d20
+03-25 02:35:08.752  7184  7184 D jni_lib_merge: Preparing to register libreactnativeblob_so.  onload_func: 0x7c791e20c2e0
+03-25 02:35:08.752  7184  7184 D jni_lib_merge: Preparing to register libreactnativejni_so.  onload_func: 0x7c791e24c770
+03-25 02:35:08.752  7184  7184 D jni_lib_merge: Preparing to register libreactnativejni_common_so.  onload_func: 0x7c791e25c5d0
+03-25 02:35:08.752  7184  7184 D jni_lib_merge: Preparing to register librninstance_so.  onload_func: 0x7c791e2994c0
+03-25 02:35:08.752  7184  7184 D jni_lib_merge: Preparing to register libturbomodulejsijni_so.  onload_func: 0x7c791e3fac00
+03-25 02:35:08.752  7184  7184 D jni_lib_merge: Preparing to register libuimanagerjni_so.  onload_func: 0x7c791e412de0
+03-25 02:35:08.752  7184  7184 D jni_lib_merge: Preparing to register libyoga_so.  onload_func: 0x7c791e421d70
+03-25 02:35:08.752  7184  7184 D jni_lib_merge: About to register 11 actual methods.
+03-25 02:35:08.893  7184  7184 D nativeloader: Load /data/app/~~mswdg_8in8xd-83BrsTywQ==/com.missupro.app-40q0cRVzBkiILAp8VSpb_A==/base.apk!/lib/x86_64/libreact_codegen_rnscreens.so using class loader ns clns-9 (caller=/data/app/~~mswdg_8in8xd-83BrsTywQ==/com.missupro.app-40q0cRVzBkiILAp8VSpb_A==/base.apk!classes20.dex): ok
+03-25 02:35:08.894  7184  7184 D jni_lib_merge: Entering merged library JNI_OnLoad.
+03-25 02:35:08.894  7184  7184 D jni_lib_merge: Preparing 12 pre-merged libs (including stub)
+03-25 02:35:08.894  7184  7184 D jni_lib_merge: Preparing to register libfabricjni_so.  onload_func: 0x7c791dd52730
+03-25 02:35:08.894  7184  7184 D jni_lib_merge: Preparing to register libreact_devsupportjni_so.  onload_func: 0x7c791df4f190
+03-25 02:35:08.894  7184  7184 D jni_lib_merge: Preparing to register libreact_featureflagsjni_so.  onload_func: 0x7c791df60910
+03-25 02:35:08.894  7184  7184 D jni_lib_merge: Preparing to register libreact_newarchdefaults_so.  onload_func: 0x7c791e001d20
+03-25 02:35:08.895  7184  7184 D jni_lib_merge: Preparing to register libreactnativeblob_so.  onload_func: 0x7c791e20c2e0
+03-25 02:35:08.895  7184  7184 D jni_lib_merge: Preparing to register libreactnativejni_so.  onload_func: 0x7c791e24c770
+03-25 02:35:08.895  7184  7184 D jni_lib_merge: Preparing to register libreactnativejni_common_so.  onload_func: 0x7c791e25c5d0
+03-25 02:35:08.895  7184  7184 D jni_lib_merge: Preparing to register librninstance_so.  onload_func: 0x7c791e2994c0
+03-25 02:35:08.895  7184  7184 D jni_lib_merge: Preparing to register libturbomodulejsijni_so.  onload_func: 0x7c791e3fac00
+03-25 02:35:08.895  7184  7184 D jni_lib_merge: Preparing to register libuimanagerjni_so.  onload_func: 0x7c791e412de0
+03-25 02:35:08.896  7184  7184 D jni_lib_merge: Preparing to register libyoga_so.  onload_func: 0x7c791e421d70
+03-25 02:35:08.896  7184  7184 D jni_lib_merge: About to register 11 actual methods.
+03-25 02:35:08.959  7184  7184 D nativeloader: Load /data/app/~~mswdg_8in8xd-83BrsTywQ==/com.missupro.app-40q0cRVzBkiILAp8VSpb_A==/base.apk!/lib/x86_64/libreact_codegen_safeareacontext.so using class loader ns clns-9 (caller=/data/app/~~mswdg_8in8xd-83BrsTywQ==/com.missupro.app-40q0cRVzBkiILAp8VSpb_A==/base.apk!classes20.dex): ok
+03-25 02:35:08.965  7184  7184 D nativeloader: Load /data/app/~~mswdg_8in8xd-83BrsTywQ==/com.missupro.app-40q0cRVzBkiILAp8VSpb_A==/base.apk!/lib/x86_64/libappmodules.so using class loader ns clns-9 (caller=/data/app/~~mswdg_8in8xd-83BrsTywQ==/com.missupro.app-40q0cRVzBkiILAp8VSpb_A==/base.apk!classes20.dex): ok
+03-25 02:35:09.019  7184  7337 W om.missupro.app: Verification of java.lang.Object kotlin.reflect.jvm.internal.ReflectProperties$Val.escape(java.lang.Object) took 168.574ms (41.52 bytecodes/s) (0B arena alloc)
+03-25 02:35:09.179  7184  7337 W om.missupro.app: Verification of void kotlinx.coroutines.Dispatchers.<clinit>() took 112.877ms (177.18 bytecodes/s) (0B arena alloc)
+03-25 02:35:09.287  7184  7337 W om.missupro.app: Verification of void kotlinx.coroutines.Dispatchers.getUnconfined$annotations() took 105.508ms (9.48 bytecodes/s) (0B arena alloc)
+--------- beginning of system
+03-25 02:35:09.728  7184  7498 I DisplayManager: Choreographer implicitly registered for the refresh rate.
+03-25 02:35:09.731  7184  7184 I om.missupro.app: AssetManager2(0x7c79f80bd318) locale list changing from [] to [en-US]
+03-25 02:35:09.794  7184  7498 I EGL_emulation: Opening libGLESv1_CM_emulation.so
+03-25 02:35:09.797  7184  7498 I EGL_emulation: Opening libGLESv2_emulation.so
+03-25 02:35:09.823  7184  7498 W HWUI    : Failed to choose config with EGL_SWAP_BEHAVIOR_PRESERVED, retrying without...
+03-25 02:35:09.824  7184  7498 W HWUI    : Failed to initialize 101010-2 format, error = EGL_SUCCESS
+03-25 02:35:10.010  7184  7184 D AppCompatDelegate: Checking for metadata for AppLocalesMetadataHolderService : Service not found
+03-25 02:35:10.011  7184  7184 I om.missupro.app: AssetManager2(0x7c79f80c1af8) locale list changing from [] to [en-US]
+03-25 02:35:10.196  7184  7184 E ashmem  : Pinning is deprecated since Android Q. Please use trim or other methods.
+03-25 02:35:11.158  7184  7184 W unknown:BridgelessReact: ReactHost{0}.startSurface(surfaceId = 0): Schedule
+03-25 02:35:11.158  7184  7184 W unknown:BridgelessReact: ReactHost{0}.attachSurface(surfaceId = 0)
+03-25 02:35:11.165  7184  7607 W unknown:BridgelessReact: ReactHost{0}.getOrCreateReactInstanceTask()
+03-25 02:35:11.166  7184  7607 W unknown:BridgelessReact: ReactHost{0}.getOrCreateReactInstanceTask(): Start
+03-25 02:35:11.166  7184  7607 W unknown:BridgelessReact: ReactHost{0}.getJSBundleLoader()
+03-25 02:35:11.167  7184  7607 W unknown:BridgelessReact: ReactHost{0}.isMetroRunning()
+03-25 02:35:11.167  7184  7184 D CompatChangeReporter: Compat change id reported: 377864165; UID 10220; state: ENABLED
+03-25 02:35:11.171  7184  7184 D DesktopModeFlags: Toggle override initialized to: OVERRIDE_UNSET
+03-25 02:35:11.240  7184  7184 I om.missupro.app: hiddenapi: Accessing hidden method Landroid/view/ViewGroup;->makeOptionalFitsSystemWindows()V (runtime_flags=0, domain=platform, api=unsupported) from Landroidx/appcompat/widget/ViewUtils; (domain=app) using reflection: allowed
+03-25 02:35:11.279  7184  7184 W WindowOnBackDispatcher: OnBackInvokedCallback is not enabled for the application.
+03-25 02:35:11.279  7184  7184 W WindowOnBackDispatcher: Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
+03-25 02:35:11.286  7184  7184 W unknown:BridgelessReact: ReactHost{0}.onHostResume(activity)
+03-25 02:35:11.303  7184  7184 W HWUI    : Unknown dataspace 0
+03-25 02:35:11.334  7184  7184 I Choreographer: Skipped 178 frames!  The application may be doing too much work on its main thread.
+03-25 02:35:11.503  7184  7594 W om.missupro.app: Verification of int okhttp3.internal.ws.RealWebSocket.receivedPingCount() took 128.222ms (62.39 bytecodes/s) (0B arena alloc)
+03-25 02:35:11.583  7184  7196 I HWUI    : Davey! duration=3214ms; Flags=1, FrameTimelineVsyncId=1650349, IntendedVsync=1972001198898, Vsync=1974967865446, InputEventId=0, HandleInputStart=1974980822900, AnimationStart=1974980876300, PerformTraversalsStart=1974981781800, DrawStart=1975145857500, FrameDeadline=1972017865564, FrameStartTime=1974979848200, FrameInterval=16666666, WorkloadTarget=16666666, SyncQueued=1975147232900, SyncStart=1975150147200, IssueDrawCommandsStart=1975150244700, SwapBuffers=1975170742800, FrameCompleted=1975218932900, DequeueBufferDuration=2042500, QueueBufferDuration=3232900, GpuCompleted=1975218932900, SwapBuffersCompleted=1975178965500, DisplayPresentTime=0, CommandSubmissionCompleted=1975170742800, 
+03-25 02:35:11.729  7184  7184 W unknown:BridgelessReact: ReactHost{0}.raiseSoftException(onWindowFocusChange(hasFocus = "true")): Tried to access onWindowFocusChange while context is not ready
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: Unhandled SoftException
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: com.facebook.react.bridge.ReactNoCrashSoftException: raiseSoftException(onWindowFocusChange(hasFocus = "true")): Tried to access onWindowFocusChange while context is not ready
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at com.facebook.react.runtime.ReactHostImpl.raiseSoftException(ReactHostImpl.kt:861)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at com.facebook.react.runtime.ReactHostImpl.raiseSoftException$default(ReactHostImpl.kt:852)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at com.facebook.react.runtime.ReactHostImpl.onWindowFocusChange(ReactHostImpl.kt:625)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at com.facebook.react.ReactDelegate.onWindowFocusChanged(ReactDelegate.kt:232)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at com.facebook.react.ReactActivityDelegate.onWindowFocusChanged(ReactActivityDelegate.java:237)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at expo.modules.ReactActivityDelegateWrapper$onWindowFocusChanged$1.invokeSuspend(ReactActivityDelegateWrapper.kt:320)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at expo.modules.ReactActivityDelegateWrapper$onWindowFocusChanged$1.invoke(Unknown Source:8)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at expo.modules.ReactActivityDelegateWrapper$onWindowFocusChanged$1.invoke(Unknown Source:4)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at expo.modules.ReactActivityDelegateWrapper$launchLifecycleScopeWithLock$1.invokeSuspend(ReactActivityDelegateWrapper.kt:452)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:33)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at kotlinx.coroutines.internal.DispatchedContinuationKt.resumeCancellableWith(DispatchedContinuation.kt:375)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at kotlinx.coroutines.intrinsics.CancellableKt.startCoroutineCancellable(Cancellable.kt:26)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at kotlinx.coroutines.CoroutineStart.invoke(CoroutineStart.kt:358)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at kotlinx.coroutines.AbstractCoroutine.start(AbstractCoroutine.kt:134)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at kotlinx.coroutines.BuildersKt__Builders_commonKt.launch(Builders.common.kt:53)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at kotlinx.coroutines.BuildersKt.launch(Unknown Source:1)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at kotlinx.coroutines.BuildersKt__Builders_commonKt.launch$default(Builders.common.kt:44)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at kotlinx.coroutines.BuildersKt.launch$default(Unknown Source:1)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at expo.modules.ReactActivityDelegateWrapper.launchLifecycleScopeWithLock(ReactActivityDelegateWrapper.kt:450)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at expo.modules.ReactActivityDelegateWrapper.launchLifecycleScopeWithLock$default(ReactActivityDelegateWrapper.kt:446)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at expo.modules.ReactActivityDelegateWrapper.onWindowFocusChanged(ReactActivityDelegateWrapper.kt:318)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at com.facebook.react.ReactActivity.onWindowFocusChanged(ReactActivity.java:158)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at androidx.appcompat.view.WindowCallbackWrapper.onWindowFocusChanged(WindowCallbackWrapper.java:124)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at com.android.internal.policy.DecorView.onWindowFocusChanged(DecorView.java:1818)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.view.View.dispatchWindowFocusChanged(View.java:16952)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.view.ViewGroup.dispatchWindowFocusChanged(ViewGroup.java:1530)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.view.ViewRootImpl.dispatchFocusEvent(ViewRootImpl.java:4872)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.view.ViewRootImpl.handleWindowFocusChanged(ViewRootImpl.java:4776)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.view.ViewRootImpl.-$$Nest$mhandleWindowFocusChanged(Unknown Source:0)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.view.ViewRootImpl$ViewRootHandler.handleMessageImpl(ViewRootImpl.java:7016)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.view.ViewRootImpl$ViewRootHandler.handleMessage(ViewRootImpl.java:6926)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.os.Handler.dispatchMessage(Handler.java:110)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.os.Looper.loopOnce(Looper.java:248)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.os.Looper.loop(Looper.java:338)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.app.ActivityThread.main(ActivityThread.java:9067)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at java.lang.reflect.Method.invoke(Native Method)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:593)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:932)
+03-25 02:35:11.795  7184  7612 W unknown:BridgelessReact: ReactHost{0}.isMetroRunning(): Async result = true
+03-25 02:35:11.796  7184  7607 W unknown:BridgelessReact: ReactHost{0}.loadJSBundleFromMetro()
+03-25 02:35:11.991  7184  7184 D InsetsController: hide(ime(), fromIme=false)
+03-25 02:35:11.991  7184  7184 I ImeTracker: com.missupro.app:be6efeb1: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+03-25 02:35:16.954  7184  7191 I om.missupro.app: Compiler allocated 5057KB to compile void android.view.ViewRootImpl.performTraversals()
+03-25 02:35:17.293  7184  7838 D ProfileInstaller: Installing profile for com.missupro.app
+03-25 02:35:17.441  7184  7192 I om.missupro.app: Background concurrent copying GC freed 5390KB AllocSpace bytes, 21(1696KB) LOS objects, 49% free, 6867KB/13MB, paused 23.632ms,332us total 412.072ms
+03-25 02:35:21.506  7184  7612 I okhttp.OkHttpClient: Callback failure for call to http://10.0.2.2:8081/...
+03-25 02:35:21.506  7184  7612 I okhttp.OkHttpClient: java.net.ProtocolException: Expected leading [0-9a-fA-F] character but was 0xd
+03-25 02:35:21.506  7184  7612 I okhttp.OkHttpClient: 	at okhttp3.internal.http1.Http1ExchangeCodec$ChunkedSource.readChunkSize(Http1ExchangeCodec.kt:436)
+03-25 02:35:21.506  7184  7612 I okhttp.OkHttpClient: 	at okhttp3.internal.http1.Http1ExchangeCodec$ChunkedSource.read(Http1ExchangeCodec.kt:408)
+03-25 02:35:21.509  7184  7612 I okhttp.OkHttpClient: 	at okhttp3.internal.connection.Exchange$ResponseBodySource.read(Exchange.kt:276)
+03-25 02:35:21.509  7184  7612 I okhttp.OkHttpClient: 	at okio.RealBufferedSource.read(RealBufferedSource.kt:192)
+03-25 02:35:21.509  7184  7612 I okhttp.OkHttpClient: 	at com.facebook.react.devsupport.MultipartStreamReader.readAllParts(MultipartStreamReader.kt:83)
+03-25 02:35:21.509  7184  7612 I okhttp.OkHttpClient: 	at com.facebook.react.devsupport.BundleDownloader.processMultipartResponse(BundleDownloader.kt:187)
+03-25 02:35:21.510  7184  7612 I okhttp.OkHttpClient: 	at com.facebook.react.devsupport.BundleDownloader.access$processMultipartResponse(BundleDownloader.kt:35)
+03-25 02:35:21.510  7184  7612 I okhttp.OkHttpClient: 	at com.facebook.react.devsupport.BundleDownloader$downloadBundleFromURL$1.onResponse(BundleDownloader.kt:133)
+03-25 02:35:21.510  7184  7612 I okhttp.OkHttpClient: 	at okhttp3.internal.connection.RealCall$AsyncCall.run(RealCall.kt:519)
+03-25 02:35:21.510  7184  7612 I okhttp.OkHttpClient: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1156)
+03-25 02:35:21.510  7184  7612 I okhttp.OkHttpClient: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:651)
+03-25 02:35:21.510  7184  7612 I okhttp.OkHttpClient: 	at java.lang.Thread.run(Thread.java:1119)

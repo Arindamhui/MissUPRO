@@ -1,0 +1,291 @@
+--------- beginning of main
+03-25 02:35:11.663  7466  7606 I Finsky  : [57] SysUA: Set SystemUpdateActivity enabled state to 1
+03-25 02:35:11.664  7466  7570 I Finsky  : [49] VerifyApps: Setup app restrictions monitor
+03-25 02:35:11.669  7466  7608 I Finsky  : [58] SysCUA: Set {com.android.vending/com.google.android.finsky.systemcomponentupdateui.common.SystemComponentUpdateActivity} enabled state to 0
+03-25 02:35:11.672  7244  7343 D WorkspaceItemProcessor: valid target true, marking restored: com.google.android.gm, itemType=0, restoreFlag=0
+03-25 02:35:11.675  7540  7540 I Bugle   : BugleApplicationBase: Bugle version: messages.android_20250311_04_rc01.phone_dynamic , Bugle version code: 273168063
+03-25 02:35:11.692  7244  7244 I Choreographer: Skipped 62 frames!  The application may be doing too much work on its main thread.
+03-25 02:35:11.692  7263  7462 D nativeloader: Load /data/app/~~5IaUJ5A7GbmDR2q4_7R6Ag==/com.google.android.gms-OFqn2pV0vbz_lY1wsCjtCw==/base.apk!/lib/x86_64/libAppDataSearch.so using class loader ns clns-10 (caller=/data/app/~~5IaUJ5A7GbmDR2q4_7R6Ag==/com.google.android.gms-OFqn2pV0vbz_lY1wsCjtCw==/base.apk): ok
+03-25 02:35:11.695  7263  7462 W native  : W0000 00:00:1774431311.695290    7462 model-utils.cc:17] No CRC32, most likely an old model; skip CRC32 check
+03-25 02:35:11.697  7263  7462 I native  : I0000 00:00:1774431311.696816    7462 permission-checker.cc:82] Creating PermissionChecker based on ACL with config_version 1 having 9 permissions defined.
+03-25 02:35:11.699  7263  7462 W native  : W0000 00:00:1774431311.699463    7462 words-map.cc:34] INVALID_ARGUMENT: Empty URI
+03-25 02:35:11.699  7263  7462 W native  : W0000 00:00:1774431311.699936    7462 words-map.cc:38] WordsMap was not properly initialized
+03-25 02:35:11.706  7306  7306 I SystemHapticSettings: SystemHapticSettings.flagUpdated():83 vibration enabled: true
+03-25 02:35:11.710  7263  7263 D BoundBrokerSvc: onBind: Intent { act=com.google.android.gms.semanticlocationhistory.settings.SettingsSyncOneOffService.ACTION_TASK_READY dat=chimera-action:/... xflg=0x4 cmp=com.google.android.gms/.chimera.GmsInternalBoundBrokerService }
+03-25 02:35:11.710  7263  7263 D BoundBrokerSvc: Loading bound service for intent: Intent { act=com.google.android.gms.semanticlocationhistory.settings.SettingsSyncOneOffService.ACTION_TASK_READY dat=chimera-action:/... xflg=0x4 cmp=com.google.android.gms/.chimera.GmsInternalBoundBrokerService }
+03-25 02:35:11.711  7244  7343 D WorkspaceItemProcessor: valid target true, marking restored: com.google.android.apps.photos, itemType=0, restoreFlag=0
+03-25 02:35:11.715  7263  7506 W gle.android.gms: Verification of void m58.ayk.<init>(m58.nfu[]) took 113.060ms (88.45 bytecodes/s) (0B arena alloc)
+03-25 02:35:11.716  4151  4236 I .apps.wellbeing: AssetManager2(0x7c79f80cadd8) locale list changing from [] to [en-US]
+03-25 02:35:11.727  7540  7540 I Bugle   : DarkModeManager: setDarkMode: -1
+03-25 02:35:11.729  7184  7184 W unknown:BridgelessReact: ReactHost{0}.raiseSoftException(onWindowFocusChange(hasFocus = "true")): Tried to access onWindowFocusChange while context is not ready
+03-25 02:35:11.733  7244  7343 D WorkspaceItemProcessor: valid target true, marking restored: com.google.android.youtube, itemType=0, restoreFlag=0
+03-25 02:35:11.734  7200  7652 I TrainerClient: Preparing to schedule training for population:aiai/playstore/pecanconversationfragmentevents session_name:pecanconversationfragmentevents
+03-25 02:35:11.735  7466  7570 I Finsky  : [49] VerifyApps: Device wide unknown source restriction updated
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: Unhandled SoftException
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: com.facebook.react.bridge.ReactNoCrashSoftException: raiseSoftException(onWindowFocusChange(hasFocus = "true")): Tried to access onWindowFocusChange while context is not ready
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at com.facebook.react.runtime.ReactHostImpl.raiseSoftException(ReactHostImpl.kt:861)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at com.facebook.react.runtime.ReactHostImpl.raiseSoftException$default(ReactHostImpl.kt:852)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at com.facebook.react.runtime.ReactHostImpl.onWindowFocusChange(ReactHostImpl.kt:625)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at com.facebook.react.ReactDelegate.onWindowFocusChanged(ReactDelegate.kt:232)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at com.facebook.react.ReactActivityDelegate.onWindowFocusChanged(ReactActivityDelegate.java:237)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at expo.modules.ReactActivityDelegateWrapper$onWindowFocusChanged$1.invokeSuspend(ReactActivityDelegateWrapper.kt:320)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at expo.modules.ReactActivityDelegateWrapper$onWindowFocusChanged$1.invoke(Unknown Source:8)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at expo.modules.ReactActivityDelegateWrapper$onWindowFocusChanged$1.invoke(Unknown Source:4)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at expo.modules.ReactActivityDelegateWrapper$launchLifecycleScopeWithLock$1.invokeSuspend(ReactActivityDelegateWrapper.kt:452)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:33)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at kotlinx.coroutines.internal.DispatchedContinuationKt.resumeCancellableWith(DispatchedContinuation.kt:375)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at kotlinx.coroutines.intrinsics.CancellableKt.startCoroutineCancellable(Cancellable.kt:26)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at kotlinx.coroutines.CoroutineStart.invoke(CoroutineStart.kt:358)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at kotlinx.coroutines.AbstractCoroutine.start(AbstractCoroutine.kt:134)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at kotlinx.coroutines.BuildersKt__Builders_commonKt.launch(Builders.common.kt:53)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at kotlinx.coroutines.BuildersKt.launch(Unknown Source:1)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at kotlinx.coroutines.BuildersKt__Builders_commonKt.launch$default(Builders.common.kt:44)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at kotlinx.coroutines.BuildersKt.launch$default(Unknown Source:1)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at expo.modules.ReactActivityDelegateWrapper.launchLifecycleScopeWithLock(ReactActivityDelegateWrapper.kt:450)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at expo.modules.ReactActivityDelegateWrapper.launchLifecycleScopeWithLock$default(ReactActivityDelegateWrapper.kt:446)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at expo.modules.ReactActivityDelegateWrapper.onWindowFocusChanged(ReactActivityDelegateWrapper.kt:318)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at com.facebook.react.ReactActivity.onWindowFocusChanged(ReactActivity.java:158)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at androidx.appcompat.view.WindowCallbackWrapper.onWindowFocusChanged(WindowCallbackWrapper.java:124)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at com.android.internal.policy.DecorView.onWindowFocusChanged(DecorView.java:1818)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.view.View.dispatchWindowFocusChanged(View.java:16952)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.view.ViewGroup.dispatchWindowFocusChanged(ViewGroup.java:1530)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.view.ViewRootImpl.dispatchFocusEvent(ViewRootImpl.java:4872)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.view.ViewRootImpl.handleWindowFocusChanged(ViewRootImpl.java:4776)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.view.ViewRootImpl.-$$Nest$mhandleWindowFocusChanged(Unknown Source:0)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.view.ViewRootImpl$ViewRootHandler.handleMessageImpl(ViewRootImpl.java:7016)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.view.ViewRootImpl$ViewRootHandler.handleMessage(ViewRootImpl.java:6926)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.os.Handler.dispatchMessage(Handler.java:110)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.os.Looper.loopOnce(Looper.java:248)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.os.Looper.loop(Looper.java:338)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at android.app.ActivityThread.main(ActivityThread.java:9067)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at java.lang.reflect.Method.invoke(Native Method)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:593)
+03-25 02:35:11.747  7184  7184 E unknown:ReactHost: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:932)
+--------- beginning of system
+03-25 02:35:11.779   683   895 D BackgroundInstallControlService: Package event received: 0
+03-25 02:35:11.784   683   812 I ImeTracker: com.missupro.app:be6efeb1: onRequestHide at ORIGIN_SERVER reason HIDE_UNSPECIFIED_WINDOW fromUser false
+03-25 02:35:11.784   683  1683 W AppOps  : Noting op not finished: uid 10147 pkg com.google.android.gms code 113 startTime of in progress event=1774429357040
+03-25 02:35:11.784  7466  7570 I Finsky  : [49] Enqueuing libraries load for 1619127950
+03-25 02:35:11.785  7466  7609 I Finsky  : [59] Starting libraries load for 1619127950
+03-25 02:35:11.795  7184  7612 W unknown:BridgelessReact: ReactHost{0}.isMetroRunning(): Async result = true
+03-25 02:35:11.796  7184  7607 W unknown:BridgelessReact: ReactHost{0}.loadJSBundleFromMetro()
+03-25 02:35:11.802  7244  7244 D BubbleBarView: BubbleBar RTL properties changed, new layoutDirection=0 previous layoutDirection=-1
+03-25 02:35:11.810  7466  7609 I Finsky  : [59] Loaded library for account: [ba31q2TwNwebGC-FvbnTO3px_nCQ4ZaTWtibLsWhv4s]
+03-25 02:35:11.818  7466  7609 I Finsky  : [59] Finished loading 1 libraries.
+03-25 02:35:11.825   683  1829 W ActivityManager: Slow operation: 56ms so far, now at attachApplicationLocked: after updateOomAdjLocked
+03-25 02:35:11.826  7346  7479 I CarrierServices: Skipping writing to Msisdn because this is not main bugle process. [CONTEXT log_prefix="(Sim)" thread_id=65 ]
+03-25 02:35:11.851   683   713 I ActivityTaskManager: Displayed com.missupro.app/.MainActivity for user 0: +5s185ms
+03-25 02:35:11.864  7466  7466 W Settings: Setting download_manager_max_bytes_over_mobile has moved from android.provider.Settings.Secure to android.provider.Settings.Global.
+03-25 02:35:11.868  7466  7466 I Finsky  : [2] SettingNotFoundException, fall through to G.downloadBytesOverMobileMaximum
+03-25 02:35:11.868  7466  7466 W Settings: Setting download_manager_recommended_max_bytes_over_mobile has moved from android.provider.Settings.Secure to android.provider.Settings.Global.
+03-25 02:35:11.876  7244  7244 I ViewCaptureFactory: instantiating NoOpViewCapture
+03-25 02:35:11.876  4151  4164 W .apps.wellbeing: Suspending all threads took: 109.096ms
+03-25 02:35:11.881  7200  7381 I CameraManagerGlobal: Connecting to camera service
+03-25 02:35:11.883  7466  7466 I Finsky  : [2] SettingNotFoundException, fall through to G.downloadBytesOverMobileRecommended
+03-25 02:35:11.884  7263  7462 E native  : E0000 00:00:1774431311.721351    7462 array-storage.cc:101] Array storage bad crc 3112114246 vs 1878142355
+03-25 02:35:11.884  7263  7462 E native  : E0000 00:00:1774431311.884500    7462 array-storage-crc.cc:176] File /data/data/com.google.android.gms/files/AppDataSearch/main/cur/ds.docids failed to init (elt_size 4 num_elts 4932 array_crc 1878142355)
+03-25 02:35:11.885   579   579 I AttributionAndPermissionUtils: checkPermission (forDataDelivery 0 startDataDelivery 0): Permission hard denied for client attribution [uid 10140, pid 7200, packageName "<unknown>"]
+03-25 02:35:11.886  7263  7462 E native  : E0000 00:00:1774431311.886557    7462 array-storage.cc:101] Array storage bad crc 3213059949 vs 404549349
+03-25 02:35:11.887  7263  7462 E native  : E0000 00:00:1774431311.887066    7462 array-storage-crc.cc:176] File /data/data/com.google.android.gms/files/AppDataSearch/main/cur/ds.perdocdata failed to init (elt_size 26 num_elts 4932 array_crc 404549349)
+03-25 02:35:11.901  7263  7462 W native  : W0000 00:00:1774431311.901610    7462 document-store.cc:174] Docstore bad crc 0x3b175e02 vs 0x93228ba7
+03-25 02:35:11.902  7244  7658 W HWUI    : Failed to choose config with EGL_SWAP_BEHAVIOR_PRESERVED, retrying without...
+03-25 02:35:11.903  7244  7658 W HWUI    : Failed to initialize 101010-2 format, error = EGL_SUCCESS
+03-25 02:35:11.908  7466  7466 I Finsky  : [2] AIM: AppInfoCacheUpdater -> invalidating apps: [com.missupro.app]
+03-25 02:35:11.909  7466  7466 I Finsky  : [2] AIM: AppInfoManager-Perf > Creating AppInfoManager ...
+03-25 02:35:11.911   683   713 W Looper  : Slow dispatch took 141ms android.fg app=system_server main=false group=FOREGROUND h=android.os.Handler c=com.android.server.wm.ActivityMetricsLogger$$ExternalSyntheticLambda0@ec0a80 m=0
+03-25 02:35:11.911   683   713 W Looper  : Slow delivery took 263ms android.fg app=system_server main=false group=FOREGROUND h=android.os.Handler c=com.android.server.wm.ActivityMetricsLogger$$ExternalSyntheticLambda8@eb3a8b9 m=0
+03-25 02:35:11.928  7200  7381 D DesktopModeFlags: Toggle override initialized to: OVERRIDE_UNSET
+03-25 02:35:11.932  7263  7506 W gle.android.gms: Verification of void m58.bjh.h(java.lang.Runnable, m58.mmd) took 109.851ms (855.70 bytecodes/s) (0B arena alloc)
+03-25 02:35:11.953  7466  7466 I Finsky  : [2] AIM: AppInfoManager-Perf > getApps > called for 1 apps
+03-25 02:35:11.969  7620  7620 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/org.apache.http.legacy.jar
+03-25 02:35:11.969  7620  7620 D ApplicationLoaders: Returning zygote-cached class loader: /system_ext/framework/androidx.window.extensions.jar
+03-25 02:35:11.970  7620  7620 D ApplicationLoaders: Returning zygote-cached class loader: /system_ext/framework/androidx.window.sidecar.jar
+03-25 02:35:11.976  7466  7608 I Finsky  : [58] AIM: AppInfoManager-Perf > OnDeviceAppInfo > cacheHitCount=0, cacheMissCount=1. Missed  in cache (limit 10) : [com.missupro.app]
+03-25 02:35:11.990  7466  7606 I android.vending: AssetManager2(0x7c79f80c1af8) locale list changing from [] to [en-US]
+03-25 02:35:11.991  7184  7184 D InsetsController: hide(ime(), fromIme=false)
+03-25 02:35:11.991  7184  7184 I ImeTracker: com.missupro.app:be6efeb1: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+03-25 02:35:11.997  7466  7606 W HWUI    : Image decoding logging dropped!
+03-25 02:35:12.033  7466  7609 I Finsky  : [59] AIM: AppInfoManager-Perf > OnDeviceAppInfo > cacheHitCount=0, cacheMissCount=1. Missed  in cache (limit 10) : [com.missupro.app]
+03-25 02:35:12.045  7466  7608 I Finsky  : [58] AIM: Got app ownership map. App counts: . Unique apps: 0
+03-25 02:35:12.070  7466  7609 I Finsky  : [59] AIM: Got app ownership map. App counts: . Unique apps: 0
+03-25 02:35:12.070  7466  7568 I Finsky  : [47] RECEIVER_PACKAGE_MONITOR#logWorkEndAndFinishGoAsync: SUCCESS
+03-25 02:35:12.070  7466  7609 E Finsky  : [59] [Counters] attempted to use a non-positive increment for: 4752
+03-25 02:35:12.071  1232  1232 D BoundBrokerSvc: onRebind: Intent { act=com.google.android.gms.common.telemetry.service.START dat=chimera-action:/... xflg=0x4 cmp=com.google.android.gms/.chimera.PersistentApiService }
+03-25 02:35:12.072  7466  7609 E Finsky  : [59] [Counters] attempted to use a non-positive increment for: 4753
+03-25 02:35:12.085  7466  7608 E Finsky  : [58] [Counters] attempted to use a non-positive increment for: 4752
+03-25 02:35:12.085  7466  7608 E Finsky  : [58] [Counters] attempted to use a non-positive increment for: 4753
+03-25 02:35:12.086  7346  7479 I CarrierServices: Updated SIM info: currentSimId: redacted-pii:sim_id[chars:20,last3:897]; imsi: redacted-pii:imsi[chars:15]; rawMsisdn: redacted-pii:phone_number[chars:12,last2:67]; formattedMsisdn: redacted-pii:phone_number[chars:12,last2:67]; mccmnc: redacted-pii:sim_operator[chars:6]; gid1: redacted-pii:sim_gid[chars:0]; isFiDevice: false; subId: 1; slotIndex: 0 [CONTEXT log_prefix="(Sim)" thread_id=65 ]
+03-25 02:35:12.098   683   812 D CompatChangeReporter: Compat change id reported: 311208629; UID 10159; state: ENABLED
+03-25 02:35:12.100   942  1038 W WindowOnBackDispatcher: sendCancelIfRunning: isInProgress=false callback=android.view.ViewRootImpl$$ExternalSyntheticLambda13@2a25b73
+03-25 02:35:12.101   683  1772 D CoreBackPreview: Window{835cd56 u0 Splash Screen com.missupro.app EXITING}: Setting back callback null
+03-25 02:35:12.104  7263  7506 W gle.android.gms: Verification of int m58.bjh.getPoolSize() took 169.855ms (29.44 bytecodes/s) (0B arena alloc)
+03-25 02:35:12.167  7244  7343 W HWUI    : Image decoding logging dropped!
+03-25 02:35:12.190  7244  7343 W HWUI    : Image decoding logging dropped!
+03-25 02:35:12.203   683  1836 D CoreBackPreview: Window{f27930c u0 PopupWindow:f40e9eb}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@4e63736, mPriority=0, mIsAnimationCallback=false, mOverrideBehavior=0}
+03-25 02:35:12.203  4151  4236 I .apps.wellbeing: AssetManager2(0x7c79f80c4078) locale list changing from [] to [en-US]
+03-25 02:35:12.272   683  1836 W AppOps  : Noting op not finished: uid 10147 pkg com.google.android.gms code 113 startTime of in progress event=1774429372974
+03-25 02:35:12.299  7244  7343 W HWUI    : Image decoding logging dropped!
+03-25 02:35:12.321  7244  7343 W HWUI    : Image decoding logging dropped!
+03-25 02:35:12.336   942  1000 E SingleInstanceRemoteListener: Failed remote call on null listener
+03-25 02:35:12.347  7346  7479 I CarrierServices: Handling SIM_LOADED in PhoneSimsStateUpdater. [CONTEXT log_prefix="(Sim)" thread_id=65 ]
+03-25 02:35:12.348  7346  7479 I CarrierServices: Initializing Carrier Services Library. [CONTEXT thread_id=65 ]
+03-25 02:35:12.349  7244  7343 W HWUI    : Image decoding logging dropped!
+03-25 02:35:12.352  1232  7672 I NetworkScheduler.Stats: (REDACTED) Task %s/%s started execution. cause:%s exec_start_elapsed_seconds: %s
+03-25 02:35:12.395  7244  7343 W HWUI    : Image decoding logging dropped!
+03-25 02:35:12.432  7244  7343 W HWUI    : Image decoding logging dropped!
+03-25 02:35:12.479   683  1829 W ContentProviderHelper: Slow operation: 55ms so far, now at getContentProviderImpl: done!
+03-25 02:35:12.490  7466  7609 I Finsky  : [59] AIM: AppInfoManager-Perf > ItemModel > CacheSize=34, cacheHitCount=0, cacheMissCount=0, total appsWithNoServerDataCount=0. Missed  in cache (limit 10) : []
+03-25 02:35:12.496  7466  7613 I Finsky  : [60] AIM: AppInfoManager-Perf > ItemModel > CacheSize=34, cacheHitCount=0, cacheMissCount=0, total appsWithNoServerDataCount=0. Missed  in cache (limit 10) : []
+03-25 02:35:12.498  1232  2498 I FontLog : (REDACTED) Received query %s, URI %s
+03-25 02:35:12.498  7213  7340 I egmm    : (REDACTED) Enabled invocation sources: %s.
+03-25 02:35:12.501  1232  2498 I FontLog : (REDACTED) Query [%s] resolved to %s
+03-25 02:35:12.502  7244  7343 W HWUI    : Image decoding logging dropped!
+03-25 02:35:12.504  7213  7340 I wxp     : (REDACTED) onIsEnabledChanged, isEnabled: %s
+03-25 02:35:12.505  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.505  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.506  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.509  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.509  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.510  7263  7506 W gle.android.gms: Verification of boolean m58.mxf.removeIf(java.util.function.Predicate) took 104.347ms (47.92 bytecodes/s) (0B arena alloc)
+03-25 02:35:12.512  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.513  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.514  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.514  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.515  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.515  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.517  7213  7340 I xlz     : (REDACTED) Setting session to type: %s
+03-25 02:35:12.518  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.518  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.518  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.519  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.519  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.520  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.521   683   713 W Looper  : Drained
+03-25 02:35:12.521  7213  7340 I xnl     : (REDACTED) setNavBarVisible: %s
+03-25 02:35:12.529  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.530  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.530  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.532  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.532  7466  7608 I Finsky  : [58] AIM: AppInfoManager-Perf > getApps > data collection finished
+03-25 02:35:12.533  7466  7608 I Finsky  : [58] AIM: AppInfoManager-Perf > maybeDestroyAppInfoManager is called. actives = 0
+03-25 02:35:12.532  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.533  7213  7340 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+03-25 02:35:12.682  7306  7306 I FirebaseApp: Device unlocked: initializing all Firebase APIs for app [DEFAULT]
+03-25 02:35:12.734  4151  4236 I .apps.wellbeing: AssetManager2(0x7c79f80c97f8) locale list changing from [] to [en-US]
+03-25 02:35:12.773  7620  7620 W ding:background: Failed to find entry 'classes.dex': Entry not found
+03-25 02:35:12.775  7620  7620 W ding:background: Failed to find entry 'classes.dex': Entry not found
+03-25 02:35:12.776  7620  7620 W ding:background: Failed to find entry 'classes.dex': Entry not found
+03-25 02:35:12.777  7620  7620 W ding:background: Failed to find entry 'classes.dex': Entry not found
+03-25 02:35:12.778  7620  7620 W ding:background: Failed to find entry 'classes.dex': Entry not found
+03-25 02:35:12.779  7620  7620 W ding:background: Failed to find entry 'classes.dex': Entry not found
+03-25 02:35:12.780  7620  7620 D nativeloader: Configuring clns-9 for other apk /data/app/~~tH29a-cDnzOzJjqMGjw0vQ==/com.android.vending-5KpjYgKrqjW9QjMzOMcQ7w==/base.apk:/data/app/~~tH29a-cDnzOzJjqMGjw0vQ==/com.android.vending-5KpjYgKrqjW9QjMzOMcQ7w==/split_config.en.apk:/data/app/~~tH29a-cDnzOzJjqMGjw0vQ==/com.android.vending-5KpjYgKrqjW9QjMzOMcQ7w==/split_config.x86_64.apk:/data/app/~~tH29a-cDnzOzJjqMGjw0vQ==/com.android.vending-5KpjYgKrqjW9QjMzOMcQ7w==/split_phonesky_data_loader.apk:/data/app/~~tH29a-cDnzOzJjqMGjw0vQ==/com.android.vending-5KpjYgKrqjW9QjMzOMcQ7w==/split_phonesky_data_loader.config.x86_64.apk:/data/app/~~tH29a-cDnzOzJjqMGjw0vQ==/com.android.vending-5KpjYgKrqjW9QjMzOMcQ7w==/split_phonesky_webrtc_native_lib.apk:/data/app/~~tH29a-cDnzOzJjqMGjw0vQ==/com.android.vending-5KpjYgKrqjW9QjMzOMcQ7w==/split_phonesky_webrtc_native_lib.config.x86_64.apk. target_sdk_version=36, uses_libraries=, library_path=/data/app/~~tH29a-cDnzOzJjqMGjw0vQ==/com.android.vending-5KpjYgKrqjW9QjMzOMcQ7w==/lib/x86_64:/data/app/~~tH29a-cDnzOzJjqMGjw0vQ==/com.android.ven
+03-25 02:35:12.789  7620  7620 I ding:background: AssetManager2(0x7c79f80c33f8) locale list changing from [] to [en-US]
+03-25 02:35:12.795  7213  7340 I tuc     : (REDACTED) on opa visibility changed %s
+03-25 02:35:12.806  7620  7620 V GraphicsEnvironment: Currently set values for:
+03-25 02:35:12.807  7620  7620 V GraphicsEnvironment:   angle_gl_driver_selection_pkgs=[]
+03-25 02:35:12.808  7620  7620 V GraphicsEnvironment:   angle_gl_driver_selection_values=[]
+03-25 02:35:12.811  7620  7620 V GraphicsEnvironment: com.android.vending is not listed in per-application setting
+03-25 02:35:12.812  7620  7620 V GraphicsEnvironment: ANGLE allowlist from config: com.dreamgames.royalmatch com.dts.freefiremax com.dxx.firenow com.gramgames.mergedragons com.ludo.king com.mojang.minecraftpe com.my.defense com.nintendo.zaka com.os.airforce com.playrix.fishdomdd.gplay io.teslatech.callbreak jp.konami.prospia net.peakgames.toonblast
+03-25 02:35:12.812  7620  7620 V GraphicsEnvironment: com.android.vending is not listed in ANGLE allowlist or settings, returning default
+03-25 02:35:12.812  7620  7620 V GraphicsEnvironment: Neither updatable production driver nor prerelease driver is supported.
+03-25 02:35:12.832  7213  7340 I tuc     : (REDACTED) on opa visibility changed %s
+03-25 02:35:12.837  7244  7610 I HWUI    : Davey! duration=2139ms; Flags=1, FrameTimelineVsyncId=1650527, IntendedVsync=1974301198806, Vsync=1975334532098, InputEventId=0, HandleInputStart=1975413799200, AnimationStart=1975413857100, PerformTraversalsStart=1975447504500, DrawStart=1976163516400, FrameDeadline=1974317865472, FrameStartTime=1975337788200, FrameInterval=16666666, WorkloadTarget=16666666, SyncQueued=1976179835800, SyncStart=1976197156200, IssueDrawCommandsStart=1976197361500, SwapBuffers=1976424022500, FrameCompleted=1976458048900, DequeueBufferDuration=42700, QueueBufferDuration=422300, GpuCompleted=1976458048900, SwapBuffersCompleted=1976426329200, DisplayPresentTime=0, CommandSubmissionCompleted=1976424022500, 
+03-25 02:35:12.877  7346  7479 I CarrierServices: Initializing Carrier Services Logging. [CONTEXT thread_id=65 ]
+03-25 02:35:12.965  7213  7340 I ecxx    : (REDACTED) [%s] On new data value: %s.
+03-25 02:35:12.970  7244  7343 I s.nexuslauncher: AssetManager2(0x7c79f80c65f8) locale list changing from [] to [en-US]
+03-25 02:35:12.976  4151  4236 I .apps.wellbeing: AssetManager2(0x7c79f80ca158) locale list changing from [] to [en-US]
+03-25 02:35:13.025  7263  7263 D BoundBrokerSvc: onUnbind: Intent { act=com.google.android.gms.audit.service.START xflg=0x4 pkg=com.google.android.gms }
+03-25 02:35:13.056  7244  7343 W HWUI    : Image decoding logging dropped!
+03-25 02:35:13.070  1232  2498 I FontLog : (REDACTED) Fetch %s end status %s
+03-25 02:35:13.074  7244  7343 W HWUI    : Image decoding logging dropped!
+03-25 02:35:13.086  7306  7684 I MDDSuperpacks: MDDSuperpacks$1.onSuccess():128 superpack hmmdictionary migrated to MDD
+03-25 02:35:13.090  7244  7244 D TouchInteractionService: disposeEventHandlers: Reason: Initializing input monitor due to: TISBinder#onInitialize() instance=252143512
+03-25 02:35:13.100  1232  2498 I FontLog : (REDACTED) Pulling font file for id = %d, cache size = %d
+03-25 02:35:13.113  1232  1661 I FontLog : (REDACTED) Pulling font file for id = %d, cache size = %d
+03-25 02:35:13.113  7244  7244 D InputMonitorCompat: Input event receiver for monitor (swipe-up-disp0) disposed
+03-25 02:35:13.114  7244  7244 D InputMonitorCompat: Input monitor (swipe-up-disp0) disposed
+03-25 02:35:13.172  7244  7244 D InputMonitorCompat: Input monitor (swipe-up-disp0) created
+03-25 02:35:13.172  7244  7244 D InputMonitorCompat: Input event receiver for monitor (swipe-up-disp0) created
+03-25 02:35:13.177  7244  7343 W HWUI    : Image decoding logging dropped!
+03-25 02:35:13.212  7306  7306 W NotificationCenter: NotificationCenter$NotificationQueue.notifyPendingNotificationsOnExecutor():877 Heavy notify work detected on UI thread: [ldi->lef] takes 61ms
+03-25 02:35:13.245   683   714 W Looper  : Slow dispatch took 102ms android.ui app=system_server main=false group=TOP_APP h=com.android.server.am.ActivityManagerService$UiHandler c=com.android.server.am.UidObserverController$$ExternalSyntheticLambda0@fd333ca m=0
+03-25 02:35:13.249   683   768 D FileUtils: Rounded bytes from 3121070080 to 4000000000
+03-25 02:35:13.261   683  1486 E TransitionController: Set visible without transition ActivityRecord{88070805 u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t2} playing=false caller=com.android.server.wm.ActivityTaskSupervisor.realStartActivityLocked:872 
+03-25 02:35:13.263  7306  7306 W NotificationCenter: NotificationCenter$NotificationQueue.notifyPendingNotificationsOnExecutor():877 Heavy notify work detected on UI thread: [ldi->lef] takes 48ms
+03-25 02:35:13.284  7244  7244 I NotificationListener: onListenerConnected
+03-25 02:35:13.292  7244  7244 I Choreographer: Skipped 89 frames!  The application may be doing too much work on its main thread.
+03-25 02:35:13.294  7244  7343 W HWUI    : Image decoding logging dropped!
+03-25 02:35:13.308  7244  7244 I s.nexuslauncher: AssetManager2(0x7c79f80c8b78) locale list changing from [] to [en-US]
+03-25 02:35:13.308  7244  7244 D UnlockComponentFactory: instantiateActivity() com.google.android.apps.nexuslauncher.NexusLauncherActivity isUserLocked: false
+03-25 02:35:13.344  7306  7306 W NotificationCenter: NotificationCenter$NotificationQueue.notifyPendingNotificationsOnExecutor():877 Heavy notify work detected on UI thread: [ldi->lef] takes 77ms
+03-25 02:35:13.372  7466  7568 I Finsky  : [47] RECEIVER_SINGLE_USER_SETTINGS#logWorkEndAndFinishGoAsync: SUCCESS
+03-25 02:35:13.387   683   895 D BackgroundInstallControlService: Package event received: 0
+03-25 02:35:13.412  7346  7479 I LogSaver: LogSaver new instance with filename: carrier_services
+03-25 02:35:13.418  7213  7339 I bhuh    : Connect Request
+03-25 02:35:13.425   683   895 D BackgroundInstallControlService: Package event received: 0
+03-25 02:35:13.426  7213  7339 I efzp    : (REDACTED) Running '%s' over %s.
+03-25 02:35:13.438  7620  7620 I Finsky:background: [2] Process created at version: 50.6.23-31 [0] [PR] 883399050
+03-25 02:35:13.451  7306  7306 W NotificationCenter: NotificationCenter$NotificationQueue.notifyPendingNotificationsOnExecutor():877 Heavy notify work detected on UI thread: [ldi->lef] takes 54ms
+03-25 02:35:13.488   683   768 W AppOps  : Noting op not finished: uid 10147 pkg com.google.android.gms code 113 startTime of in progress event=1774429357040
+03-25 02:35:13.515  7213  7339 I efzp    : (REDACTED) Running '%s' over %s.
+03-25 02:35:13.537  7263  7263 D BoundBrokerSvc: onBind: Intent { act=com.google.android.gms.safetynet.service.START xflg=0x4 pkg=com.google.android.gms }
+03-25 02:35:13.569  7306  7697 D nativeloader: Load /product/app/LatinIMEGooglePrebuilt/LatinIMEGooglePrebuilt.apk!/lib/x86_64/libnative_crash_handler_jni.so using class loader ns product-clns-9 (caller=/product/app/LatinIMEGooglePrebuilt/LatinIMEGooglePrebuilt.apk!classes2.dex): ok
+03-25 02:35:13.593  7263  7263 D BoundBrokerSvc: Loading bound service for intent: Intent { act=com.google.android.gms.safetynet.service.START xflg=0x4 pkg=com.google.android.gms }
+03-25 02:35:13.621   942  1055 W Looper  : Slow dispatch took 1569ms SysUiBg app=com.android.systemui main=false group=FOREGROUND h=android.os.Handler c=com.android.systemui.shade.NotificationShadeWindowControllerImpl$$ExternalSyntheticLambda1@f7e9e6 m=0
+03-25 02:35:13.623  7620  7620 I Finsky:background: [2] [BGP] Initializing early flags...
+03-25 02:35:13.624  7620  7620 I Finsky:background: [2] [BGP] Initializing Gservices...
+03-25 02:35:13.632  7620  7620 I Finsky:background: [2] [BGP] Initializing flags...
+03-25 02:35:13.702  7306  7683 I MDDSuperpacks: MDDSuperpacks$1.onSuccess():128 superpack delight migrated to MDD
+03-25 02:35:13.706  7263  7506 W gle.android.gms: Verification of void m58.mxo.replaceAll(java.util.function.UnaryOperator) took 139.684ms (28.64 bytecodes/s) (0B arena alloc)
+03-25 02:35:13.815  7306  7597 I SpeechPackManager: SpeechPackManager.init():179 init()
+03-25 02:35:13.815  7306  7597 I SpeechPackManager: SpeechPackManager.registerManifest():511 registerManifest() : https://dl.google.com/android/voice/gboard/terse/superpacks-manifest-20210519.json
+03-25 02:35:13.820  7244  7343 D LoaderTask: loadWorkspace finished
+03-25 02:35:13.853  7306  7578 I FileRestoreModule: FileRestoreModule.maybePerformRestore():42 There is no restore app version, skip restore
+03-25 02:35:13.857  7306  7683 I MDDSuperpacks: MDDSuperpacks$1.onSuccess():128 superpack gboard-small-speech-packs migrated to MDD
+03-25 02:35:13.860  7306  7700 I MDDSuperpacks: MDDSuperpacks$1.onSuccess():128 superpack delight_apps migrated to MDD
+03-25 02:35:13.862  7213  7347 I edua    : #onCreate
+03-25 02:35:13.911  7306  7684 I MDDSuperpacks: MDDSuperpacks$1.onSuccess():128 superpack delight_overrides migrated to MDD
+03-25 02:35:13.943  7466  7466 I Finsky  : [2] Memory trim requested to level 40
+03-25 02:35:13.944  7466  7466 I Finsky  : [2] Flushing in-memory image cache
+03-25 02:35:13.945  7466  7466 I Finsky  : [2] Device is eligible for platform Cronet and will attempt to use it.
+03-25 02:35:14.008  7263  7276 I SQLiteConnection: Long db operation: /data/user/0/com.google.android.gms/databases/googlesettings.db
+03-25 02:35:14.023  7213  7339 I efzp    : (REDACTED) Completed '%s' over %s (status='%s').
+03-25 02:35:14.025  7213  7339 I efzp    : (REDACTED) Running '%s' over %s.
+03-25 02:35:14.150  7306  7686 I MDDSuperpacks: MDDSuperpacks$1.onSuccess():128 superpack bundled_delight migrated to MDD
+03-25 02:35:14.173  7466  7466 I cn_CronetLibraryLoader: Cronet version: 133.0.6876.3, arch: x86_64
+03-25 02:35:14.185  7466  7466 I Finsky  : [2] CronetEngine is present. Using Cronet for the networking stack.
+03-25 02:35:14.193  7200  7532 I SQLiteConnection: Long db operation: /data/user/0/com.google.android.as/no_backup/androidx.work.workdb
+03-25 02:35:14.229   683   767 D ConnectivityService: requestNetwork for uid/pid:10144/7466 activeRequest: null callbackRequest: 247 [NetworkRequest [ REQUEST id=248, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10144 RequestorUid: 10144 RequestorPkg: com.android.vending UnderlyingNetworks: Null] ]] callback flags: 0 order: 2147483647 isUidTracked: false declaredMethods: AVAIL|LOST|NC|LP
+03-25 02:35:14.235   683  1486 D CompatChangeReporter: Compat change id reported: 349487600; UID 10144; state: ENABLED
+03-25 02:35:14.236  7263  7506 W gle.android.gms: Verification of java.lang.Object m58.mav.aW() took 256.531ms (374.22 bytecodes/s) (0B arena alloc)
+03-25 02:35:14.280   683   840 D WifiNetworkFactory: got request NetworkRequest [ REQUEST id=248, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10144 RequestorUid: 10144 RequestorPkg: com.android.vending UnderlyingNetworks: Null] ]
+03-25 02:35:14.295  7620  7620 I Finsky:background: [2] Finished reading experiment flags from file [0tGUNCGIkbk4o6-fQ335kUYSKwVj4lusnHT-A5Dsy08] numFlags=2264.
+03-25 02:35:14.302  7306  7306 I UFCGuarder: UFCGuarder.onCreate():58 onCreate
+03-25 02:35:14.307  4151  4236 I .apps.wellbeing: AssetManager2(0x7c79f80c94d8) locale list changing from [] to [en-US]
+03-25 02:35:14.322   683   846 D ConnectivityService: NetReassign [248 : null → 100] [c 1] [a 1] [i 80]
+03-25 02:35:14.328  7213  7457 I bbqz    : Wearables Pin created
+03-25 02:35:14.363   683   840 D UntrustedWifiNetworkFactory: got request NetworkRequest [ REQUEST id=248, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10144 RequestorUid: 10144 RequestorPkg: com.android.vending UnderlyingNetworks: Null] ]
+03-25 02:35:14.364   683   840 D OemPaidWifiNetworkFactory: got request NetworkRequest [ REQUEST id=248, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10144 RequestorUid: 10144 RequestorPkg: com.android.vending UnderlyingNetworks: Null] ]
+03-25 02:35:14.364   683   840 D MultiInternetWifiNetworkFactory: got request NetworkRequest [ REQUEST id=248, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10144 RequestorUid: 10144 RequestorPkg: com.android.vending UnderlyingNetworks: Null] ]
+03-25 02:35:14.372   683   846 D ConnectivityService: NetReassign [no changes] [c 47] [a 2] [i 1]
+03-25 02:35:14.384  1232  1237 W .gms.persistent: Suspending all threads took: 252.792ms
+03-25 02:35:14.391  7213  7339 I efzp    : (REDACTED) Completed '%s' over %s (status='%s').
+03-25 02:35:14.391  1232  1232 D BoundBrokerSvc: onRebind: Intent { act=com.google.android.gms.auth.aang.events.services.START dat=chimera-action:/... xflg=0x4 cmp=com.google.android.gms/.chimera.PersistentApiService }
+03-25 02:35:14.397  7213  7339 I ecxx    : (REDACTED) [%s] On data flow initialize.
+03-25 02:35:14.409  7213  7339 I eeyp    : (REDACTED) Registering a listener (%s) for type %s.
+03-25 02:35:14.419  7213  7339 I bimr    : (REDACTED) #FCF: Managed profile check status : %s
+03-25 02:35:14.420  7306  7306 W NotificationCenter: NotificationCenter$NotificationQueue.notifyPendingNotificationsOnExecutor():877 Heavy notify work detected on UI thread: [irv->lhf, irv->lhf, irv->lhf, irv->lhf, irv->lhf, irv->lhf, lut->lhf, mog->lhf, kex->lhf, kfa->lhf, kfa->lhf] takes 1270ms
+03-25 02:35:14.465  7306  7306 I LatinApp: LatinApp.getWorkManagerConfiguration():176 Customized configuration for Hilt WorkManager
+03-25 02:35:14.481  7263  7506 W gle.android.gms: Verification of m58.man m58.lzf.a() took 113.657ms (8332.03 bytecodes/s) (0B arena alloc)
+03-25 02:35:14.485  7346  7479 I BugleRcsEngine: Initializing RCS Engine for Bugle host. [CONTEXT log_prefix="RcsEngineProxyImpl:[0ec444bc-edf8]" thread_id=65 ]
+03-25 02:35:14.517   683   708 W AppOps  : Noting op not finished: uid 10147 pkg com.google.android.gms code 113 startTime of in progress event=1774429357040
+03-25 02:35:14.568  7306  7306 W NotificationCenter: NotificationCenter$NotificationQueue.notifyPendingNotificationsOnExecutor():877 Heavy notify work detected on UI thread: [irv->lhf] takes 103ms
+03-25 02:35:14.602  7263  7506 W gle.android.gms: Verification of void m58.lzf.b() took 120.870ms (819.06 bytecodes/s) (0B arena alloc)
+03-25 02:35:14.603  7306  7306 W NotificationCenter: NotificationCenter$NotificationQueue.notifyPendingNotificationsOnExecutor():877 Heavy notify work detected on UI thread: [lnu->lhf] takes 3208ms
+03-25 02:35:14.615  7620  7715 D nativeloader: Load /data/app/~~tH29a-cDnzOzJjqMGjw0vQ==/com.android.vending-5KpjYgKrqjW9QjMzOMcQ7w==/split_config.x86_64.apk!/lib/x86_64/libmappedcountercacheversionjni.so using class loader ns clns-9 (caller=/data/app/~~tH29a-cDnzOzJjqMGjw0vQ==/com.android.vending-5KpjYgKrqjW9QjMzOMcQ7w==/base.apk): ok
+03-25 02:35:14.625  7200  7539 I AiAiSpeechRecognition: Periodic LanguagePack task scheduled successfully
+03-25 02:35:14.640  7346  7479 I BugleRcsEngine: Processing an intent [CONTEXT log_prefix="(Sim)" thread_id=65 ]
+03-25 02:35:14.712  7213  7339 E ashmem  : Pinning is deprecated since Android Q. Please use trim or other methods.
+03-25 02:35:14.712  7213  7339 I bimp    : (REDACTED) #FCF: Demo mode check status : %s
+03-25 02:35:14.755  7306  7691 I LauncherIconVisibilityModule: LauncherIconVisibilityModule.updateLauncherIconVisibility():76 updateLauncherIconVisibility() : Visible = false
+03-25 02:35:14.756  7346  7479 I BugleRcsEngine: Ignoring duplicate SIM state: LOADED [CONTEXT log_prefix="(Sim)" thread_id=65 ]

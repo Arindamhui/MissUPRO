@@ -24,7 +24,8 @@ export function persistWebAuthSession(session: WebAuthSession) {
   }
 
   window.localStorage.setItem(WEB_AUTH_STORAGE_KEY, JSON.stringify(session));
-  document.cookie = `${WEB_AUTH_COOKIE_NAME}=${encodeURIComponent(session.token)}; Path=/; Max-Age=604800; SameSite=Lax`;
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${WEB_AUTH_COOKIE_NAME}=${encodeURIComponent(session.token)}; Path=/; Max-Age=604800; SameSite=Lax${secure}`;
 }
 
 export function loadWebAuthSession(): WebAuthSession | null {

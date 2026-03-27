@@ -68,18 +68,19 @@ export class AnalyticsService {
       .groupBy(sql`date(${payments.createdAt})`)
       .orderBy(sql`date(${payments.createdAt})`);
 
-    const giftRevenue = await db
-      .select({
-        total: sum(giftTransactions.coinCost),
-        count: count(),
-      })
-      .from(giftTransactions)
-      .where(between(giftTransactions.createdAt, startDate, endDate));
-
-    const coinsPurchased = await db
-      .select({ total: sum(coinTransactions.amount) })
-      .from(coinTransactions)
-      .where(and(eq(coinTransactions.transactionType, "PURCHASE" as any), between(coinTransactions.createdAt, startDate, endDate)));
+    const [giftRevenue, coinsPurchased] = await Promise.all([
+      db
+        .select({
+          total: sum(giftTransactions.coinCost),
+          count: count(),
+        })
+        .from(giftTransactions)
+        .where(between(giftTransactions.createdAt, startDate, endDate)),
+      db
+        .select({ total: sum(coinTransactions.amount) })
+        .from(coinTransactions)
+        .where(and(eq(coinTransactions.transactionType, "PURCHASE" as any), between(coinTransactions.createdAt, startDate, endDate))),
+    ]);
 
     return {
       dailyRevenue: paymentRevenue,
@@ -93,7 +94,8 @@ export class AnalyticsService {
       .select()
       .from(payments)
       .where(eq(payments.userId, userId))
-      .orderBy(desc(payments.createdAt));
+      .orderBy(desc(payments.createdAt))
+      .limit(100);
 
     const coinHistory = await db
       .select()

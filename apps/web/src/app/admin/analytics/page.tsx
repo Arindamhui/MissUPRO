@@ -27,8 +27,8 @@ export default function AnalyticsPage() {
   const startDate = useMemo(() => new Date(Date.now() - days * 86400000), [days]);
   const endDate = new Date();
 
-  const engagementQuery = trpc.analytics.getEngagementMetrics.useQuery({ startDate, endDate }, { retry: false });
-  const revenueQuery = trpc.analytics.getRevenueAnalytics.useQuery({ startDate, endDate }, { retry: false });
+  const engagementQuery = trpc.analytics.getEngagementMetrics.useQuery({ startDate, endDate }, { retry: false, staleTime: 60_000 });
+  const revenueQuery = trpc.analytics.getRevenueAnalytics.useQuery({ startDate, endDate }, { retry: false, staleTime: 60_000 });
 
   const engagement = (engagementQuery.data ?? {
     dailyActiveUsers: [],

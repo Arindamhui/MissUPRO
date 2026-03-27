@@ -1,0 +1,15 @@
+=== PORT CHECK ===
+Port 3001: OPEN
+Port 3002: OPEN
+Port 4000: OPEN
+Port 8081: OPEN
+
+=== API HEALTH CHECK ===
+API /health: {"status":200,"body":"{\"status\":\"ok\",\"timestamp\":\"2026-03-24T11:55:36.923Z\"}"}
+
+=== WEB APP CHECK ===
+Web (3001): status=N/A error=read ECONNRESET
+Web (3002): status=N/A error=read ECONNRESET
+
+=== METRO CHECK ===
+Metro (8081): status=200 error=none

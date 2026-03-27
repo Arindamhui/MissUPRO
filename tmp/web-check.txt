@@ -1,0 +1,11 @@
+=== Testing Web on 3002 ===
+GET /: status=undefined bodyLen=undefined error=timeout
+
+=== Testing /login ===
+GET /login: status=undefined bodyLen=undefined error=timeout
+
+=== Testing /admin ===
+GET /admin: status=307 bodyLen=35 error=none
+
+=== Testing /api/health ===
+GET /api/health: status=undefined bodyLen=undefined error=timeout

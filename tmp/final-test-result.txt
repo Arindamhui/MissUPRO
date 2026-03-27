@@ -1,0 +1,28 @@
+=== FINAL COMPREHENSIVE TEST - 2026-03-24T12:26:09.596Z ===
+
+--- API Server (port 4000) ---
+PASS API /health: status=200 expected=200  
+
+--- Web App (port 3010) ---
+PASS Web /: status=200 expected=200  
+PASS Web /admin-login: status=200 expected=200  
+PASS Web /agency-login: status=200 expected=200  
+PASS Web /agency-signup: status=200 expected=200  
+PASS Web /discover: status=200 expected=200  
+PASS Web /auth/pending-approval: status=200 expected=200  
+PASS Web /admin (redirect): status=307 expected=307  -> /admin-login?reason=session_expired
+PASS Web /admin/dashboard (redirect): status=307 expected=307  -> /admin-login?reason=session_expired
+PASS Web /agency/dashboard (redirect): status=307 expected=307  -> /agency-login?reason=session_expired
+PASS Web /api/health: status=200 expected=200  
+PASS Web /api/auth/session (unauth): status=401 expected=401  
+
+--- Auth API Tests ---
+FAIL Login (invalid creds): status=422 expected=401  
+FAIL Signup (bad input): status=422 expected=400  
+
+--- Metro/Expo (port 8081) ---
+PASS Metro /status: status=200 expected=200  
+
+=== SUMMARY ===
+Total: 15 | Pass: 13 | Fail: 2
+SOME TESTS FAILED!

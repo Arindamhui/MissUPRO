@@ -1,13 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PermissionsAndroid, Platform } from "react-native";
-import {
-  ChannelProfileType,
-  ClientRoleType,
-  ConnectionStateType,
-  createAgoraRtcEngine,
-  type IRtcEngine,
-  type IRtcEngineEventHandler,
-} from "react-native-agora";
+
+let ChannelProfileType: any = {};
+let ClientRoleType: any = {};
+let ConnectionStateType: any = {};
+let createAgoraRtcEngine: any = null;
+type IRtcEngine = any;
+type IRtcEngineEventHandler = any;
+try {
+  const agora = require("react-native-agora");
+  ChannelProfileType = agora.ChannelProfileType;
+  ClientRoleType = agora.ClientRoleType;
+  ConnectionStateType = agora.ConnectionStateType;
+  createAgoraRtcEngine = agora.createAgoraRtcEngine;
+} catch {
+  // react-native-agora not linked (Expo Go)
+}
 
 type CallRtcCredentials = {
   channel: string;

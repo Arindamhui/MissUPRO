@@ -1,0 +1,330 @@
+﻿
+> missu-pro@1.0.0 dev
+> turbo dev --concurrency=25
+
+node.exe : ΓÇó turbo 2.8.16
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (ΓÇó turbo 2.8.16:String) [], Remo 
+   teException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+ΓÇó Packages in scope: @missu/api, @missu/auth, @missu/cache, @missu/config, @missu/db, @missu/logger, @missu/mobile, @missu/queue, @missu/service-analytics, @missu/service-chat, @missu/service-fraud, @missu/service-games, @missu/service-moderation, @missu/service-notifications, @missu/service-payments, @missu/service-presence, @missu/service-streaming, @missu/types, @missu/ui, @missu/utils, @missu/web
+ΓÇó Running dev in 21 packages
+ΓÇó Remote caching disabled
+@missu/api:dev: cache bypass, force executing 25a28f18be1ecd75
+@missu/service-analytics:dev: cache bypass, force executing 4d7d0b6a3725b571
+@missu/service-presence:dev: cache bypass, force executing 7919c21a295478a7
+@missu/queue:dev: cache bypass, force executing b6b55293a66274aa
+@missu/service-games:dev: cache bypass, force executing 677699e54365ee8e
+@missu/utils:dev: cache bypass, force executing a15f405a8cdde8a1
+@missu/mobile:dev: cache bypass, force executing 3c39a6e1dde71ca9
+@missu/logger:dev: cache bypass, force executing 6dda5bdd22bf51b6
+@missu/web:dev: cache bypass, force executing a13e61cf0cc92ab4
+@missu/service-chat:dev: cache bypass, force executing e16f358f40437a37
+@missu/types:dev: cache bypass, force executing d82785b1fa690aab
+@missu/auth:dev: cache bypass, force executing 7dc002d6bd004245
+@missu/service-notifications:dev: cache bypass, force executing ead6c35c4cbd37ba
+@missu/cache:dev: cache bypass, force executing ae2315922b844bf6
+@missu/config:dev: cache bypass, force executing 9d123e5b42d871fc
+@missu/service-fraud:dev: cache bypass, force executing c5610372db41bb26
+@missu/service-moderation:dev: cache bypass, force executing 828b4369f07918e2
+@missu/ui:dev: cache bypass, force executing a7cd8b89f6690480
+@missu/service-streaming:dev: cache bypass, force executing cf8e3d9499b46598
+@missu/service-payments:dev: cache bypass, force executing 079dbc70fd32d4da
+@missu/service-chat:dev: 
+@missu/service-chat:dev: > @missu/service-chat@0.0.1 dev
+@missu/service-chat:dev: > tsx watch src/main.ts
+@missu/service-chat:dev: 
+@missu/service-analytics:dev: 
+@missu/service-analytics:dev: > @missu/service-analytics@0.0.1 dev
+@missu/service-analytics:dev: > tsx watch src/main.ts
+@missu/service-analytics:dev: 
+@missu/service-presence:dev: 
+@missu/service-presence:dev: > @missu/service-presence@0.0.1 dev
+@missu/service-presence:dev: > tsx watch src/main.ts
+@missu/service-presence:dev: 
+@missu/mobile:dev: 
+@missu/mobile:dev: > @missu/mobile@1.0.0 dev
+@missu/mobile:dev: > node ./scripts/run-dev.js
+@missu/mobile:dev: 
+@missu/config:dev: 
+@missu/web:dev: 
+@missu/web:dev: > @missu/web@1.0.0 dev
+@missu/web:dev: > node scripts/dev.js
+@missu/web:dev: 
+@missu/config:dev: > @missu/config@0.1.0 dev
+@missu/config:dev: > tsc --watch
+@missu/config:dev: 
+@missu/service-games:dev: 
+@missu/service-games:dev: > @missu/service-games@0.0.1 dev
+@missu/service-games:dev: > tsx watch src/main.ts
+@missu/service-games:dev: 
+@missu/auth:dev: 
+@missu/auth:dev: > @missu/auth@0.1.0 dev
+@missu/auth:dev: > tsc --watch
+@missu/auth:dev: 
+@missu/queue:dev: 
+@missu/queue:dev: > @missu/queue@0.1.0 dev
+@missu/queue:dev: > tsc --watch
+@missu/queue:dev: 
+@missu/api:dev: 
+@missu/api:dev: > @missu/api@0.1.0 dev
+@missu/api:dev: > node ./scripts/dev.js
+@missu/api:dev: 
+@missu/ui:dev: 
+@missu/ui:dev: > @missu/ui@0.0.1 dev
+@missu/ui:dev: > echo 'stub'
+@missu/ui:dev: 
+@missu/logger:dev: 
+@missu/logger:dev: > @missu/logger@0.1.0 dev
+@missu/logger:dev: > tsc --watch
+@missu/logger:dev: 
+@missu/service-moderation:dev: 
+@missu/service-moderation:dev: > @missu/service-moderation@0.0.1 dev
+@missu/service-moderation:dev: > tsx watch src/main.ts
+@missu/service-moderation:dev: 
+@missu/ui:dev: 'stub'
+@missu/types:dev: 
+@missu/types:dev: > @missu/types@0.1.0 dev
+@missu/types:dev: > tsc --watch
+@missu/types:dev: 
+@missu/service-notifications:dev: 
+@missu/service-notifications:dev: > @missu/service-notifications@0.0.1 dev
+@missu/service-notifications:dev: > tsx watch src/main.ts
+@missu/service-notifications:dev: 
+@missu/service-fraud:dev: 
+@missu/service-fraud:dev: > @missu/service-fraud@0.0.1 dev
+@missu/service-fraud:dev: > tsx watch src/main.ts
+@missu/service-fraud:dev: 
+@missu/service-streaming:dev: 
+@missu/service-streaming:dev: > @missu/service-streaming@0.0.1 dev
+@missu/service-streaming:dev: > tsx watch src/main.ts
+@missu/service-streaming:dev: 
+@missu/auth:dev: [2J[3J[H10:55:14 pm - Starting compilation in watch mode...
+@missu/auth:dev: 
+@missu/queue:dev: [2J[3J[H10:55:14 pm - Starting compilation in watch mode...
+@missu/queue:dev: 
+@missu/api:dev: (node:19928) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+@missu/api:dev: (Use `node --trace-deprecation ...` to show where the warning was created)
+@missu/service-payments:dev: 
+@missu/service-payments:dev: > @missu/service-payments@0.0.1 dev
+@missu/service-payments:dev: > tsx watch src/main.ts
+@missu/service-payments:dev: 
+@missu/config:dev: [2J[3J[H10:55:14 pm - Starting compilation in watch mode...
+@missu/config:dev: 
+@missu/utils:dev: 
+@missu/utils:dev: > @missu/utils@0.1.0 dev
+@missu/utils:dev: > tsc --watch
+@missu/utils:dev: 
+@missu/logger:dev: [2J[3J[H10:55:14 pm - Starting compilation in watch mode...
+@missu/logger:dev: 
+@missu/types:dev: [2J[3J[H10:55:14 pm - Starting compilation in watch mode...
+@missu/types:dev: 
+@missu/mobile:dev: env: load .env
+@missu/mobile:dev: env: export EXPO_PUBLIC_API_URL EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID EXPO_PUBLIC_GOOGLE_CLIENT_ID EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID EXPO_PUBLIC_WS_URL
+@missu/cache:dev: 
+@missu/cache:dev: > @missu/cache@0.1.0 dev
+@missu/cache:dev: > tsc --watch
+@missu/cache:dev: 
+@missu/utils:dev: [2J[3J[H10:55:15 pm - Starting compilation in watch mode...
+@missu/utils:dev: 
+@missu/mobile:dev: Starting project at F:\Arindam\Works\MissUPRO\apps\mobile
+@missu/cache:dev: [2J[3J[H10:55:15 pm - Starting compilation in watch mode...
+@missu/cache:dev: 
+@missu/mobile:dev: Using src/app as the root directory for Expo Router.
+@missu/service-analytics:dev: [analytics] listening on :4108
+@missu/service-analytics:dev: [analytics] Redis unavailable at redis://127.0.0.1:6379; continuing in degraded mode.
+@missu/service-presence:dev: [presence] REDIS_URL not set; using in-memory presence state for local dev.
+@missu/service-presence:dev: [presence] listening on :4103
+@missu/service-chat:dev: [chat] REDIS_URL not set; using in-memory chat history for local dev.
+@missu/service-chat:dev: [chat] listening on :4102
+@missu/service-games:dev: [games] REDIS_URL not set; using in-memory Socket.IO adapter for local dev.
+@missu/service-games:dev: [games] listening on :4107
+@missu/service-moderation:dev: [moderation] listening on :4109
+@missu/service-moderation:dev: [moderation] Redis unavailable at redis://127.0.0.1:6379; continuing in degraded mode.
+@missu/service-fraud:dev: [fraud] listening on :4106
+@missu/service-notifications:dev: [notifications] listening on :4104
+@missu/service-notifications:dev: [notifications] Redis unavailable; using in-memory queues for local dev.
+@missu/web:dev: Γû▓ Next.js 16.1.6 (Turbopack)
+@missu/web:dev: - Local:         http://localhost:3001
+@missu/web:dev: - Network:       http://37.27.49.125:3001
+@missu/web:dev: - Environments: .env
+@missu/web:dev: 
+@missu/web:dev: Γ£ô Starting...
+@missu/service-streaming:dev: [streaming] REDIS_URL not set; using in-memory Socket.IO adapter for local dev.
+@missu/service-streaming:dev: [streaming] listening on :4101
+@missu/service-payments:dev: [payments] listening on :4105
+@missu/service-payments:dev: [payments] Redis unavailable at redis://127.0.0.1:6379; continuing in degraded mode.
+@missu/mobile:dev: Expo Autolinking module resolution enabled
+@missu/api:dev: 
+@missu/api:dev: 10:55:16 pm - Starting compilation in watch mode...
+@missu/api:dev: 
+@missu/logger:dev: 
+@missu/logger:dev: 10:55:17 pm - Found 0 errors. Watching for file changes.
+@missu/config:dev: 
+@missu/config:dev: 10:55:17 pm - Found 0 errors. Watching for file changes.
+@missu/auth:dev: 
+@missu/auth:dev: 10:55:17 pm - Found 0 errors. Watching for file changes.
+@missu/types:dev: 
+@missu/types:dev: 10:55:17 pm - Found 0 errors. Watching for file changes.
+@missu/queue:dev: 
+@missu/queue:dev: 10:55:17 pm - Found 0 errors. Watching for file changes.
+@missu/utils:dev: 
+@missu/utils:dev: 10:55:17 pm - Found 0 errors. Watching for file changes.
+@missu/web:dev: Γ£ô Ready in 1592ms
+@missu/cache:dev: 
+@missu/cache:dev: 10:55:17 pm - Found 0 errors. Watching for file changes.
+@missu/api:dev: Invalid Sentry Dsn: https://...@sentry.io/...
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[NestFactory] [39m[32mStarting Nest application...[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAppModule dependencies initialized[39m[38;5;3m +27ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mCommonModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTrpcCoreModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mDiscoveryModule dependencies initialized[39m[38;5;3m +1ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mHealthModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mMetricsModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigModule dependencies initialized[39m[38;5;3m +1ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mModelsModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mChatModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mGamesModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mDiscoveryModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAgenciesModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mComplianceModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mSecurityModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mModerationModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mFraudModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mMediaModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mCmsModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAnalyticsModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mGroupAudioModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPartyModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mSocialModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPresenceModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mSupportModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPayoutsModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mLeaderboardsModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mUsersModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mLevelsModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mScheduleModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mNotificationsModule dependencies initialized[39m[38;5;3m +1ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mWalletModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mMissuProModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mReferralsModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mEventsModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mCampaignsModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPkModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mCallsModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mJobsModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPaymentsModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mVipModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mGiftsModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAdminModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAuthModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mLiveModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mRealtimeModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTrpcModule dependencies initialized[39m[38;5;3m +0ms[39m
+@missu/api:dev: [Sentry] Express is not instrumented. This is likely because you required/imported express before calling `Sentry.init()`.
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "call.request" message[39m[38;5;3m +95ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "call.accept" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "call.reject" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "call.end" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "call.sync.request" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "call.billing.tick" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "gift.sent_live" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "stream.join" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "stream.leave" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "stream.chat" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "stream.sync.request" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "pk.score.updated" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "pk.join" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "pk.sync.request" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "game.move.submit" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "game.join" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "game.sync.request" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "dm.message.send" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "dm.typing.start" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "dm.read.update" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "group_audio.join" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "group_audio.leave" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "group_audio.hand_raise" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "group_audio.reaction" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "group_audio.mute_toggle" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "group_audio.chat" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "group_audio.sync.request" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "party.join" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "party.leave" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "party.chat.message" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "party.reaction" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "party.seat.update" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "party.activity.update" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "party.sync.request" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "gift.delivery.ack" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "delivery.ack" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "presence.heartbeat" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "presence.subscribe" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "discovery.model.online" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mRealtimeGateway subscribed to the "discovery.model.offline" message[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAuthController {/auth}:[39m[38;5;3m +1ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/auth/signup, POST} route[39m[38;5;3m +1ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/auth/login, POST} route[39m[38;5;3m +1ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/auth/google, POST} route[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/auth/logout, POST} route[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/auth/session, GET} route[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/auth/agency-signup, POST} route[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/auth/mobile-session, GET} route[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/auth/mobile-onboarding, POST} route[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/auth/agency-model-login, POST} route[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/auth/google/callback/mobile, GET} route[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mHealthController {/health}:[39m[38;5;3m +1ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/health, GET} route[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/health/ready, GET} route[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mMetricsController {/metrics}:[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/metrics, GET} route[39m[38;5;3m +0ms[39m
+@missu/api:dev: [32m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [32m    LOG[39m [38;5;3m[NestApplication] [39m[32mNest application successfully started[39m[38;5;3m +14ms[39m
+@missu/api:dev: {"timestamp":"2026-03-25T05:55:17.827Z","level":"info","msg":"API server listening","port":4000}
+@missu/api:dev: [33m[Nest] 36380  - [39m24/03/2026, 10:55:17 pm [33m   WARN[39m [38;5;3m[RealtimeGateway] [39m[33mRealtime Redis adapter disabled: local Redis is unavailable[39m
+@missu/mobile:dev: Metro is running in CI mode, reloads are disabled. Remove CI=true to enable watch mode.
+@missu/mobile:dev: Starting Metro Bundler
+@missu/mobile:dev: 
+@missu/api:dev: 
+@missu/api:dev: 10:55:19 pm - Found 0 errors. Watching for file changes.
+@missu/mobile:dev: The following packages should be updated for best compatibility with the installed expo version:
+@missu/mobile:dev:   expo-auth-session@55.0.8 - expected version: ~55.0.9
+@missu/mobile:dev:   expo-clipboard@55.0.8 - expected version: ~55.0.9
+@missu/mobile:dev:   expo-haptics@55.0.8 - expected version: ~55.0.9
+@missu/mobile:dev:   expo-linear-gradient@55.0.8 - expected version: ~55.0.9
+@missu/mobile:dev:   expo-linking@55.0.7 - expected version: ~55.0.8
+@missu/mobile:dev:   expo-notifications@55.0.12 - expected version: ~55.0.13
+@missu/mobile:dev:   expo-router@55.0.5 - expected version: ~55.0.7
+@missu/mobile:dev:   expo-secure-store@55.0.8 - expected version: ~55.0.9
+@missu/mobile:dev:   expo-system-ui@55.0.9 - expected version: ~55.0.10
+@missu/mobile:dev:   expo-web-browser@55.0.9 - expected version: ~55.0.10
+@missu/mobile:dev:   react@19.2.4 - expected version: 19.2.0
+@missu/mobile:dev: Your project may not work correctly until you install the expected versions of the packages.
+@missu/mobile:dev: Waiting on http://localhost:8081
+@missu/mobile:dev: Logs for your project will appear below.
+@missu/api:dev: {"timestamp":"2026-03-25T05:56:33.607Z","level":"info","msg":"request","requestId":"57345a6a-17f8-4174-a7f6-d4967e046498","method":"GET","url":"/health","statusCode":200,"durationMs":8}
+@missu/web:dev: (node:4472) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+@missu/web:dev: (Use `node --trace-deprecation ...` to show where the warning was created)
+@missu/web:dev: {"level":"debug","message":"health_check","timestamp":"2026-03-25T05:56:35.963Z","status":"healthy","totalMs":1412}
+@missu/web:dev:  GET /api/health 200 in 2.4s (compile: 727ms, proxy.ts: 191ms, render: 1436ms)
+@missu/api:dev: {"timestamp":"2026-03-25T05:56:38.570Z","level":"info","msg":"request","requestId":"531a380d-21c7-4e66-8921-acd11cc3ee4f","method":"POST","url":"/auth/signup","statusCode":201,"durationMs":2593}
+@missu/api:dev: {"timestamp":"2026-03-25T05:56:39.615Z","level":"info","msg":"request","requestId":"7fe0dde3-23d6-4b77-8225-3d407ddda9ea","method":"POST","url":"/auth/login","statusCode":201,"durationMs":1041}
+@missu/web:dev: {"level":"warn","message":"domain_event_enqueue_deferred","timestamp":"2026-03-25T05:56:43.712Z","eventId":"ff3b290b-bdbd-4768-82b7-e341312484c9","eventName":"USER_CREATED","error":"Connection is closed."}
+@missu/web:dev:  POST /api/auth/signup 201 in 4.7s (compile: 974ms, proxy.ts: 14ms, render: 3.7s)
+@missu/web:dev:  POST /api/auth/login 200 in 3.1s (compile: 408ms, proxy.ts: 4ms, render: 2.7s)
+@missu/mobile:dev: Android node_modules\expo-router\entry.js ΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæ  0.0% (0/1)
+@missu/mobile:dev: Android Bundled 1530ms node_modules\expo-router\entry.js (1729 modules)
+@missu/api:dev: 
+@missu/api:dev: 10:57:30 pm - File change detected. Starting incremental compilation...
+@missu/api:dev: 
+@missu/api:dev: 
+@missu/api:dev: 10:57:31 pm - Found 0 errors. Watching for file changes.
+@missu/mobile:dev: Android node_modules\expo-router\entry.js ΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæ  0.0% (0/1)
+@missu/mobile:dev: Android Bundled 55ms node_modules\expo-router\entry.js (1 module)
+@missu/mobile:dev: Android node_modules\expo-router\entry.js ΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæ  0.0% (0/1)
+@missu/mobile:dev: Android Bundled 51ms node_modules\expo-router\entry.js (1 module)
+@missu/queue:dev: ERROR: command finished with error: command 
+(F:\Arindam\Works\MissUPRO\packages\queue) C:\Program Files\nodejs\npm.cmd run 
+dev exited (1)

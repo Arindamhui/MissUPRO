@@ -16,7 +16,18 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { RenderModeType, RtcSurfaceView, VideoSourceType } from "react-native-agora";
+
+let RenderModeType: any = {};
+let RtcSurfaceView: any = View;
+let VideoSourceType: any = {};
+try {
+  const agora = require("react-native-agora");
+  RenderModeType = agora.RenderModeType;
+  RtcSurfaceView = agora.RtcSurfaceView;
+  VideoSourceType = agora.VideoSourceType;
+} catch {
+  // react-native-agora not linked (Expo Go)
+}
 import { Avatar, Button } from "@/components/ui";
 import { useSocket } from "@/hooks/useSocket";
 import { useLiveRtc } from "@/hooks/useLiveRtc";

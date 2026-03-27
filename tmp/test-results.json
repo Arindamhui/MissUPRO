@@ -1,0 +1,46 @@
+{
+  "apiHealth": {
+    "status": 200,
+    "body": {
+      "status": "ok",
+      "timestamp": "2026-03-25T10:12:30.595Z"
+    }
+  },
+  "webHealth": {
+    "error": "fetch failed"
+  },
+  "apiSignup": {
+    "status": 201,
+    "body": {
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiVVNFUiIsImVtYWlsIjoiYXBpX3Rlc3RfMTc3NDQzMzU1MDYwM0BleGFtcGxlLmNvbSIsInBsYXRmb3JtUm9sZSI6IlVTRVIiLCJhZ2VuY3lTdGF0dXMiOiJOT05FIiwicHVibGljSWQiOiJVMTYzNjc5NjA1Iiwic2lkIjoiNzk1NDE4NTEtNWQ3ZC00YzhmLWE5MjYtODY3YzFhZDgxMmZjIiwiZGV2aWNlSWQiOiI1ZDI2MTNlNmVmYjgwZGZiMTYwZTk3ZDIzM2ZhNTMwNjBkMzdiMTBlOGU2NjEwNWIzOTk2ODZlZTk2ZDM0M2MwIiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc3NDQzMzU1NCwiaXNzIjoibWlzc3UtcHJvIiwiYXVkIjoibWlzc3UtcHJvLWNsaWVudHMiLCJzdWIiOiI4NjQwYWI2ZC1jNjc5LTQwODQtYmY2OC1kMzNkOGM1ZjYyNzYiLCJleHAiOjE3NzQ0MzQ0NTR9.5tT98R_fGxgwJOg2WnsGYDs6kh5pDNC87zkNXYa4flw",
+      "sessionId": "79541851-5d7d-4c8f-a926-867c1ad812fc",
+      "user": {
+        "id": "8640ab6d-c679-4084-bf68-d33d8c5f6276",
+        "email": "api_test_1774433550603@example.com",
+        "displayName": "API Test",
+        "platformRole": "USER",
+        "authProvider": "EMAIL"
+      }
+    }
+  },
+  "apiLogin": {
+    "status": 201,
+    "body": {
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiVVNFUiIsImVtYWlsIjoiYXBpX3Rlc3RfMTc3NDQzMzU1MDYwM0BleGFtcGxlLmNvbSIsInBsYXRmb3JtUm9sZSI6IlVTRVIiLCJhZ2VuY3lTdGF0dXMiOiJOT05FIiwicHVibGljSWQiOiJVMTYzNjc5NjA1Iiwic2lkIjoiZDE3ZTEyMDAtYzBlYi00N2NkLTgxOWItZWE2ZjJjZTY2MTdlIiwiZGV2aWNlSWQiOiI1ZDI2MTNlNmVmYjgwZGZiMTYwZTk3ZDIzM2ZhNTMwNjBkMzdiMTBlOGU2NjEwNWIzOTk2ODZlZTk2ZDM0M2MwIiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc3NDQzMzU1NSwiaXNzIjoibWlzc3UtcHJvIiwiYXVkIjoibWlzc3UtcHJvLWNsaWVudHMiLCJzdWIiOiI4NjQwYWI2ZC1jNjc5LTQwODQtYmY2OC1kMzNkOGM1ZjYyNzYiLCJleHAiOjE3NzQ0MzQ0NTV9.LPDHLvGdvQj0QXerKJOlemMJx_5L-8OfMMkP4gVUTew",
+      "sessionId": "d17e1200-c0eb-47cd-819b-ea6f2ce6617e",
+      "user": {
+        "id": "8640ab6d-c679-4084-bf68-d33d8c5f6276",
+        "email": "api_test_1774433550603@example.com",
+        "displayName": "API Test",
+        "platformRole": "USER",
+        "authProvider": "EMAIL"
+      }
+    }
+  },
+  "webSignup": {
+    "error": "fetch failed"
+  },
+  "webLogin": {
+    "error": "fetch failed"
+  }
+}

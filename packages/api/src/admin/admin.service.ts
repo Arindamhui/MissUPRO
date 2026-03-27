@@ -302,19 +302,31 @@ export class AdminService {
       `);
 
       const rows = results.rows as Array<Record<string, unknown>>;
-      const items = await Promise.all(
-        rows.slice(0, limit).map(async (row) => {
-          const [pendingPayout] = await db
-            .select({ total: sum(withdrawRequests.totalPayoutAmount) })
-            .from(withdrawRequests)
-            .where(and(eq(withdrawRequests.modelUserId, String(row.id)), eq(withdrawRequests.status, "PENDING" as any)));
+      const pageRows = rows.slice(0, limit);
+      const modelIds = pageRows.map((r) => String(r.id)).filter(Boolean);
 
-          return {
-            ...row,
-            pendingPayout: Number(pendingPayout?.total ?? 0),
-          };
-        }),
-      );
+      const payoutMap = new Map<string, number>();
+      if (modelIds.length > 0) {
+        const payoutRows = await db
+          .select({
+            modelUserId: withdrawRequests.modelUserId,
+            total: sum(withdrawRequests.totalPayoutAmount),
+          })
+          .from(withdrawRequests)
+          .where(and(
+            sql`${withdrawRequests.modelUserId} in ${modelIds}`,
+            eq(withdrawRequests.status, "PENDING" as any),
+          ))
+          .groupBy(withdrawRequests.modelUserId);
+        for (const pr of payoutRows) {
+          payoutMap.set(pr.modelUserId, Number(pr.total ?? 0));
+        }
+      }
+
+      const items = pageRows.map((row) => ({
+        ...row,
+        pendingPayout: payoutMap.get(String(row.id)) ?? 0,
+      }));
 
       const hasMore = rows.length > limit;
       return { models: items, nextCursor: hasMore ? encodeCursor(offset + limit) : null };
@@ -355,19 +367,31 @@ export class AdminService {
       .limit(limit + 1)
       .offset(offset);
 
-    const items = await Promise.all(
-      results.slice(0, limit).map(async (row) => {
-        const [pendingPayout] = await db
-          .select({ total: sum(withdrawRequests.totalPayoutAmount) })
-          .from(withdrawRequests)
-          .where(and(eq(withdrawRequests.modelUserId, row.id), eq(withdrawRequests.status, "PENDING" as any)));
+    const pageRows = results.slice(0, limit);
+    const modelIds = pageRows.map((r) => r.id).filter(Boolean);
 
-        return {
-          ...row,
-          pendingPayout: Number(pendingPayout?.total ?? 0),
-        };
-      }),
-    );
+    const payoutMap = new Map<string, number>();
+    if (modelIds.length > 0) {
+      const payoutRows = await db
+        .select({
+          modelUserId: withdrawRequests.modelUserId,
+          total: sum(withdrawRequests.totalPayoutAmount),
+        })
+        .from(withdrawRequests)
+        .where(and(
+          sql`${withdrawRequests.modelUserId} in ${modelIds}`,
+          eq(withdrawRequests.status, "PENDING" as any),
+        ))
+        .groupBy(withdrawRequests.modelUserId);
+      for (const pr of payoutRows) {
+        payoutMap.set(pr.modelUserId, Number(pr.total ?? 0));
+      }
+    }
+
+    const items = pageRows.map((row) => ({
+      ...row,
+      pendingPayout: payoutMap.get(row.id) ?? 0,
+    }));
 
     const hasMore = results.length > limit;
     return { models: items, nextCursor: hasMore ? encodeCursor(offset + limit) : null };
@@ -382,15 +406,22 @@ export class AdminService {
     const monthStart = new Date(todayStart);
     monthStart.setMonth(monthStart.getMonth() - 1);
 
-    const [totalRevenue, totalWithdrawals, pendingWithdrawals, giftRevenue, monthRevenue, weekRevenue, todayRevenue] = await Promise.all([
-      db.select({ total: sum(payments.amountUsd) }).from(payments).where(and(eq(payments.status, "COMPLETED" as any), between(payments.createdAt, startDate, endDate))),
+    const [revenueByPeriod, totalWithdrawals, pendingWithdrawals, giftRevenue] = await Promise.all([
+      db.select({
+        totalRevenue: sum(sql`case when ${payments.createdAt} >= ${startDate} and ${payments.createdAt} <= ${endDate} then ${payments.amountUsd} else 0 end`),
+        monthRevenue: sum(sql`case when ${payments.createdAt} >= ${monthStart} then ${payments.amountUsd} else 0 end`),
+        weekRevenue: sum(sql`case when ${payments.createdAt} >= ${weekStart} then ${payments.amountUsd} else 0 end`),
+        todayRevenue: sum(sql`case when ${payments.createdAt} >= ${todayStart} then ${payments.amountUsd} else 0 end`),
+      }).from(payments).where(eq(payments.status, "COMPLETED" as any)),
       db.select({ total: sum(withdrawRequests.totalPayoutAmount) }).from(withdrawRequests).where(and(eq(withdrawRequests.status, "COMPLETED" as any), between(withdrawRequests.createdAt, startDate, endDate))),
       db.select({ total: sum(withdrawRequests.totalPayoutAmount), count: count() }).from(withdrawRequests).where(eq(withdrawRequests.status, "PENDING" as any)),
       db.select({ total: sum(giftTransactions.coinCost) }).from(giftTransactions).where(between(giftTransactions.createdAt, startDate, endDate)),
-      db.select({ total: sum(payments.amountUsd) }).from(payments).where(and(eq(payments.status, "COMPLETED" as any), between(payments.createdAt, monthStart, now))),
-      db.select({ total: sum(payments.amountUsd) }).from(payments).where(and(eq(payments.status, "COMPLETED" as any), between(payments.createdAt, weekStart, now))),
-      db.select({ total: sum(payments.amountUsd) }).from(payments).where(and(eq(payments.status, "COMPLETED" as any), between(payments.createdAt, todayStart, now))),
     ]);
+    const rev = revenueByPeriod[0];
+    const totalRevenue = [{ total: rev?.totalRevenue ?? "0" }];
+    const monthRevenue = [{ total: rev?.monthRevenue ?? "0" }];
+    const weekRevenue = [{ total: rev?.weekRevenue ?? "0" }];
+    const todayRevenue = [{ total: rev?.todayRevenue ?? "0" }];
 
     return {
       totalRevenue: Number(totalRevenue[0]?.total ?? 0),
@@ -440,7 +471,6 @@ export class AdminService {
         await db
           .update(wallets)
           .set({
-            lifetimeDiamondsWithdrawn: sql`${wallets.lifetimeDiamondsWithdrawn} + ${Number(request.diamondBalanceSnapshot ?? 0)}`,
             updatedAt: new Date(),
           } as any)
           .where(eq(wallets.userId, request.modelUserId));
@@ -1825,22 +1855,26 @@ export class AdminService {
 
   // ─── Dashboard Stats ───
   async getDashboardStats() {
-    const totalUsers = await db.select({ count: count() }).from(users);
-    const totalModels = (await this.getAdminModelSchemaMode()) === "legacy"
-      ? await db.select({ count: count() }).from(users).where(eq(users.role, "MODEL" as any))
-      : await db.select({ count: count() }).from(models).where(isNotNull(models.approvedAt));
-    const activeStreams = await db.select({ count: count() }).from(liveRooms).where(eq(liveRooms.status, "LIVE" as any));
-    const activeCalls = await db.select({ count: count() }).from(callSessions).where(eq(callSessions.status, "ACTIVE" as any));
-    const activeGroupAudio = await db.select({ count: count() }).from(groupAudioRooms).where(eq(groupAudioRooms.status, "LIVE" as any));
-    const activeParty = await db.select({ count: count() }).from(partyRooms).where(eq(partyRooms.status, "ACTIVE" as any));
+    const isLegacy = (await this.getAdminModelSchemaMode()) === "legacy";
+
+    const [totalUsersRow, totalModelsRow, activeStreamsRow, activeCallsRow, activeGroupAudioRow, activePartyRow] = await Promise.all([
+      db.select({ count: count() }).from(users),
+      isLegacy
+        ? db.select({ count: count() }).from(users).where(eq(users.role, "MODEL" as any))
+        : db.select({ count: count() }).from(models).where(isNotNull(models.approvedAt)),
+      db.select({ count: count() }).from(liveRooms).where(eq(liveRooms.status, "LIVE" as any)),
+      db.select({ count: count() }).from(callSessions).where(eq(callSessions.status, "ACTIVE" as any)),
+      db.select({ count: count() }).from(groupAudioRooms).where(eq(groupAudioRooms.status, "LIVE" as any)),
+      db.select({ count: count() }).from(partyRooms).where(eq(partyRooms.status, "ACTIVE" as any)),
+    ]);
 
     return {
-      totalUsers: Number(totalUsers[0]?.count ?? 0),
-      totalModels: Number(totalModels[0]?.count ?? 0),
-      activeStreams: Number(activeStreams[0]?.count ?? 0),
-      activeCalls: Number(activeCalls[0]?.count ?? 0),
-      activeGroupAudioRooms: Number(activeGroupAudio[0]?.count ?? 0),
-      activePartyRooms: Number(activeParty[0]?.count ?? 0),
+      totalUsers: Number(totalUsersRow[0]?.count ?? 0),
+      totalModels: Number(totalModelsRow[0]?.count ?? 0),
+      activeStreams: Number(activeStreamsRow[0]?.count ?? 0),
+      activeCalls: Number(activeCallsRow[0]?.count ?? 0),
+      activeGroupAudioRooms: Number(activeGroupAudioRow[0]?.count ?? 0),
+      activePartyRooms: Number(activePartyRow[0]?.count ?? 0),
     };
   }
 

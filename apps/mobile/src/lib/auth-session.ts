@@ -1,3 +1,9 @@
+let GoogleSignin: any = null;
+try {
+  GoogleSignin = require("@react-native-google-signin/google-signin").GoogleSignin;
+} catch {
+  // Native module not available (e.g., Expo Go)
+}
 import type { MobileAuthSession } from "@/lib/auth-api";
 import { logoutRequest } from "@/lib/auth-api";
 import { clearStoredAuthSession } from "@/lib/auth-storage";
@@ -28,4 +34,6 @@ export async function signOutMobileSession() {
 
   await clearStoredAuthSession();
   clearAuth();
+
+  try { if (GoogleSignin) await GoogleSignin.signOut(); } catch { /* ignore if not signed in via Google */ }
 }

@@ -1,0 +1,866 @@
+﻿
+> @missu/mobile@1.0.0 android
+> node ./scripts/run-android.js emulator
+
+[android] Using JAVA_HOME=C:\Program Files\Android\Android Studio\jbr
+[android] Port 8081 is already in use. Reusing the existing Metro server.
+[android] Building debug APK for emulator-5554.
+Starting a Gradle Daemon (subsequent builds will be faster)
+> Task :gradle-plugin:settings-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle-plugin:shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle-plugin:settings-plugin:pluginDescriptors UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:pluginDescriptors UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:processResources UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:processResources UP-TO-DATE
+> Task :gradle-plugin:shared:compileKotlin UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:compileKotlin UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:compileJava NO-SOURCE
+> Task :gradle-plugin:shared:compileJava NO-SOURCE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:processResources NO-SOURCE
+> Task :gradle-plugin:shared:processResources NO-SOURCE
+> Task :gradle-plugin:shared:classes UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:classes UP-TO-DATE
+> Task :gradle-plugin:shared:jar UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:jar UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:compileJava NO-SOURCE
+> Task :gradle-plugin:settings-plugin:classes UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:jar UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:compileKotlin UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:compileJava NO-SOURCE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:classes UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:jar UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-gradle-plugin:expo-max-sdk-override-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle-plugin:react-native-gradle-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-module-gradle-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-module-gradle-plugin:pluginDescriptors UP-TO-DATE
+> Task :expo-module-gradle-plugin:processResources UP-TO-DATE
+> Task :expo-gradle-plugin:expo-max-sdk-override-plugin:compileKotlin UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:compileKotlin UP-TO-DATE
+> Task :expo-gradle-plugin:expo-max-sdk-override-plugin:compileJava NO-SOURCE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:compileJava NO-SOURCE
+> Task :expo-gradle-plugin:expo-max-sdk-override-plugin:pluginDescriptors UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:pluginDescriptors UP-TO-DATE
+> Task :expo-gradle-plugin:expo-max-sdk-override-plugin:processResources UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:processResources UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:classes UP-TO-DATE
+> Task :expo-gradle-plugin:expo-max-sdk-override-plugin:classes UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:compileKotlin UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:jar UP-TO-DATE
+> Task :expo-gradle-plugin:expo-max-sdk-override-plugin:jar UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:compileJava NO-SOURCE
+> Task :gradle-plugin:react-native-gradle-plugin:pluginDescriptors UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:processResources UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:classes UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:jar UP-TO-DATE
+> Task :expo-module-gradle-plugin:compileKotlin UP-TO-DATE
+> Task :expo-module-gradle-plugin:compileJava NO-SOURCE
+> Task :expo-module-gradle-plugin:classes UP-TO-DATE
+> Task :expo-module-gradle-plugin:jar UP-TO-DATE
+
+> Configure project :
+[32m[ExpoRootProject][0m Using the following versions:
+  - buildTools:  [32m36.0.0[0m
+  - minSdk:      [32m24[0m
+  - compileSdk:  [32m36[0m
+  - targetSdk:   [32m36[0m
+  - ndk:         [32m27.1.12297006[0m
+  - kotlin:      [32m2.1.20[0m
+  - ksp:         [32m2.1.20-2.0.1[0m
+
+> Configure project :app
+ Γä╣∩╕Å  [33mApplying gradle plugin[0m '[32mexpo-max-sdk-override-plugin[0m'
+  [expo-max-sdk-override-plugin] This plugin will find all permissions declared with `android:maxSdkVersion`. If there exists a declaration with the `android:maxSdkVersion` annotation and another one without, the plugin will remove the annotation from the final merged manifest. In order to see a log with the changes run a clean build of the app.
+
+> Configure project :expo
+
+Using expo modules
+  - [32mexpo-log-box[0m (55.0.7)
+  - [32mexpo-constants[0m (55.0.7)
+
+> Configure project :expo-modules-core
+Linking react-native-worklets native libs into expo-modules-core build tasks
+task ':react-native-worklets:mergeDebugNativeLibs'
+task ':react-native-worklets:mergeReleaseNativeLibs'
+
+> Configure project :expo
+  - [32mexpo-modules-core[0m (55.0.15)
+  - [33m[≡ƒôª][0m [32mexpo-dom-webview[0m (55.0.3)
+  - [33m[≡ƒôª][0m [32mexpo-application[0m (55.0.9)
+  - [33m[≡ƒôª][0m [32mexpo-asset[0m (55.0.8)
+  - [33m[≡ƒôª][0m [32mexpo-av[0m (16.0.8)
+  - [33m[≡ƒôª][0m [32mexpo-clipboard[0m (55.0.8)
+  - [33m[≡ƒôª][0m [32mexpo-crypto[0m (55.0.9)
+  - [33m[≡ƒôª][0m [32mexpo-file-system[0m (55.0.10)
+  - [33m[≡ƒôª][0m [32mexpo-font[0m (55.0.4)
+  - [33m[≡ƒôª][0m [32mexpo-haptics[0m (55.0.8)
+  - [33m[≡ƒôª][0m [32mexpo-image[0m (55.0.6)
+  - [33m[≡ƒôª][0m [32mexpo-image-loader[0m (55.0.0)
+  - [33m[≡ƒôª][0m [32mexpo-image-picker[0m (55.0.13)
+  - [33m[≡ƒôª][0m [32mexpo-keep-awake[0m (55.0.4)
+  - [33m[≡ƒôª][0m [32mexpo-linear-gradient[0m (55.0.8)
+  - [33m[≡ƒôª][0m [32mexpo-linking[0m (55.0.7)
+  - [33m[≡ƒôª][0m [32mexpo-notifications[0m (55.0.12)
+  - [33m[≡ƒôª][0m [32mexpo-router[0m (55.0.5)
+  - [33m[≡ƒôª][0m [32mexpo-secure-store[0m (55.0.8)
+  - [33m[≡ƒôª][0m [32mexpo-system-ui[0m (55.0.9)
+  - [33m[≡ƒôª][0m [32mexpo-web-browser[0m (55.0.9)
+
+
+> Task :expo-log-box:preBuild UP-TO-DATE
+> Task :expo-log-box:preDebugBuild UP-TO-DATE
+> Task :expo-modules-core:preBuild UP-TO-DATE
+> Task :expo:generatePackagesList UP-TO-DATE
+> Task :expo-log-box:writeDebugAarMetadata UP-TO-DATE
+> Task :expo-modules-core:preDebugBuild UP-TO-DATE
+> Task :expo:preBuild UP-TO-DATE
+> Task :expo:preDebugBuild UP-TO-DATE
+> Task :react-native-google-signin_google-signin:generateCodegenSchemaFromJavaScript UP-TO-DATE
+> Task :react-native-agora:generateCodegenSchemaFromJavaScript UP-TO-DATE
+> Task :expo-log-box:generateDebugResValues UP-TO-DATE
+> Task :react-native-safe-area-context:generateCodegenSchemaFromJavaScript UP-TO-DATE
+> Task :react-native-gesture-handler:generateCodegenSchemaFromJavaScript UP-TO-DATE
+> Task :expo:writeDebugAarMetadata UP-TO-DATE
+> Task :expo-modules-core:writeDebugAarMetadata UP-TO-DATE
+> Task :expo-modules-core:generateDebugResValues UP-TO-DATE
+> Task :expo:generateDebugResValues UP-TO-DATE
+> Task :expo-log-box:generateDebugResources UP-TO-DATE
+> Task :expo-modules-core:generateDebugResources UP-TO-DATE
+> Task :react-native-screens:generateCodegenSchemaFromJavaScript UP-TO-DATE
+> Task :expo:generateDebugResources UP-TO-DATE
+> Task :expo-log-box:packageDebugResources UP-TO-DATE
+> Task :expo-modules-core:packageDebugResources UP-TO-DATE
+> Task :react-native-google-signin_google-signin:generateCodegenArtifactsFromSchema UP-TO-DATE
+> Task :react-native-google-signin_google-signin:preBuild UP-TO-DATE
+> Task :react-native-google-signin_google-signin:preDebugBuild UP-TO-DATE
+> Task :react-native-agora:generateCodegenArtifactsFromSchema UP-TO-DATE
+> Task :react-native-agora:preBuild UP-TO-DATE
+> Task :react-native-agora:preDebugBuild UP-TO-DATE
+> Task :react-native-safe-area-context:generateCodegenArtifactsFromSchema UP-TO-DATE
+> Task :react-native-gesture-handler:generateCodegenArtifactsFromSchema UP-TO-DATE
+> Task :expo-modules-core:extractDeepLinksDebug UP-TO-DATE
+> Task :expo-log-box:extractDeepLinksDebug UP-TO-DATE
+> Task :react-native-gesture-handler:preBuild UP-TO-DATE
+> Task :expo:packageDebugResources UP-TO-DATE
+> Task :react-native-gesture-handler:preDebugBuild UP-TO-DATE
+> Task :react-native-safe-area-context:preBuild UP-TO-DATE
+> Task :react-native-agora:writeDebugAarMetadata UP-TO-DATE
+> Task :react-native-safe-area-context:preDebugBuild UP-TO-DATE
+> Task :react-native-google-signin_google-signin:writeDebugAarMetadata UP-TO-DATE
+> Task :react-native-gesture-handler:writeDebugAarMetadata UP-TO-DATE
+> Task :expo:extractDeepLinksDebug UP-TO-DATE
+> Task :expo-modules-core:processDebugManifest UP-TO-DATE
+> Task :react-native-safe-area-context:writeDebugAarMetadata UP-TO-DATE
+> Task :react-native-agora:generateDebugResValues UP-TO-DATE
+> Task :react-native-safe-area-context:generateDebugResValues UP-TO-DATE
+> Task :expo-modules-core:compileDebugLibraryResources UP-TO-DATE
+> Task :react-native-gesture-handler:generateDebugResValues UP-TO-DATE
+> Task :react-native-google-signin_google-signin:generateDebugResValues UP-TO-DATE
+> Task :react-native-agora:generateDebugResources UP-TO-DATE
+> Task :react-native-safe-area-context:generateDebugResources UP-TO-DATE
+> Task :expo-log-box:processDebugManifest UP-TO-DATE
+> Task :react-native-gesture-handler:generateDebugResources UP-TO-DATE
+> Task :react-native-screens:generateCodegenArtifactsFromSchema UP-TO-DATE
+> Task :react-native-screens:preBuild UP-TO-DATE
+> Task :react-native-google-signin_google-signin:generateDebugResources UP-TO-DATE
+> Task :react-native-screens:preDebugBuild UP-TO-DATE
+> Task :expo:processDebugManifest UP-TO-DATE
+> Task :react-native-screens:writeDebugAarMetadata UP-TO-DATE
+> Task :expo:compileDebugLibraryResources UP-TO-DATE
+> Task :expo-log-box:compileDebugLibraryResources UP-TO-DATE
+> Task :expo-modules-core:parseDebugLocalResources UP-TO-DATE
+> Task :react-native-screens:generateDebugResValues UP-TO-DATE
+> Task :expo-log-box:parseDebugLocalResources UP-TO-DATE
+> Task :expo:parseDebugLocalResources UP-TO-DATE
+> Task :react-native-agora:packageDebugResources UP-TO-DATE
+> Task :react-native-safe-area-context:packageDebugResources UP-TO-DATE
+> Task :react-native-agora:extractDeepLinksDebug UP-TO-DATE
+> Task :react-native-gesture-handler:packageDebugResources UP-TO-DATE
+> Task :expo-modules-core:generateDebugRFile UP-TO-DATE
+> Task :expo-modules-core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-safe-area-context:extractDeepLinksDebug UP-TO-DATE
+> Task :expo:generateDebugRFile UP-TO-DATE
+> Task :expo-log-box:generateDebugRFile UP-TO-DATE
+> Task :expo:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-log-box:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-gesture-handler:extractDeepLinksDebug UP-TO-DATE
+> Task :react-native-screens:generateDebugResources UP-TO-DATE
+> Task :expo-modules-core:generateDebugBuildConfig UP-TO-DATE
+> Task :expo:generateDebugBuildConfig UP-TO-DATE
+> Task :expo-log-box:generateDebugBuildConfig UP-TO-DATE
+> Task :expo-modules-core:javaPreCompileDebug UP-TO-DATE
+> Task :react-native-agora:processDebugManifest UP-TO-DATE
+> Task :react-native-safe-area-context:processDebugManifest UP-TO-DATE
+> Task :expo-log-box:javaPreCompileDebug UP-TO-DATE
+> Task :expo:javaPreCompileDebug UP-TO-DATE
+> Task :react-native-safe-area-context:compileDebugLibraryResources UP-TO-DATE
+> Task :expo-modules-core:mergeDebugShaders UP-TO-DATE
+> Task :react-native-agora:compileDebugLibraryResources UP-TO-DATE
+> Task :expo-log-box:mergeDebugShaders UP-TO-DATE
+> Task :expo:mergeDebugShaders UP-TO-DATE
+> Task :react-native-google-signin_google-signin:packageDebugResources UP-TO-DATE
+> Task :react-native-agora:parseDebugLocalResources UP-TO-DATE
+> Task :react-native-safe-area-context:parseDebugLocalResources UP-TO-DATE
+> Task :react-native-gesture-handler:processDebugManifest UP-TO-DATE
+> Task :expo-modules-core:compileDebugShaders NO-SOURCE
+> Task :expo-modules-core:generateDebugAssets UP-TO-DATE
+> Task :react-native-google-signin_google-signin:extractDeepLinksDebug UP-TO-DATE
+> Task :expo-log-box:compileDebugShaders NO-SOURCE
+> Task :expo-log-box:generateDebugAssets UP-TO-DATE
+> Task :expo-modules-core:mergeDebugAssets UP-TO-DATE
+> Task :react-native-gesture-handler:compileDebugLibraryResources UP-TO-DATE
+> Task :expo-log-box:mergeDebugAssets UP-TO-DATE
+> Task :react-native-worklets:assertMinimalReactNativeVersionTask
+> Task :react-native-worklets:assertNewArchitectureEnabledTask SKIPPED
+> Task :expo-modules-core:mergeDebugJniLibFolders UP-TO-DATE
+> Task :react-native-gesture-handler:parseDebugLocalResources UP-TO-DATE
+> Task :react-native-worklets:generateCodegenSchemaFromJavaScript UP-TO-DATE
+> Task :react-native-safe-area-context:generateDebugRFile UP-TO-DATE
+> Task :react-native-screens:packageDebugResources UP-TO-DATE
+> Task :react-native-google-signin_google-signin:processDebugManifest UP-TO-DATE
+> Task :react-native-safe-area-context:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-agora:generateDebugRFile UP-TO-DATE
+> Task :expo-log-box:mergeDebugJniLibFolders UP-TO-DATE
+> Task :react-native-agora:generateDebugBuildConfig UP-TO-DATE
+> Task :expo-log-box:mergeDebugNativeLibs NO-SOURCE
+> Task :react-native-safe-area-context:generateDebugBuildConfig UP-TO-DATE
+> Task :react-native-worklets:generateCodegenArtifactsFromSchema UP-TO-DATE
+> Task :expo:compileDebugShaders NO-SOURCE
+> Task :react-native-google-signin_google-signin:compileDebugLibraryResources UP-TO-DATE
+> Task :react-native-agora:javaPreCompileDebug UP-TO-DATE
+> Task :react-native-gesture-handler:generateDebugRFile UP-TO-DATE
+> Task :react-native-gesture-handler:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-screens:extractDeepLinksDebug UP-TO-DATE
+> Task :expo-log-box:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :react-native-gesture-handler:generateDebugBuildConfig UP-TO-DATE
+> Task :react-native-google-signin_google-signin:parseDebugLocalResources UP-TO-DATE
+> Task :react-native-gesture-handler:javaPreCompileDebug UP-TO-DATE
+> Task :react-native-screens:processDebugManifest UP-TO-DATE
+> Task :expo:generateDebugAssets UP-TO-DATE
+> Task :expo:mergeDebugAssets UP-TO-DATE
+> Task :app:generateAutolinkingNewArchitectureFiles
+> Task :react-native-screens:compileDebugLibraryResources UP-TO-DATE
+> Task :react-native-gesture-handler:mergeDebugShaders UP-TO-DATE
+> Task :react-native-google-signin_google-signin:generateDebugRFile UP-TO-DATE
+> Task :react-native-google-signin_google-signin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo:mergeDebugJniLibFolders UP-TO-DATE
+> Task :react-native-gesture-handler:compileDebugShaders NO-SOURCE
+> Task :react-native-gesture-handler:generateDebugAssets UP-TO-DATE
+> Task :react-native-screens:parseDebugLocalResources UP-TO-DATE
+> Task :react-native-google-signin_google-signin:generateDebugBuildConfig UP-TO-DATE
+> Task :expo:mergeDebugNativeLibs NO-SOURCE
+> Task :react-native-gesture-handler:mergeDebugAssets UP-TO-DATE
+> Task :expo:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :app:generateAutolinkingPackageList
+> Task :react-native-gesture-handler:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:generateCodegenSchemaFromJavaScript SKIPPED
+> Task :app:generateCodegenArtifactsFromSchema SKIPPED
+> Task :react-native-screens:generateDebugRFile UP-TO-DATE
+> Task :react-native-screens:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-screens:generateDebugBuildConfig UP-TO-DATE
+> Task :react-native-reanimated:assertMinimalReactNativeVersionTask
+> Task :react-native-reanimated:assertNewArchitectureEnabledTask SKIPPED
+> Task :react-native-worklets:prepareWorkletsHeadersForPrefabs UP-TO-DATE
+
+> Task :expo-constants:createExpoConfig
+env: load .env
+env: export EXPO_PUBLIC_API_URL EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID EXPO_PUBLIC_GOOGLE_CLIENT_ID EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID EXPO_PUBLIC_WS_URL
+
+> Task :react-native-worklets:preBuild
+> Task :react-native-worklets:preDebugBuild
+> Task :expo-constants:preBuild
+> Task :expo-constants:preDebugBuild
+> Task :react-native-agora:compileDebugJavaWithJavac UP-TO-DATE
+> Task :app:generateReactNativeEntryPoint
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-worklets:writeDebugAarMetadata UP-TO-DATE
+> Task :expo-constants:writeDebugAarMetadata UP-TO-DATE
+> Task :react-native-agora:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :react-native-worklets:generateDebugResValues UP-TO-DATE
+> Task :expo-constants:generateDebugResValues UP-TO-DATE
+> Task :react-native-worklets:generateDebugResources UP-TO-DATE
+> Task :expo-constants:generateDebugResources UP-TO-DATE
+> Task :app:processDebugGoogleServices
+> Task :expo-constants:packageDebugResources UP-TO-DATE
+> Task :react-native-worklets:packageDebugResources UP-TO-DATE
+> Task :expo-constants:extractDeepLinksDebug UP-TO-DATE
+> Task :react-native-worklets:extractDeepLinksDebug UP-TO-DATE
+> Task :react-native-worklets:processDebugManifest UP-TO-DATE
+> Task :expo-constants:processDebugManifest UP-TO-DATE
+> Task :react-native-worklets:compileDebugLibraryResources UP-TO-DATE
+> Task :expo-constants:compileDebugLibraryResources UP-TO-DATE
+> Task :react-native-agora:mergeDebugShaders UP-TO-DATE
+> Task :react-native-worklets:parseDebugLocalResources UP-TO-DATE
+> Task :expo-constants:parseDebugLocalResources UP-TO-DATE
+> Task :react-native-agora:compileDebugShaders NO-SOURCE
+> Task :react-native-agora:generateDebugAssets UP-TO-DATE
+> Task :react-native-agora:mergeDebugAssets UP-TO-DATE
+> Task :expo-constants:generateDebugRFile UP-TO-DATE
+> Task :react-native-worklets:generateDebugRFile UP-TO-DATE
+> Task :react-native-agora:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :expo-constants:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-constants:generateDebugBuildConfig UP-TO-DATE
+> Task :react-native-worklets:generateDebugBuildConfig UP-TO-DATE
+> Task :expo-constants:javaPreCompileDebug UP-TO-DATE
+> Task :react-native-agora:processDebugJavaRes NO-SOURCE
+> Task :react-native-worklets:javaPreCompileDebug UP-TO-DATE
+> Task :react-native-agora:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :expo-constants:mergeDebugShaders UP-TO-DATE
+> Task :expo-constants:compileDebugShaders NO-SOURCE
+> Task :expo-constants:generateDebugAssets UP-TO-DATE
+> Task :react-native-agora:mergeDebugJniLibFolders UP-TO-DATE
+> Task :expo-constants:mergeDebugAssets UP-TO-DATE
+> Task :react-native-agora:mergeDebugNativeLibs NO-SOURCE
+> Task :expo-constants:mergeDebugJniLibFolders UP-TO-DATE
+> Task :expo-constants:mergeDebugNativeLibs NO-SOURCE
+> Task :react-native-agora:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :expo-constants:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :react-native-worklets:compileDebugJavaWithJavac UP-TO-DATE
+> Task :react-native-worklets:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :react-native-safe-area-context:compileDebugKotlin UP-TO-DATE
+> Task :react-native-safe-area-context:javaPreCompileDebug UP-TO-DATE
+> Task :react-native-worklets:mergeDebugShaders UP-TO-DATE
+> Task :react-native-screens:compileDebugKotlin UP-TO-DATE
+> Task :react-native-worklets:compileDebugShaders NO-SOURCE
+> Task :react-native-google-signin_google-signin:compileDebugKotlin UP-TO-DATE
+> Task :react-native-screens:javaPreCompileDebug UP-TO-DATE
+> Task :react-native-worklets:generateDebugAssets UP-TO-DATE
+> Task :react-native-google-signin_google-signin:javaPreCompileDebug UP-TO-DATE
+> Task :react-native-worklets:mergeDebugAssets UP-TO-DATE
+> Task :react-native-worklets:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :react-native-worklets:processDebugJavaRes NO-SOURCE
+> Task :react-native-safe-area-context:compileDebugJavaWithJavac UP-TO-DATE
+> Task :react-native-safe-area-context:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :react-native-worklets:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :react-native-google-signin_google-signin:compileDebugJavaWithJavac UP-TO-DATE
+> Task :react-native-safe-area-context:mergeDebugShaders UP-TO-DATE
+> Task :react-native-safe-area-context:compileDebugShaders NO-SOURCE
+> Task :react-native-google-signin_google-signin:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :react-native-safe-area-context:generateDebugAssets UP-TO-DATE
+> Task :react-native-reanimated:assertWorkletsVersionTask
+> Task :react-native-google-signin_google-signin:mergeDebugShaders UP-TO-DATE
+> Task :react-native-reanimated:generateCodegenSchemaFromJavaScript UP-TO-DATE
+> Task :react-native-google-signin_google-signin:compileDebugShaders NO-SOURCE
+> Task :react-native-screens:compileDebugJavaWithJavac UP-TO-DATE
+> Task :react-native-screens:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :react-native-reanimated:generateCodegenArtifactsFromSchema UP-TO-DATE
+> Task :react-native-google-signin_google-signin:generateDebugAssets UP-TO-DATE
+> Task :react-native-screens:mergeDebugShaders UP-TO-DATE
+> Task :react-native-google-signin_google-signin:mergeDebugAssets UP-TO-DATE
+> Task :react-native-screens:compileDebugShaders NO-SOURCE
+> Task :react-native-screens:generateDebugAssets UP-TO-DATE
+> Task :react-native-google-signin_google-signin:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :react-native-google-signin_google-signin:processDebugJavaRes UP-TO-DATE
+> Task :react-native-google-signin_google-signin:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :react-native-google-signin_google-signin:mergeDebugJniLibFolders UP-TO-DATE
+> Task :react-native-google-signin_google-signin:mergeDebugNativeLibs NO-SOURCE
+> Task :react-native-google-signin_google-signin:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :react-native-safe-area-context:mergeDebugAssets UP-TO-DATE
+> Task :react-native-safe-area-context:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :react-native-safe-area-context:processDebugJavaRes UP-TO-DATE
+> Task :react-native-screens:mergeDebugAssets UP-TO-DATE
+> Task :react-native-screens:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :react-native-screens:processDebugJavaRes UP-TO-DATE
+> Task :react-native-safe-area-context:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :react-native-safe-area-context:mergeDebugJniLibFolders UP-TO-DATE
+> Task :react-native-safe-area-context:mergeDebugNativeLibs NO-SOURCE
+> Task :react-native-safe-area-context:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :react-native-reanimated:prepareReanimatedHeadersForPrefabs UP-TO-DATE
+> Task :react-native-reanimated:preBuild
+> Task :app:preBuild
+> Task :react-native-reanimated:preDebugBuild
+> Task :app:preDebugBuild
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :react-native-reanimated:writeDebugAarMetadata UP-TO-DATE
+> Task :react-native-reanimated:generateDebugResValues UP-TO-DATE
+> Task :react-native-reanimated:generateDebugResources UP-TO-DATE
+> Task :react-native-reanimated:packageDebugResources UP-TO-DATE
+> Task :react-native-reanimated:extractDeepLinksDebug UP-TO-DATE
+> Task :react-native-reanimated:processDebugManifest UP-TO-DATE
+> Task :react-native-reanimated:compileDebugLibraryResources UP-TO-DATE
+> Task :app:generateDebugBuildConfig
+> Task :react-native-reanimated:parseDebugLocalResources UP-TO-DATE
+> Task :react-native-reanimated:generateDebugRFile UP-TO-DATE
+> Task :react-native-reanimated:generateDebugBuildConfig UP-TO-DATE
+> Task :react-native-reanimated:javaPreCompileDebug UP-TO-DATE
+> Task :react-native-screens:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :react-native-reanimated:compileDebugJavaWithJavac UP-TO-DATE
+> Task :react-native-reanimated:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :react-native-reanimated:mergeDebugShaders UP-TO-DATE
+> Task :react-native-reanimated:compileDebugShaders NO-SOURCE
+> Task :react-native-reanimated:generateDebugAssets UP-TO-DATE
+> Task :react-native-reanimated:mergeDebugAssets UP-TO-DATE
+> Task :react-native-reanimated:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :react-native-gesture-handler:compileDebugKotlin UP-TO-DATE
+> Task :react-native-gesture-handler:compileDebugJavaWithJavac UP-TO-DATE
+> Task :react-native-gesture-handler:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :react-native-gesture-handler:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :react-native-gesture-handler:processDebugJavaRes UP-TO-DATE
+> Task :expo-modules-core:compileDebugKotlin UP-TO-DATE
+> Task :react-native-gesture-handler:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :expo-modules-core:compileDebugJavaWithJavac UP-TO-DATE
+> Task :expo-modules-core:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :expo-modules-core:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :expo-modules-core:processDebugJavaRes UP-TO-DATE
+> Task :expo-modules-core:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :expo-constants:compileDebugKotlin UP-TO-DATE
+> Task :expo-constants:compileDebugJavaWithJavac UP-TO-DATE
+> Task :expo-constants:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :expo-constants:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :expo-constants:processDebugJavaRes UP-TO-DATE
+> Task :expo-constants:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :react-native-reanimated:processDebugJavaRes NO-SOURCE
+> Task :react-native-reanimated:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :react-native-reanimated:mergeDebugJniLibFolders UP-TO-DATE
+> Task :expo-log-box:compileDebugKotlin UP-TO-DATE
+> Task :expo-log-box:compileDebugJavaWithJavac UP-TO-DATE
+> Task :expo-log-box:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :expo-log-box:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :expo-log-box:processDebugJavaRes UP-TO-DATE
+> Task :app:generateDebugResValues
+> Task :expo-log-box:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :react-native-screens:configureCMakeDebug[x86_64]
+> Task :app:checkDebugAarMetadata
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :expo:compileDebugKotlin UP-TO-DATE
+> Task :expo:compileDebugJavaWithJavac UP-TO-DATE
+> Task :expo:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :expo:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :expo:processDebugJavaRes UP-TO-DATE
+> Task :expo:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :react-native-worklets:configureCMakeDebug[x86_64]
+> Task :app:packageDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:parseDebugLocalResources
+> Task :app:mergeDebugResources
+
+> Task :app:processDebugMainManifest
+[io.agora.rtc:agora-special-full:4.6.2.70] C:\Users\arindam\.gradle\caches\8.13\transforms\40749077d279cb947dcfe66ef9c68d1f\transformed\agora-special-full-4.6.2.70\AndroidManifest.xml Warning:
+	Namespace 'io.agora.rtc' is used in multiple modules and/or libraries: io.agora.rtc:agora-special-full:4.6.2.70, io.agora.rtc:iris-rtc:4.6.2-build.1. Please ensure that all modules and libraries have a unique namespace. For more information, See https://developer.android.com/studio/build/configure-app-module#set-namespace
+F:\Arindam\Works\MissUPRO\apps\mobile\android\app\src\debug\AndroidManifest.xml:6:5-162 Warning:
+	application@android:usesCleartextTraffic was tagged at AndroidManifest.xml:6 to replace other declarations but no other declaration present
+F:\Arindam\Works\MissUPRO\apps\mobile\android\app\src\debug\AndroidManifest.xml Warning:
+	activity#expo.modules.imagepicker.ExpoCropImageActivity@android:exported was tagged at AndroidManifest.xml:0 to replace other declarations but no other declaration present
+F:\Arindam\Works\MissUPRO\apps\mobile\android\app\src\debug\AndroidManifest.xml Warning:
+	provider#expo.modules.filesystem.FileSystemFileProvider@android:authorities was tagged at AndroidManifest.xml:0 to replace other declarations but no other declaration present
+
+> Task :app:expoDebugOverrideMaxSdkConflicts
+[33m---------- Expo Max Sdk Override Plugin ----------[0m
+[32m>>> No 'android:maxSdkVersion' conflicts found[0m
+[33m--------------------------------------------------[0m
+
+> Task :app:processDebugManifest
+> Task :app:javaPreCompileDebug
+> Task :app:mergeDebugShaders
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets
+> Task :app:desugarDebugFileDependencies
+> Task :app:compressDebugAssets
+> Task :app:mergeDebugJniLibFolders
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:processDebugManifestForPackage
+> Task :app:checkDebugDuplicateClasses
+> Task :app:mergeLibDexDebug FAILED
+> Task :app:processDebugResources
+
+> Task :react-native-worklets:buildCMakeDebug[x86_64][worklets]
+C/C++: Hard link from 'C:\Users\arindam\.gradle\caches\8.13\transforms\dd989fbd48a109c696ae891fe15a5e74\transformed\react-android-0.83.2-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-worklets\android\build\intermediates\cxx\Debug\5u366v6a\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+C/C++: Hard link from 'C:\Users\arindam\.gradle\caches\8.13\transforms\dd989fbd48a109c696ae891fe15a5e74\transformed\react-android-0.83.2-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-worklets\android\build\intermediates\cxx\Debug\5u366v6a\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+
+> Task :react-native-screens:buildCMakeDebug[x86_64]
+> Task :app:mergeExtDexDebug
+
+[Incubating] Problems report is available at: file:///F:/Arindam/Works/MissUPRO/apps/mobile/android/build/reports/problems/problems-report.html
+node.exe : 
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:mergeLibDexDebug'.
+> Could not resolve all files for configuration ':app:debugRuntimeClasspath'.
+   > Failed to transform bundleLibRuntimeToDirDebug (project 
+:react-native-google-signin_google-signin) to match attributes 
+{artifactType=android-dex, 
+com.android.build.api.attributes.AgpVersionAttr=8.12.0, 
+com.android.build.api.attributes.BuildTypeAttr=debug, 
+com.android.build.gradle.internal.attributes.VariantAttr=debug, 
+dexing-component-attributes=ComponentSpecificParameters(minSdkVersion=24, 
+debuggable=true, enableCoreLibraryDesugaring=false, 
+enableGlobalSynthetics=true, enableApiModeling=false, 
+dependenciesClassesAreInstrumented=false, asmTransformComponent=null, 
+useJacocoTransformInstrumentation=false, enableDesugaring=true, 
+needsClasspath=false, useFullClasspath=false, 
+componentIfUsingFullClasspath=null), org.gradle.category=library, 
+org.gradle.jvm.environment=android, org.gradle.libraryelements=classes, 
+org.gradle.usage=java-runtime, org.jetbrains.kotlin.platform.type=androidJvm}.
+      > java.io.IOException: Unable to delete directory 'F:\Arindam\Works\MissU
+PRO\node_modules\@react-native-google-signin\google-signin\android\build\.trans
+forms\4c2e2f2bfef4deda9a1371eb4a5b74b4\transformed'
+          Failed to delete some children. This might happen because a process 
+has files open or has its working directory set in the target directory.
+          - F:\Arindam\Works\MissUPRO\node_modules\@react-native-google-signin\
+google-signin\android\build\.transforms\4c2e2f2bfef4deda9a1371eb4a5b74b4\transf
+ormed\bundleLibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com\facebook\re
+act\viewmanagers
+          - F:\Arindam\Works\MissUPRO\node_modules\@react-native-google-signin\
+google-signin\android\build\.transforms\4c2e2f2bfef4deda9a1371eb4a5b74b4\transf
+ormed\bundleLibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com\facebook\re
+act
+          - F:\Arindam\Works\MissUPRO\node_modules\@react-native-google-signin\
+google-signin\android\build\.transforms\4c2e2f2bfef4deda9a1371eb4a5b74b4\transf
+ormed\bundleLibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com\facebook
+          - F:\Arindam\Works\MissUPRO\node_modules\@react-native-google-signin\
+google-signin\android\build\.transforms\4c2e2f2bfef4deda9a1371eb4a5b74b4\transf
+ormed\bundleLibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com\reactnative
+googlesignin
+          - F:\Arindam\Works\MissUPRO\node_modules\@react-native-google-signin\
+google-signin\android\build\.transforms\4c2e2f2bfef4deda9a1371eb4a5b74b4\transf
+ormed\bundleLibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com
+          - F:\Arindam\Works\MissUPRO\node_modules\@react-native-google-signin\
+google-signin\android\build\.transforms\4c2e2f2bfef4deda9a1371eb4a5b74b4\transf
+ormed\bundleLibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex
+          - F:\Arindam\Works\MissUPRO\node_modules\@react-native-google-signin\
+google-signin\android\build\.transforms\4c2e2f2bfef4deda9a1371eb4a5b74b4\transf
+ormed\bundleLibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_global-synthetics
+          - F:\Arindam\Works\MissUPRO\node_modules\@react-native-google-signin\
+google-signin\android\build\.transforms\4c2e2f2bfef4deda9a1371eb4a5b74b4\transf
+ormed\bundleLibRuntimeToDirDebug
+   > Failed to transform bundleLibRuntimeToDirDebug (project 
+:react-native-gesture-handler) to match attributes {artifactType=android-dex, 
+com.android.build.api.attributes.AgpVersionAttr=8.12.0, 
+com.android.build.api.attributes.BuildTypeAttr=debug, 
+com.android.build.gradle.internal.attributes.VariantAttr=debug, 
+dexing-component-attributes=ComponentSpecificParameters(minSdkVersion=24, 
+debuggable=true, enableCoreLibraryDesugaring=false, 
+enableGlobalSynthetics=true, enableApiModeling=false, 
+dependenciesClassesAreInstrumented=false, asmTransformComponent=null, 
+useJacocoTransformInstrumentation=false, enableDesugaring=true, 
+needsClasspath=false, useFullClasspath=false, 
+componentIfUsingFullClasspath=null), org.gradle.category=library, 
+org.gradle.jvm.environment=android, org.gradle.libraryelements=classes, 
+org.gradle.usage=java-runtime, org.jetbrains.kotlin.platform.type=androidJvm}.
+      > java.io.IOException: Unable to delete directory 'F:\Arindam\Works\MissU
+PRO\node_modules\react-native-gesture-handler\android\build\.transforms\7236c29
+6e03959fc2acd28284fb29cfe\transformed'
+          Failed to delete some children. This might happen because a process 
+has files open or has its working directory set in the target directory.
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-gesture-handler
+\android\build\.transforms\7236c296e03959fc2acd28284fb29cfe\transformed\bundleL
+ibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com\facebook\react\viewmanag
+ers
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-gesture-handler
+\android\build\.transforms\7236c296e03959fc2acd28284fb29cfe\transformed\bundleL
+ibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com\facebook\react
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-gesture-handler
+\android\build\.transforms\7236c296e03959fc2acd28284fb29cfe\transformed\bundleL
+ibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com\facebook
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-gesture-handler
+\android\build\.transforms\7236c296e03959fc2acd28284fb29cfe\transformed\bundleL
+ibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com\swmansion\gesturehandler
+\core
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-gesture-handler
+\android\build\.transforms\7236c296e03959fc2acd28284fb29cfe\transformed\bundleL
+ibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com\swmansion\gesturehandler
+\react\eventbuilders
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-gesture-handler
+\android\build\.transforms\7236c296e03959fc2acd28284fb29cfe\transformed\bundleL
+ibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com\swmansion\gesturehandler
+\react
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-gesture-handler
+\android\build\.transforms\7236c296e03959fc2acd28284fb29cfe\transformed\bundleL
+ibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com\swmansion\gesturehandler
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-gesture-handler
+\android\build\.transforms\7236c296e03959fc2acd28284fb29cfe\transformed\bundleL
+ibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com\swmansion
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-gesture-handler
+\android\build\.transforms\7236c296e03959fc2acd28284fb29cfe\transformed\bundleL
+ibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-gesture-handler
+\android\build\.transforms\7236c296e03959fc2acd28284fb29cfe\transformed\bundleL
+ibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-gesture-handler
+\android\build\.transforms\7236c296e03959fc2acd28284fb29cfe\transformed\bundleL
+ibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_global-synthetics
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-gesture-handler
+\android\build\.transforms\7236c296e03959fc2acd28284fb29cfe\transformed\bundleL
+ibRuntimeToDirDebug
+   > Failed to transform bundleLibRuntimeToDirDebug (project :expo) to match 
+attributes {artifactType=android-dex, 
+com.android.build.api.attributes.AgpVersionAttr=8.12.0, 
+com.android.build.api.attributes.BuildTypeAttr=debug, 
+com.android.build.gradle.internal.attributes.VariantAttr=debug, 
+dexing-component-attributes=ComponentSpecificParameters(minSdkVersion=24, 
+debuggable=true, enableCoreLibraryDesugaring=false, 
+enableGlobalSynthetics=true, enableApiModeling=false, 
+dependenciesClassesAreInstrumented=false, asmTransformComponent=null, 
+useJacocoTransformInstrumentation=false, enableDesugaring=true, 
+needsClasspath=false, useFullClasspath=false, 
+componentIfUsingFullClasspath=null), org.gradle.category=library, 
+org.gradle.jvm.environment=android, org.gradle.libraryelements=classes, 
+org.gradle.usage=java-runtime, org.jetbrains.kotlin.platform.type=androidJvm}.
+      > java.io.IOException: Unable to delete directory 'F:\Arindam\Works\MissU
+PRO\node_modules\expo\android\build\.transforms\a96991f9bac7982e12da7e3679d3104
+7\transformed'
+          Failed to delete some children. This might happen because a process 
+has files open or has its working directory set in the target directory.
+          - F:\Arindam\Works\MissUPRO\node_modules\expo\android\build\.transfor
+ms\a96991f9bac7982e12da7e3679d31047\transformed\bundleLibRuntimeToDirDebug\bund
+leLibRuntimeToDirDebug_dex\expo\core
+          - F:\Arindam\Works\MissUPRO\node_modules\expo\android\build\.transfor
+ms\a96991f9bac7982e12da7e3679d31047\transformed\bundleLibRuntimeToDirDebug\bund
+leLibRuntimeToDirDebug_dex\expo\modules\fetch
+          - F:\Arindam\Works\MissUPRO\node_modules\expo\android\build\.transfor
+ms\a96991f9bac7982e12da7e3679d31047\transformed\bundleLibRuntimeToDirDebug\bund
+leLibRuntimeToDirDebug_dex\expo\modules
+          - F:\Arindam\Works\MissUPRO\node_modules\expo\android\build\.transfor
+ms\a96991f9bac7982e12da7e3679d31047\transformed\bundleLibRuntimeToDirDebug\bund
+leLibRuntimeToDirDebug_dex\expo
+          - F:\Arindam\Works\MissUPRO\node_modules\expo\android\build\.transfor
+ms\a96991f9bac7982e12da7e3679d31047\transformed\bundleLibRuntimeToDirDebug\bund
+leLibRuntimeToDirDebug_dex
+          - F:\Arindam\Works\MissUPRO\node_modules\expo\android\build\.transfor
+ms\a96991f9bac7982e12da7e3679d31047\transformed\bundleLibRuntimeToDirDebug\bund
+leLibRuntimeToDirDebug_global-synthetics
+          - F:\Arindam\Works\MissUPRO\node_modules\expo\android\build\.transfor
+ms\a96991f9bac7982e12da7e3679d31047\transformed\bundleLibRuntimeToDirDebug
+   > Failed to transform bundleLibRuntimeToDirDebug (project 
+:react-native-agora) to match attributes {artifactType=android-dex, 
+com.android.build.api.attributes.AgpVersionAttr=8.12.0, 
+com.android.build.api.attributes.BuildTypeAttr=debug, 
+com.android.build.gradle.internal.attributes.VariantAttr=debug, 
+dexing-component-attributes=ComponentSpecificParameters(minSdkVersion=24, 
+debuggable=true, enableCoreLibraryDesugaring=false, 
+enableGlobalSynthetics=true, enableApiModeling=false, 
+dependenciesClassesAreInstrumented=false, asmTransformComponent=null, 
+useJacocoTransformInstrumentation=false, enableDesugaring=true, 
+needsClasspath=false, useFullClasspath=false, 
+componentIfUsingFullClasspath=null), org.gradle.libraryelements=classes, 
+org.gradle.usage=java-runtime}.
+      > java.io.IOException: Unable to delete directory 'F:\Arindam\Works\MissU
+PRO\node_modules\react-native-agora\android\build\.transforms\4429a7be43942201a
+292046a1cf7196f\transformed'
+          Failed to delete some children. This might happen because a process 
+has files open or has its working directory set in the target directory.
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-agora\android\b
+uild\.transforms\4429a7be43942201a292046a1cf7196f\transformed\bundleLibRuntimeT
+oDirDebug\bundleLibRuntimeToDirDebug_dex\com\facebook\react\viewmanagers
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-agora\android\b
+uild\.transforms\4429a7be43942201a292046a1cf7196f\transformed\bundleLibRuntimeT
+oDirDebug\bundleLibRuntimeToDirDebug_dex\com\facebook\react
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-agora\android\b
+uild\.transforms\4429a7be43942201a292046a1cf7196f\transformed\bundleLibRuntimeT
+oDirDebug\bundleLibRuntimeToDirDebug_dex\com\facebook
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-agora\android\b
+uild\.transforms\4429a7be43942201a292046a1cf7196f\transformed\bundleLibRuntimeT
+oDirDebug\bundleLibRuntimeToDirDebug_dex\com
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-agora\android\b
+uild\.transforms\4429a7be43942201a292046a1cf7196f\transformed\bundleLibRuntimeT
+oDirDebug\bundleLibRuntimeToDirDebug_dex\io\agora\rtc\ng\react
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-agora\android\b
+uild\.transforms\4429a7be43942201a292046a1cf7196f\transformed\bundleLibRuntimeT
+oDirDebug\bundleLibRuntimeToDirDebug_dex\io\agora\rtc\ng
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-agora\android\b
+uild\.transforms\4429a7be43942201a292046a1cf7196f\transformed\bundleLibRuntimeT
+oDirDebug\bundleLibRuntimeToDirDebug_dex\io\agora\rtc
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-agora\android\b
+uild\.transforms\4429a7be43942201a292046a1cf7196f\transformed\bundleLibRuntimeT
+oDirDebug\bundleLibRuntimeToDirDebug_dex\io\agora
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-agora\android\b
+uild\.transforms\4429a7be43942201a292046a1cf7196f\transformed\bundleLibRuntimeT
+oDirDebug\bundleLibRuntimeToDirDebug_dex\io
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-agora\android\b
+uild\.transforms\4429a7be43942201a292046a1cf7196f\transformed\bundleLibRuntimeT
+oDirDebug\bundleLibRuntimeToDirDebug_dex
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-agora\android\b
+uild\.transforms\4429a7be43942201a292046a1cf7196f\transformed\bundleLibRuntimeT
+oDirDebug\bundleLibRuntimeToDirDebug_global-synthetics
+          - F:\Arindam\Works\MissUPRO\node_modules\react-native-agora\android\b
+uild\.transforms\4429a7be43942201a292046a1cf7196f\transformed\bundleLibRuntimeT
+oDirDebug
+   > Failed to transform bundleLibRuntimeToDirDebug (project 
+:expo-modules-core) to match attributes {artifactType=android-dex, 
+com.android.build.api.attributes.AgpVersionAttr=8.12.0, 
+com.android.build.api.attributes.BuildTypeAttr=debug, 
+com.android.build.gradle.internal.attributes.VariantAttr=debug, 
+dexing-component-attributes=ComponentSpecificParameters(minSdkVersion=24, 
+debuggable=true, enableCoreLibraryDesugaring=false, 
+enableGlobalSynthetics=true, enableApiModeling=false, 
+dependenciesClassesAreInstrumented=false, asmTransformComponent=null, 
+useJacocoTransformInstrumentation=false, enableDesugaring=true, 
+needsClasspath=false, useFullClasspath=false, 
+componentIfUsingFullClasspath=null), org.gradle.category=library, 
+org.gradle.jvm.environment=android, org.gradle.libraryelements=classes, 
+org.gradle.usage=java-runtime, org.jetbrains.kotlin.platform.type=androidJvm}.
+      > java.io.IOException: Unable to delete directory 'F:\Arindam\Works\MissU
+PRO\node_modules\expo-modules-core\android\build\.transforms\33a82159987411fda1
+3731a82477edc8\transformed'
+          Failed to delete some children. This might happen because a process 
+has files open or has its working directory set in the target directory.
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\bu
+ild\.transforms\33a82159987411fda13731a82477edc8\transformed\bundleLibRuntimeTo
+DirDebug\bundleLibRuntimeToDirDebug_dex\com\facebook\react\uimanager
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\bu
+ild\.transforms\33a82159987411fda13731a82477edc8\transformed\bundleLibRuntimeTo
+DirDebug\bundleLibRuntimeToDirDebug_dex\com\facebook\react
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\bu
+ild\.transforms\33a82159987411fda13731a82477edc8\transformed\bundleLibRuntimeTo
+DirDebug\bundleLibRuntimeToDirDebug_dex\com\facebook
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\bu
+ild\.transforms\33a82159987411fda13731a82477edc8\transformed\bundleLibRuntimeTo
+DirDebug\bundleLibRuntimeToDirDebug_dex\com
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\bu
+ild\.transforms\33a82159987411fda13731a82477edc8\transformed\bundleLibRuntimeTo
+DirDebug\bundleLibRuntimeToDirDebug_dex\expo\modules\adapters\react\apploader
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\bu
+ild\.transforms\33a82159987411fda13731a82477edc8\transformed\bundleLibRuntimeTo
+DirDebug\bundleLibRuntimeToDirDebug_dex\expo\modules\adapters\react\permissions
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\bu
+ild\.transforms\33a82159987411fda13731a82477edc8\transformed\bundleLibRuntimeTo
+DirDebug\bundleLibRuntimeToDirDebug_dex\expo\modules\adapters\react\services
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\bu
+ild\.transforms\33a82159987411fda13731a82477edc8\transformed\bundleLibRuntimeTo
+DirDebug\bundleLibRuntimeToDirDebug_dex\expo\modules\adapters\react\views
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\bu
+ild\.transforms\33a82159987411fda13731a82477edc8\transformed\bundleLibRuntimeTo
+DirDebug\bundleLibRuntimeToDirDebug_dex\expo\modules\adapters\react
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\bu
+ild\.transforms\33a82159987411fda13731a82477edc8\transformed\bundleLibRuntimeTo
+DirDebug\bundleLibRuntimeToDirDebug_dex\expo\modules\adapters
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\bu
+ild\.transforms\33a82159987411fda13731a82477edc8\transformed\bundleLibRuntimeTo
+DirDebug\bundleLibRuntimeToDirDebug_dex\expo\modules\apploader
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\bu
+ild\.transforms\33a82159987411fda13731a82477edc8\transformed\bundleLibRuntimeTo
+DirDebug\bundleLibRuntimeToDirDebug_dex\expo\modules\core\arguments
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\bu
+ild\.transforms\33a82159987411fda13731a82477edc8\transformed\bundleLibRuntimeTo
+DirDebug\bundleLibRuntimeToDirDebug_dex\expo\modules\core\errors
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\bu
+ild\.transforms\33a82159987411fda13731a82477edc8\transformed\bundleLibRuntimeTo
+DirDebug\bundleLibRuntimeToDirDebug_dex\expo\modules\core\interfaces\services
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\bu
+ild\.transforms\33a82159987411fda13731a82477edc8\transformed\bundleLibRuntimeTo
+DirDebug\bundleLibRuntimeToDirDebug_dex\expo\modules\core\interfaces
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\bu
+ild\.transforms\33a82159987411fda13731a82477edc8\transformed\bundleLibRuntimeTo
+DirDebug\bundleLibRuntimeToDirDebug_dex\expo\modules\core\logging
+          - and more ...
+          New files were found. This might happen because a process is still 
+writing to the target directory.
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\bu
+ild\.transforms\33a82159987411fda13731a82477edc8\transformed\bundleLibRuntimeTo
+DirDebug\bundleLibRuntimeToDirDebug_dex\expo\modules
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\bu
+ild\.transforms\33a82159987411fda13731a82477edc8\transformed\bundleLibRuntimeTo
+DirDebug\bundleLibRuntimeToDirDebug_dex\expo\modules\core
+   > Failed to transform bundleLibRuntimeToDirDebug (project :expo-log-box) to 
+match attributes {artifactType=android-dex, 
+com.android.build.api.attributes.AgpVersionAttr=8.12.0, 
+com.android.build.api.attributes.BuildTypeAttr=debug, 
+com.android.build.gradle.internal.attributes.VariantAttr=debug, 
+dexing-component-attributes=ComponentSpecificParameters(minSdkVersion=24, 
+debuggable=true, enableCoreLibraryDesugaring=false, 
+enableGlobalSynthetics=true, enableApiModeling=false, 
+dependenciesClassesAreInstrumented=false, asmTransformComponent=null, 
+useJacocoTransformInstrumentation=false, enableDesugaring=true, 
+needsClasspath=false, useFullClasspath=false, 
+componentIfUsingFullClasspath=null), org.gradle.category=library, 
+org.gradle.jvm.environment=android, org.gradle.libraryelements=classes, 
+org.gradle.usage=java-runtime, org.jetbrains.kotlin.platform.type=androidJvm}.
+      > java.io.IOException: Unable to delete directory 'F:\Arindam\Works\MissU
+PRO\node_modules\@expo\log-box\android\build\.transforms\8b49e4322dc99864edfb2c
+2210a5ca67\transformed'
+          Failed to delete some children. This might happen because a process 
+has files open or has its working directory set in the target directory.
+          - F:\Arindam\Works\MissUPRO\node_modules\@expo\log-box\android\build\
+.transforms\8b49e4322dc99864edfb2c2210a5ca67\transformed\bundleLibRuntimeToDirD
+ebug\bundleLibRuntimeToDirDebug_dex\expo\modules\logbox
+          - F:\Arindam\Works\MissUPRO\node_modules\@expo\log-box\android\build\
+.transforms\8b49e4322dc99864edfb2c2210a5ca67\transformed\bundleLibRuntimeToDirD
+ebug\bundleLibRuntimeToDirDebug_dex\expo\modules
+          - F:\Arindam\Works\MissUPRO\node_modules\@expo\log-box\android\build\
+.transforms\8b49e4322dc99864edfb2c2210a5ca67\transformed\bundleLibRuntimeToDirD
+ebug\bundleLibRuntimeToDirDebug_dex\expo
+          - F:\Arindam\Works\MissUPRO\node_modules\@expo\log-box\android\build\
+.transforms\8b49e4322dc99864edfb2c2210a5ca67\transformed\bundleLibRuntimeToDirD
+ebug\bundleLibRuntimeToDirDebug_dex
+          - F:\Arindam\Works\MissUPRO\node_modules\@expo\log-box\android\build\
+.transforms\8b49e4322dc99864edfb2c2210a5ca67\transformed\bundleLibRuntimeToDirD
+ebug\bundleLibRuntimeToDirDebug_global-synthetics
+          - F:\Arindam\Works\MissUPRO\node_modules\@expo\log-box\android\build\
+.transforms\8b49e4322dc99864edfb2c2210a5ca67\transformed\bundleLibRuntimeToDirD
+ebug
+   > Failed to transform bundleLibRuntimeToDirDebug (project :expo-constants) 
+to match attributes {artifactType=android-dex, 
+com.android.build.api.attributes.AgpVersionAttr=8.12.0, 
+com.android.build.api.attributes.BuildTypeAttr=debug, 
+com.android.build.gradle.internal.attributes.VariantAttr=debug, 
+dexing-component-attributes=ComponentSpecificParameters(minSdkVersion=24, 
+debuggable=true, enableCoreLibraryDesugaring=false, 
+enableGlobalSynthetics=true, enableApiModeling=false, 
+dependenciesClassesAreInstrumented=false, asmTransformComponent=null, 
+useJacocoTransformInstrumentation=false, enableDesugaring=true, 
+needsClasspath=false, useFullClasspath=false, 
+componentIfUsingFullClasspath=null), org.gradle.category=library, 
+org.gradle.jvm.environment=android, org.gradle.libraryelements=classes, 
+org.gradle.usage=java-runtime, org.jetbrains.kotlin.platform.type=androidJvm}.
+      > java.io.IOException: Unable to delete directory 'F:\Arindam\Works\MissU
+PRO\node_modules\expo-constants\android\build\.transforms\3f54ff3d8b0688c47d6bc
+9ced54c2a38\transformed'
+          Failed to delete some children. This might happen because a process 
+has files open or has its working directory set in the target directory.
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-constants\android\build
+\.transforms\3f54ff3d8b0688c47d6bc9ced54c2a38\transformed\bundleLibRuntimeToDir
+Debug\bundleLibRuntimeToDirDebug_dex\expo\modules\constants
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-constants\android\build
+\.transforms\3f54ff3d8b0688c47d6bc9ced54c2a38\transformed\bundleLibRuntimeToDir
+Debug\bundleLibRuntimeToDirDebug_dex\expo\modules
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-constants\android\build
+\.transforms\3f54ff3d8b0688c47d6bc9ced54c2a38\transformed\bundleLibRuntimeToDir
+Debug\bundleLibRuntimeToDirDebug_dex\expo
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-constants\android\build
+\.transforms\3f54ff3d8b0688c47d6bc9ced54c2a38\transformed\bundleLibRuntimeToDir
+Debug\bundleLibRuntimeToDirDebug_dex
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-constants\android\build
+\.transforms\3f54ff3d8b0688c47d6bc9ced54c2a38\transformed\bundleLibRuntimeToDir
+Debug\bundleLibRuntimeToDirDebug_global-synthetics
+          - F:\Arindam\Works\MissUPRO\node_modules\expo-constants\android\build
+\.transforms\3f54ff3d8b0688c47d6bc9ced54c2a38\transformed\bundleLibRuntimeToDir
+Debug
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.13/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 45s
+302 actionable tasks: 39 executed, 263 up-to-date
+[android] Gradle build failed with exit code 1
+npm error Lifecycle script `android` failed with error:
+npm error code 1
+npm error path F:\Arindam\Works\MissUPRO\apps\mobile
+npm error workspace @missu/mobile@1.0.0
+npm error location F:\Arindam\Works\MissUPRO\apps\mobile
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c node 
+./scripts/run-android.js emulator

@@ -15,10 +15,6 @@ type WalletRow = {
   userId: string;
   coinBalance: number;
   diamondBalance: number;
-  lifetimeCoinsPurchased: number;
-  lifetimeCoinsSpent: number;
-  lifetimeDiamondsEarned: number;
-  lifetimeDiamondsWithdrawn: number;
   version: number;
   createdAt: Date;
   updatedAt: Date;
@@ -64,10 +60,6 @@ export class WalletService {
         userId: wallets.userId,
         coinBalance: wallets.coinBalance,
         diamondBalance: wallets.diamondBalance,
-        lifetimeCoinsPurchased: wallets.lifetimeCoinsPurchased,
-        lifetimeCoinsSpent: wallets.lifetimeCoinsSpent,
-        lifetimeDiamondsEarned: wallets.lifetimeDiamondsEarned,
-        lifetimeDiamondsWithdrawn: wallets.lifetimeDiamondsWithdrawn,
         version: wallets.version,
         createdAt: wallets.createdAt,
         updatedAt: wallets.updatedAt,
@@ -118,12 +110,6 @@ export class WalletService {
         coinBalance: isCredit
           ? sql`${wallets.coinBalance} + ${absoluteAmount}`
           : sql`${wallets.coinBalance} - ${absoluteAmount}`,
-        lifetimeCoinsPurchased: extraPurchased > 0
-          ? sql`${wallets.lifetimeCoinsPurchased} + ${extraPurchased}`
-          : wallets.lifetimeCoinsPurchased,
-        lifetimeCoinsSpent: extraSpent > 0
-          ? sql`${wallets.lifetimeCoinsSpent} + ${extraSpent}`
-          : wallets.lifetimeCoinsSpent,
         version: sql`${wallets.version} + 1`,
         updatedAt: now,
       })
@@ -137,10 +123,6 @@ export class WalletService {
         userId: wallets.userId,
         coinBalance: wallets.coinBalance,
         diamondBalance: wallets.diamondBalance,
-        lifetimeCoinsPurchased: wallets.lifetimeCoinsPurchased,
-        lifetimeCoinsSpent: wallets.lifetimeCoinsSpent,
-        lifetimeDiamondsEarned: wallets.lifetimeDiamondsEarned,
-        lifetimeDiamondsWithdrawn: wallets.lifetimeDiamondsWithdrawn,
         version: wallets.version,
         createdAt: wallets.createdAt,
         updatedAt: wallets.updatedAt,
@@ -183,12 +165,6 @@ export class WalletService {
         diamondBalance: isCredit
           ? sql`${wallets.diamondBalance} + ${absoluteAmount}`
           : sql`${wallets.diamondBalance} - ${absoluteAmount}`,
-        lifetimeDiamondsEarned: extraEarned > 0
-          ? sql`${wallets.lifetimeDiamondsEarned} + ${extraEarned}`
-          : wallets.lifetimeDiamondsEarned,
-        lifetimeDiamondsWithdrawn: extraWithdrawn > 0
-          ? sql`${wallets.lifetimeDiamondsWithdrawn} + ${extraWithdrawn}`
-          : wallets.lifetimeDiamondsWithdrawn,
         version: sql`${wallets.version} + 1`,
         updatedAt: now,
       })
@@ -202,10 +178,6 @@ export class WalletService {
         userId: wallets.userId,
         coinBalance: wallets.coinBalance,
         diamondBalance: wallets.diamondBalance,
-        lifetimeCoinsPurchased: wallets.lifetimeCoinsPurchased,
-        lifetimeCoinsSpent: wallets.lifetimeCoinsSpent,
-        lifetimeDiamondsEarned: wallets.lifetimeDiamondsEarned,
-        lifetimeDiamondsWithdrawn: wallets.lifetimeDiamondsWithdrawn,
         version: wallets.version,
         createdAt: wallets.createdAt,
         updatedAt: wallets.updatedAt,

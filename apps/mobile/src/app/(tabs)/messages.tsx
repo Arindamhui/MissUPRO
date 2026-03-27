@@ -1,6 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Notifications from "expo-notifications";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
@@ -12,6 +11,13 @@ import { Avatar, Button, Card } from "@/components/ui";
 import { COLORS, SPACING, RADIUS } from "@/theme";
 import { router } from "expo-router";
 import { useAuthStore } from "@/store";
+
+let Notifications: typeof import("expo-notifications") | null = null;
+try {
+  Notifications = require("expo-notifications");
+} catch {
+  // expo-notifications remote push not available in Expo Go SDK 53+
+}
 
 type ConversationRecord = {
   id: string;
@@ -73,6 +79,11 @@ export default function MessagesScreen() {
   useEffect(() => {
     let cancelled = false;
 
+    if (!Notifications) {
+      setPushPermissionState("denied");
+      return;
+    }
+
     void Notifications.getPermissionsAsync()
       .then((permission) => {
         if (cancelled) return;
@@ -109,6 +120,10 @@ export default function MessagesScreen() {
   const showPushBanner = !pushBannerDismissed && pushPermissionState !== "granted";
 
   const handleEnablePush = async () => {
+    if (!Notifications) {
+      Alert.alert("Not available", "Push notifications require a development build.");
+      return;
+    }
     try {
       const permission = await Notifications.requestPermissionsAsync();
       const granted = permission.granted || permission.status === "granted";

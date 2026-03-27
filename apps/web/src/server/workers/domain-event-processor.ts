@@ -23,10 +23,6 @@ const handleUserCreated: DomainEventHandler = async (event: DomainEvent) => {
       userId: event.aggregateId,
       coinBalance: 0,
       diamondBalance: 0,
-      lifetimeCoinsPurchased: 0,
-      lifetimeCoinsSpent: 0,
-      lifetimeDiamondsEarned: 0,
-      lifetimeDiamondsWithdrawn: 0,
       version: 1,
     });
     logger.info("worker_wallet_created", { userId: event.aggregateId });
@@ -40,8 +36,10 @@ const handleUserCreated: DomainEventHandler = async (event: DomainEvent) => {
     .limit(1);
 
   if (existingProfile.length === 0) {
+    const [profileUser] = await db.select({ displayName: users.displayName }).from(users).where(eq(users.id, event.aggregateId)).limit(1);
     await db.insert(profiles).values({
       userId: event.aggregateId,
+      displayName: profileUser?.displayName ?? "User",
       bio: null,
       profileCompletenessScore: 10,
     });

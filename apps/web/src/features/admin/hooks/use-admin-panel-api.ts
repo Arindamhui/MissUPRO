@@ -111,11 +111,11 @@ export function useUpdateUserMutation() {
 }
 
 export function useAdminDashboardData() {
-  const stats = trpc.admin.getDashboardStats.useQuery(undefined, { retry: false });
-  const finances = trpc.admin.getFinancialOverview.useQuery(undefined, { retry: false });
+  const stats = trpc.admin.getDashboardStats.useQuery(undefined, { retry: false, staleTime: 30_000 });
+  const finances = trpc.admin.getFinancialOverview.useQuery(undefined, { retry: false, staleTime: 60_000 });
   const revenue = trpc.analytics.getRevenueAnalytics.useQuery(
     { startDate: new Date(Date.now() - 14 * 86400000), endDate: new Date() },
-    { retry: false },
+    { retry: false, staleTime: 60_000 },
   );
   return { stats, finances, revenue };
 }

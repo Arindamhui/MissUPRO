@@ -66,6 +66,12 @@ export async function resolveAgencyAccessForUser(userId: string, email: string) 
   }
 
   const [reconciledAgency] = await db.transaction(async (tx) => {
+    // Re-verify ownership inside transaction to prevent race conditions
+    const [fresh] = await tx.select().from(agencies).where(eq(agencies.id, candidate.id)).limit(1);
+    if (!fresh || (fresh.ownerId && fresh.ownerId !== userId && fresh.ownerId !== candidate.ownerId)) {
+      return [candidate];
+    }
+
     const [updatedAgency] = await tx
       .update(agencies)
       .set({ ownerId: userId, userId, updatedAt: new Date() })

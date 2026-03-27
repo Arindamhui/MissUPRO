@@ -14,10 +14,6 @@ type UserDetail = {
   wallet?: {
     coinBalance?: number;
     diamondBalance?: number;
-    lifetimeCoinsPurchased?: number;
-    lifetimeCoinsSpent?: number;
-    lifetimeDiamondsEarned?: number;
-    lifetimeDiamondsWithdrawn?: number;
   } | null;
 };
 
@@ -73,8 +69,6 @@ export default function AdminWalletPage() {
   const metrics = useMemo(() => ({
     coins: Number(wallet?.coinBalance ?? 0),
     diamonds: Number(wallet?.diamondBalance ?? 0),
-    purchased: Number(wallet?.lifetimeCoinsPurchased ?? 0),
-    spent: Number(wallet?.lifetimeCoinsSpent ?? 0),
   }), [wallet]);
 
   async function applyAdjustment() {
@@ -123,8 +117,6 @@ export default function AdminWalletPage() {
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <AdminMetricCard label="Coin Balance" value={formatNumber(metrics.coins)} icon={Coins} />
             <AdminMetricCard label="Diamond Balance" value={formatNumber(metrics.diamonds)} icon={Gem} tone="sky" />
-            <AdminMetricCard label="Lifetime Purchased" value={formatNumber(metrics.purchased)} icon={PiggyBank} tone="amber" />
-            <AdminMetricCard label="Lifetime Spent" value={formatNumber(metrics.spent)} icon={Wallet2} tone="emerald" />
           </div>
 
           <AdminPanelCard title="Wallet Ledger" subtitle="Merged coin and diamond ledger for the selected user." actions={<div className="w-[180px]"><AdminSelect value={ledgerFilter} onChange={(event: any) => setLedgerFilter(event.currentTarget.value as "ALL" | "COIN" | "DIAMOND")}><option value="ALL">All ledgers</option><option value="COIN">Coin only</option><option value="DIAMOND">Diamond only</option></AdminSelect></div>}>

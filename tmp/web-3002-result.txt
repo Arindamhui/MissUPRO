@@ -1,0 +1,4 @@
+=== Web 3002 Test - 2026-03-24T12:02:19.551Z ===
+TCP 3002: OPEN
+Fetching /login (may trigger compilation)...
+/login: status=undefined len=undefined err=timeout_120000

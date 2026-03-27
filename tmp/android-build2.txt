@@ -1,0 +1,777 @@
+﻿
+> @missu/mobile@1.0.0 android
+> node ./scripts/run-android.js emulator
+
+[android] Using JAVA_HOME=C:\Program Files\Android\Android Studio\jbr
+[android] Port 8081 is already in use. Reusing the existing Metro server.
+[android] Building debug APK for emulator-5554.
+Starting a Gradle Daemon, 1 stopped Daemon could not be reused, use --status for details
+> Task :gradle-plugin:settings-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle-plugin:shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:pluginDescriptors UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:pluginDescriptors UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:processResources UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:processResources UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:shared:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:shared:compileJava NO-SOURCE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:compileJava NO-SOURCE
+> Task :gradle-plugin:shared:processResources NO-SOURCE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:processResources NO-SOURCE
+> Task :gradle-plugin:shared:classes UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:classes UP-TO-DATE
+> Task :gradle-plugin:shared:jar UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:jar UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:compileJava NO-SOURCE
+> Task :gradle-plugin:settings-plugin:classes UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:jar UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:compileKotlin UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:compileJava NO-SOURCE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:classes UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:jar UP-TO-DATE
+> Task :expo-gradle-plugin:expo-max-sdk-override-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle-plugin:react-native-gradle-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-gradle-plugin:expo-autolinking-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-module-gradle-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-module-gradle-plugin:pluginDescriptors UP-TO-DATE
+> Task :expo-module-gradle-plugin:processResources UP-TO-DATE
+> Task :expo-gradle-plugin:expo-max-sdk-override-plugin:compileKotlin UP-TO-DATE
+> Task :expo-gradle-plugin:expo-max-sdk-override-plugin:compileJava NO-SOURCE
+> Task :expo-gradle-plugin:expo-max-sdk-override-plugin:pluginDescriptors UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:compileKotlin UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:compileJava NO-SOURCE
+> Task :expo-gradle-plugin:expo-max-sdk-override-plugin:processResources UP-TO-DATE
+> Task :expo-gradle-plugin:expo-max-sdk-override-plugin:classes UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:pluginDescriptors UP-TO-DATE
+> Task :expo-gradle-plugin:expo-max-sdk-override-plugin:jar UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:processResources UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:classes UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:jar UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:compileJava NO-SOURCE
+> Task :gradle-plugin:react-native-gradle-plugin:pluginDescriptors UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:processResources UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:classes UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:jar UP-TO-DATE
+> Task :expo-module-gradle-plugin:compileKotlin UP-TO-DATE
+> Task :expo-module-gradle-plugin:compileJava NO-SOURCE
+> Task :expo-module-gradle-plugin:classes UP-TO-DATE
+> Task :expo-module-gradle-plugin:jar UP-TO-DATE
+
+> Configure project :
+[32m[ExpoRootProject][0m Using the following versions:
+  - buildTools:  [32m36.0.0[0m
+  - minSdk:      [32m24[0m
+  - compileSdk:  [32m36[0m
+  - targetSdk:   [32m36[0m
+  - ndk:         [32m27.1.12297006[0m
+  - kotlin:      [32m2.1.20[0m
+  - ksp:         [32m2.1.20-2.0.1[0m
+
+> Configure project :app
+ Γä╣∩╕Å  [33mApplying gradle plugin[0m '[32mexpo-max-sdk-override-plugin[0m'
+  [expo-max-sdk-override-plugin] This plugin will find all permissions declared with `android:maxSdkVersion`. If there exists a declaration with the `android:maxSdkVersion` annotation and another one without, the plugin will remove the annotation from the final merged manifest. In order to see a log with the changes run a clean build of the app.
+
+> Configure project :expo-modules-core
+Linking react-native-worklets native libs into expo-modules-core build tasks
+task ':react-native-worklets:mergeDebugNativeLibs'
+task ':react-native-worklets:mergeReleaseNativeLibs'
+
+> Configure project :expo
+
+Using expo modules
+  - [32mexpo-log-box[0m (55.0.7)
+  - [32mexpo-constants[0m (55.0.7)
+  - [32mexpo-modules-core[0m (55.0.15)
+  - [33m[≡ƒôª][0m [32mexpo-dom-webview[0m (55.0.3)
+  - [33m[≡ƒôª][0m [32mexpo-application[0m (55.0.9)
+  - [33m[≡ƒôª][0m [32mexpo-asset[0m (55.0.8)
+  - [33m[≡ƒôª][0m [32mexpo-av[0m (16.0.8)
+  - [33m[≡ƒôª][0m [32mexpo-clipboard[0m (55.0.8)
+  - [33m[≡ƒôª][0m [32mexpo-crypto[0m (55.0.9)
+  - [33m[≡ƒôª][0m [32mexpo-file-system[0m (55.0.10)
+  - [33m[≡ƒôª][0m [32mexpo-font[0m (55.0.4)
+  - [33m[≡ƒôª][0m [32mexpo-haptics[0m (55.0.8)
+  - [33m[≡ƒôª][0m [32mexpo-image[0m (55.0.6)
+  - [33m[≡ƒôª][0m [32mexpo-image-loader[0m (55.0.0)
+  - [33m[≡ƒôª][0m [32mexpo-image-picker[0m (55.0.13)
+  - [33m[≡ƒôª][0m [32mexpo-keep-awake[0m (55.0.4)
+  - [33m[≡ƒôª][0m [32mexpo-linear-gradient[0m (55.0.8)
+  - [33m[≡ƒôª][0m [32mexpo-linking[0m (55.0.7)
+  - [33m[≡ƒôª][0m [32mexpo-notifications[0m (55.0.12)
+  - [33m[≡ƒôª][0m [32mexpo-router[0m (55.0.5)
+  - [33m[≡ƒôª][0m [32mexpo-secure-store[0m (55.0.8)
+  - [33m[≡ƒôª][0m [32mexpo-system-ui[0m (55.0.9)
+  - [33m[≡ƒôª][0m [32mexpo-web-browser[0m (55.0.9)
+
+
+> Task :expo-log-box:preBuild UP-TO-DATE
+> Task :expo-modules-core:preBuild UP-TO-DATE
+> Task :expo-log-box:preDebugBuild UP-TO-DATE
+> Task :expo-modules-core:preDebugBuild UP-TO-DATE
+> Task :expo:generatePackagesList
+> Task :expo:preBuild
+> Task :expo:preDebugBuild
+> Task :app:generateAutolinkingNewArchitectureFiles
+> Task :app:generateAutolinkingPackageList
+> Task :app:generateCodegenSchemaFromJavaScript SKIPPED
+> Task :app:generateCodegenArtifactsFromSchema SKIPPED
+> Task :app:generateReactNativeEntryPoint
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-modules-core:generateDebugResValues
+> Task :expo:generateDebugResValues
+> Task :expo:writeDebugAarMetadata
+> Task :expo-modules-core:writeDebugAarMetadata
+> Task :expo-log-box:generateDebugResValues
+> Task :expo-log-box:writeDebugAarMetadata
+> Task :app:processDebugGoogleServices
+> Task :expo-modules-core:generateDebugResources
+> Task :expo:generateDebugResources
+> Task :expo-log-box:generateDebugResources
+> Task :react-native-worklets:assertMinimalReactNativeVersionTask
+> Task :react-native-worklets:assertNewArchitectureEnabledTask SKIPPED
+> Task :react-native-reanimated:assertMinimalReactNativeVersionTask
+> Task :react-native-reanimated:assertNewArchitectureEnabledTask SKIPPED
+> Task :expo-modules-core:packageDebugResources
+> Task :expo:packageDebugResources
+> Task :expo-log-box:packageDebugResources
+> Task :expo-modules-core:extractDeepLinksDebug
+> Task :expo:extractDeepLinksDebug
+> Task :expo-log-box:extractDeepLinksDebug
+> Task :expo:compileDebugLibraryResources
+> Task :expo-modules-core:compileDebugLibraryResources
+> Task :expo-log-box:compileDebugLibraryResources
+> Task :expo-modules-core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-log-box:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo:processDebugManifest
+
+> Task :expo-modules-core:processDebugManifest
+F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\src\main\AndroidManifest.xml:8:9-11:45 Warning:
+	meta-data#com.facebook.soloader.enabled@android:value was tagged at AndroidManifest.xml:8 to replace other declarations but no other declaration present
+
+> Task :expo-log-box:processDebugManifest
+> Task :expo-modules-core:generateDebugBuildConfig
+> Task :expo:generateDebugBuildConfig
+> Task :expo-log-box:generateDebugBuildConfig
+> Task :expo-log-box:mergeDebugShaders
+> Task :expo:mergeDebugShaders
+> Task :expo:javaPreCompileDebug
+> Task :expo-modules-core:javaPreCompileDebug
+> Task :expo-modules-core:mergeDebugShaders
+> Task :expo-log-box:javaPreCompileDebug
+> Task :expo-modules-core:compileDebugShaders NO-SOURCE
+> Task :expo:compileDebugShaders NO-SOURCE
+> Task :expo-log-box:compileDebugShaders NO-SOURCE
+> Task :expo-modules-core:generateDebugAssets UP-TO-DATE
+> Task :expo-log-box:generateDebugAssets UP-TO-DATE
+> Task :expo:generateDebugAssets UP-TO-DATE
+> Task :expo:parseDebugLocalResources
+> Task :expo-modules-core:parseDebugLocalResources
+> Task :expo-log-box:parseDebugLocalResources
+> Task :expo:mergeDebugAssets
+> Task :expo-log-box:mergeDebugAssets
+> Task :expo-modules-core:mergeDebugAssets
+> Task :react-native-reanimated:assertWorkletsVersionTask
+> Task :expo:mergeDebugJniLibFolders
+> Task :expo-log-box:mergeDebugJniLibFolders
+> Task :expo:mergeDebugNativeLibs NO-SOURCE
+> Task :expo-log-box:mergeDebugNativeLibs NO-SOURCE
+> Task :expo-modules-core:mergeDebugJniLibFolders
+> Task :expo-log-box:copyDebugJniLibsProjectOnly
+> Task :expo:copyDebugJniLibsProjectOnly
+> Task :expo-log-box:generateDebugRFile
+> Task :expo:generateDebugRFile
+> Task :expo-modules-core:generateDebugRFile
+
+> Task :expo-constants:createExpoConfig
+env: load .env
+env: export EXPO_PUBLIC_API_URL EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID EXPO_PUBLIC_GOOGLE_CLIENT_ID EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID EXPO_PUBLIC_WS_URL
+
+> Task :expo-constants:preBuild
+> Task :expo-constants:preDebugBuild
+> Task :expo-constants:writeDebugAarMetadata
+> Task :expo-constants:generateDebugResValues
+> Task :react-native-safe-area-context:generateCodegenSchemaFromJavaScript
+> Task :react-native-gesture-handler:generateCodegenSchemaFromJavaScript
+> Task :expo-constants:generateDebugResources
+> Task :expo-constants:packageDebugResources
+> Task :expo-constants:extractDeepLinksDebug
+> Task :expo-constants:processDebugManifest
+> Task :expo-constants:compileDebugLibraryResources
+> Task :react-native-google-signin_google-signin:generateCodegenSchemaFromJavaScript
+> Task :expo-constants:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-constants:parseDebugLocalResources
+> Task :expo-constants:generateDebugBuildConfig
+> Task :expo-constants:javaPreCompileDebug
+> Task :expo-constants:generateDebugRFile
+> Task :react-native-agora:generateCodegenSchemaFromJavaScript
+> Task :expo-constants:mergeDebugShaders
+> Task :expo-constants:compileDebugShaders NO-SOURCE
+> Task :expo-constants:generateDebugAssets UP-TO-DATE
+> Task :react-native-worklets:generateCodegenSchemaFromJavaScript
+> Task :expo-constants:mergeDebugAssets
+> Task :expo-constants:mergeDebugJniLibFolders
+> Task :expo-constants:mergeDebugNativeLibs NO-SOURCE
+> Task :expo-constants:copyDebugJniLibsProjectOnly
+> Task :react-native-screens:generateCodegenSchemaFromJavaScript
+> Task :react-native-reanimated:generateCodegenSchemaFromJavaScript
+> Task :react-native-safe-area-context:generateCodegenArtifactsFromSchema
+> Task :react-native-safe-area-context:preBuild
+> Task :react-native-safe-area-context:preDebugBuild
+> Task :react-native-safe-area-context:writeDebugAarMetadata
+> Task :react-native-gesture-handler:generateCodegenArtifactsFromSchema
+> Task :react-native-gesture-handler:preBuild
+> Task :react-native-gesture-handler:preDebugBuild
+> Task :react-native-safe-area-context:generateDebugResValues
+> Task :react-native-gesture-handler:writeDebugAarMetadata
+> Task :react-native-gesture-handler:generateDebugResValues
+> Task :react-native-safe-area-context:generateDebugResources
+> Task :react-native-gesture-handler:generateDebugResources
+> Task :react-native-google-signin_google-signin:generateCodegenArtifactsFromSchema
+> Task :react-native-google-signin_google-signin:preBuild
+> Task :react-native-google-signin_google-signin:preDebugBuild
+> Task :react-native-google-signin_google-signin:writeDebugAarMetadata
+> Task :react-native-safe-area-context:packageDebugResources
+> Task :react-native-google-signin_google-signin:generateDebugResValues
+> Task :react-native-safe-area-context:extractDeepLinksDebug
+> Task :react-native-gesture-handler:packageDebugResources
+> Task :react-native-gesture-handler:extractDeepLinksDebug
+> Task :react-native-google-signin_google-signin:generateDebugResources
+> Task :react-native-safe-area-context:compileDebugLibraryResources
+> Task :react-native-google-signin_google-signin:packageDebugResources
+
+> Task :react-native-safe-area-context:processDebugManifest
+package="com.th3rdwave.safeareacontext" found in source AndroidManifest.xml: F:\Arindam\Works\MissUPRO\node_modules\react-native-safe-area-context\android\src\main\AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.th3rdwave.safeareacontext" from the source AndroidManifest.xml: F:\Arindam\Works\MissUPRO\node_modules\react-native-safe-area-context\android\src\main\AndroidManifest.xml.
+
+> Task :react-native-gesture-handler:compileDebugLibraryResources
+> Task :react-native-safe-area-context:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-google-signin_google-signin:extractDeepLinksDebug
+> Task :react-native-gesture-handler:processDebugManifest
+> Task :react-native-gesture-handler:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-safe-area-context:parseDebugLocalResources
+> Task :react-native-gesture-handler:parseDebugLocalResources
+> Task :react-native-safe-area-context:generateDebugBuildConfig
+> Task :react-native-gesture-handler:generateDebugBuildConfig
+> Task :react-native-worklets:generateCodegenArtifactsFromSchema
+> Task :react-native-safe-area-context:javaPreCompileDebug
+> Task :react-native-safe-area-context:generateDebugRFile
+
+> Task :react-native-google-signin_google-signin:processDebugManifest
+package="com.reactnativegooglesignin" found in source AndroidManifest.xml: F:\Arindam\Works\MissUPRO\node_modules\@react-native-google-signin\google-signin\android\src\main\AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.reactnativegooglesignin" from the source AndroidManifest.xml: F:\Arindam\Works\MissUPRO\node_modules\@react-native-google-signin\google-signin\android\src\main\AndroidManifest.xml.
+
+> Task :react-native-gesture-handler:generateDebugRFile
+> Task :react-native-gesture-handler:javaPreCompileDebug
+> Task :react-native-safe-area-context:mergeDebugShaders
+> Task :react-native-google-signin_google-signin:compileDebugLibraryResources
+> Task :react-native-gesture-handler:mergeDebugShaders
+> Task :react-native-gesture-handler:compileDebugShaders NO-SOURCE
+> Task :react-native-gesture-handler:generateDebugAssets UP-TO-DATE
+> Task :react-native-google-signin_google-signin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-agora:generateCodegenArtifactsFromSchema
+> Task :react-native-google-signin_google-signin:parseDebugLocalResources
+> Task :react-native-agora:preBuild
+> Task :react-native-agora:preDebugBuild
+> Task :react-native-gesture-handler:mergeDebugAssets
+> Task :react-native-google-signin_google-signin:generateDebugBuildConfig
+> Task :react-native-agora:writeDebugAarMetadata
+> Task :react-native-agora:generateDebugResValues
+> Task :react-native-gesture-handler:mergeDebugJniLibFolders
+> Task :react-native-google-signin_google-signin:javaPreCompileDebug
+> Task :react-native-agora:generateDebugResources
+> Task :react-native-google-signin_google-signin:generateDebugRFile
+> Task :react-native-google-signin_google-signin:mergeDebugShaders
+> Task :react-native-agora:packageDebugResources
+> Task :react-native-agora:extractDeepLinksDebug
+> Task :react-native-agora:compileDebugLibraryResources
+> Task :react-native-agora:processDebugManifest
+> Task :react-native-agora:parseDebugLocalResources
+> Task :react-native-worklets:prepareWorkletsHeadersForPrefabs
+> Task :react-native-worklets:preBuild
+> Task :react-native-worklets:preDebugBuild
+> Task :react-native-worklets:writeDebugAarMetadata
+> Task :react-native-agora:generateDebugBuildConfig
+> Task :react-native-worklets:generateDebugResValues
+> Task :react-native-agora:generateDebugRFile
+> Task :react-native-agora:javaPreCompileDebug
+> Task :react-native-worklets:generateDebugResources
+> Task :react-native-agora:mergeDebugShaders
+> Task :react-native-screens:generateCodegenArtifactsFromSchema
+> Task :react-native-screens:preBuild
+> Task :react-native-screens:preDebugBuild
+> Task :react-native-screens:writeDebugAarMetadata
+> Task :react-native-screens:generateDebugResValues
+> Task :react-native-worklets:packageDebugResources
+> Task :react-native-worklets:extractDeepLinksDebug
+> Task :react-native-screens:generateDebugResources
+> Task :react-native-worklets:compileDebugLibraryResources
+> Task :react-native-worklets:processDebugManifest
+> Task :react-native-worklets:parseDebugLocalResources
+> Task :react-native-worklets:generateDebugBuildConfig
+> Task :react-native-worklets:generateDebugRFile
+> Task :react-native-worklets:javaPreCompileDebug
+> Task :react-native-worklets:mergeDebugShaders
+> Task :react-native-reanimated:generateCodegenArtifactsFromSchema
+> Task :react-native-screens:packageDebugResources
+> Task :react-native-screens:extractDeepLinksDebug
+> Task :react-native-screens:processDebugManifest
+> Task :react-native-screens:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-screens:generateDebugBuildConfig
+> Task :react-native-screens:javaPreCompileDebug
+> Task :react-native-reanimated:prepareReanimatedHeadersForPrefabs
+> Task :react-native-reanimated:preBuild
+> Task :react-native-safe-area-context:compileDebugShaders NO-SOURCE
+> Task :app:preBuild
+> Task :react-native-google-signin_google-signin:compileDebugShaders NO-SOURCE
+> Task :app:preDebugBuild
+> Task :react-native-reanimated:preDebugBuild
+> Task :react-native-google-signin_google-signin:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :react-native-safe-area-context:generateDebugAssets UP-TO-DATE
+> Task :react-native-screens:parseDebugLocalResources
+> Task :react-native-reanimated:writeDebugAarMetadata
+> Task :app:generateDebugBuildConfig
+> Task :react-native-google-signin_google-signin:mergeDebugAssets
+> Task :react-native-screens:mergeDebugShaders
+> Task :react-native-reanimated:generateDebugResValues
+> Task :react-native-safe-area-context:mergeDebugAssets
+> Task :react-native-screens:compileDebugLibraryResources
+> Task :app:generateDebugResValues
+> Task :react-native-google-signin_google-signin:mergeDebugJniLibFolders
+> Task :react-native-safe-area-context:mergeDebugJniLibFolders
+> Task :react-native-reanimated:generateDebugResources
+> Task :react-native-screens:compileDebugShaders NO-SOURCE
+> Task :react-native-screens:generateDebugAssets UP-TO-DATE
+> Task :react-native-screens:generateDebugRFile
+> Task :react-native-google-signin_google-signin:mergeDebugNativeLibs NO-SOURCE
+> Task :react-native-safe-area-context:mergeDebugNativeLibs NO-SOURCE
+> Task :react-native-google-signin_google-signin:copyDebugJniLibsProjectOnly
+> Task :react-native-screens:mergeDebugAssets
+> Task :react-native-reanimated:packageDebugResources
+> Task :react-native-reanimated:extractDeepLinksDebug
+> Task :react-native-reanimated:compileDebugLibraryResources
+> Task :react-native-safe-area-context:copyDebugJniLibsProjectOnly
+> Task :react-native-reanimated:parseDebugLocalResources
+> Task :react-native-reanimated:processDebugManifest
+> Task :react-native-reanimated:generateDebugBuildConfig
+> Task :react-native-reanimated:javaPreCompileDebug
+> Task :react-native-reanimated:generateDebugRFile
+> Task :react-native-reanimated:mergeDebugShaders
+> Task :react-native-reanimated:compileDebugShaders NO-SOURCE
+> Task :react-native-reanimated:generateDebugAssets UP-TO-DATE
+> Task :react-native-reanimated:mergeDebugAssets
+> Task :react-native-reanimated:processDebugJavaRes NO-SOURCE
+> Task :react-native-reanimated:mergeDebugJniLibFolders
+> Task :app:checkDebugAarMetadata
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :react-native-screens:configureCMakeDebug[x86_64]
+
+> Task :react-native-worklets:compileDebugJavaWithJavac
+node.exe : Note: F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-nativ
+e-worklets\android\src\main\java\com\swmansion\worklets\WorkletsMessageQueueThr
+eadBase.java uses or overrides a deprecated API.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Note: F:\Arinda...deprecated API. 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Note: Recompile with -Xlint:deprecation for details.
+Note: F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-worklets\
+android\src\main\java\com\swmansion\worklets\WorkletsPackage.java uses 
+unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :react-native-agora:compileDebugJavaWithJavac
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :react-native-agora:compileDebugShaders NO-SOURCE
+> Task :react-native-worklets:compileDebugShaders NO-SOURCE
+> Task :react-native-agora:generateDebugAssets UP-TO-DATE
+> Task :react-native-worklets:generateDebugAssets UP-TO-DATE
+> Task :react-native-worklets:mergeDebugAssets
+> Task :react-native-agora:mergeDebugAssets
+> Task :react-native-worklets:processDebugJavaRes NO-SOURCE
+> Task :react-native-agora:processDebugJavaRes NO-SOURCE
+> Task :react-native-agora:bundleLibRuntimeToJarDebug
+> Task :react-native-agora:bundleLibCompileToJarDebug
+> Task :react-native-worklets:bundleLibRuntimeToJarDebug
+> Task :react-native-worklets:bundleLibCompileToJarDebug
+> Task :react-native-agora:mergeDebugJniLibFolders
+> Task :react-native-agora:mergeDebugNativeLibs NO-SOURCE
+> Task :react-native-agora:copyDebugJniLibsProjectOnly
+> Task :react-native-worklets:bundleLibRuntimeToDirDebug
+> Task :react-native-agora:bundleLibRuntimeToDirDebug
+
+> Task :react-native-screens:buildCMakeDebug[x86_64]
+C/C++: Hard link from 'C:\Users\arindam\.gradle\caches\8.13\transforms\dd989fbd48a109c696ae891fe15a5e74\transformed\react-android-0.83.2-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-screens\android\build\intermediates\cxx\Debug\3w6rb684\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+C/C++: Hard link from 'C:\Users\arindam\.gradle\caches\8.13\transforms\dd989fbd48a109c696ae891fe15a5e74\transformed\react-android-0.83.2-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-screens\android\build\intermediates\cxx\Debug\3w6rb684\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+
+> Task :react-native-screens:mergeDebugJniLibFolders
+> Task :react-native-screens:mergeDebugNativeLibs
+> Task :react-native-screens:copyDebugJniLibsProjectOnly
+
+> Task :react-native-reanimated:compileDebugJavaWithJavac
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :react-native-reanimated:bundleLibCompileToJarDebug
+> Task :react-native-reanimated:bundleLibRuntimeToJarDebug
+> Task :react-native-reanimated:bundleLibRuntimeToDirDebug
+> Task :app:packageDebugResources
+> Task :app:parseDebugLocalResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :react-native-worklets:configureCMakeDebug[x86_64]
+> Task :app:mergeDebugResources
+
+> Task :app:processDebugMainManifest
+[io.agora.rtc:agora-special-full:4.6.2.70] C:\Users\arindam\.gradle\caches\8.13\transforms\40749077d279cb947dcfe66ef9c68d1f\transformed\agora-special-full-4.6.2.70\AndroidManifest.xml Warning:
+	Namespace 'io.agora.rtc' is used in multiple modules and/or libraries: io.agora.rtc:agora-special-full:4.6.2.70, io.agora.rtc:iris-rtc:4.6.2-build.1. Please ensure that all modules and libraries have a unique namespace. For more information, See https://developer.android.com/studio/build/configure-app-module#set-namespace
+F:\Arindam\Works\MissUPRO\apps\mobile\android\app\src\debug\AndroidManifest.xml:6:5-162 Warning:
+	application@android:usesCleartextTraffic was tagged at AndroidManifest.xml:6 to replace other declarations but no other declaration present
+F:\Arindam\Works\MissUPRO\apps\mobile\android\app\src\debug\AndroidManifest.xml Warning:
+	activity#expo.modules.imagepicker.ExpoCropImageActivity@android:exported was tagged at AndroidManifest.xml:0 to replace other declarations but no other declaration present
+F:\Arindam\Works\MissUPRO\apps\mobile\android\app\src\debug\AndroidManifest.xml Warning:
+	provider#expo.modules.filesystem.FileSystemFileProvider@android:authorities was tagged at AndroidManifest.xml:0 to replace other declarations but no other declaration present
+
+> Task :app:expoDebugOverrideMaxSdkConflicts
+[33m---------- Expo Max Sdk Override Plugin ----------[0m
+[32m>>> No 'android:maxSdkVersion' conflicts found[0m
+[33m--------------------------------------------------[0m
+
+> Task :app:processDebugManifest
+> Task :app:javaPreCompileDebug
+> Task :app:mergeDebugShaders
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets
+> Task :app:compressDebugAssets
+> Task :app:processDebugManifestForPackage
+> Task :app:desugarDebugFileDependencies
+
+> Task :react-native-worklets:buildCMakeDebug[x86_64][worklets]
+C/C++: Hard link from 'C:\Users\arindam\.gradle\caches\8.13\transforms\dd989fbd48a109c696ae891fe15a5e74\transformed\react-android-0.83.2-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-worklets\android\build\intermediates\cxx\Debug\5u366v6a\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+C/C++: Hard link from 'C:\Users\arindam\.gradle\caches\8.13\transforms\dd989fbd48a109c696ae891fe15a5e74\transformed\react-android-0.83.2-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-worklets\android\build\intermediates\cxx\Debug\5u366v6a\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+
+> Task :app:mergeDebugJniLibFolders
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:checkDebugDuplicateClasses
+> Task :app:writeDebugSigningConfigVersions
+
+> Task :react-native-worklets:externalNativeBuildDebug
+C/C++: Hard link from 'C:\Users\arindam\.gradle\caches\8.13\transforms\dd989fbd48a109c696ae891fe15a5e74\transformed\react-android-0.83.2-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-worklets\android\build\intermediates\cmake\debug\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+C/C++: Hard link from 'C:\Users\arindam\.gradle\caches\8.13\transforms\dd989fbd48a109c696ae891fe15a5e74\transformed\react-android-0.83.2-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-worklets\android\build\intermediates\cmake\debug\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+
+> Task :react-native-worklets:generateJsonModelDebug
+> Task :react-native-worklets:prefabDebugConfigurePackage
+> Task :react-native-worklets:prefabDebugPackage
+> Task :react-native-worklets:mergeDebugJniLibFolders
+> Task :expo-modules-core:configureCMakeDebug[x86_64]
+> Task :react-native-worklets:mergeDebugNativeLibs
+> Task :react-native-worklets:copyDebugJniLibsProjectOnly
+
+> Task :react-native-google-signin_google-signin:compileDebugKotlin
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/@react-native-google-signin/google-signin/android/src/main/java/com/reactnativegooglesignin/ErrorDto.kt:3:8 'class GoogleSignInStatusCodes : CommonStatusCodes' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/@react-native-google-signin/google-signin/android/src/main/java/com/reactnativegooglesignin/ErrorDto.kt:23:31 Condition is always 'true'.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/@react-native-google-signin/google-signin/android/src/main/java/com/reactnativegooglesignin/ErrorDto.kt:24:16 'class GoogleSignInStatusCodes : CommonStatusCodes' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/@react-native-google-signin/google-signin/android/src/main/java/com/reactnativegooglesignin/ErrorDto.kt:29:33 'class GoogleSignInStatusCodes : CommonStatusCodes' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/@react-native-google-signin/google-signin/android/src/main/java/com/reactnativegooglesignin/ErrorDto.kt:30:38 'class GoogleSignInStatusCodes : CommonStatusCodes' is deprecated. Deprecated in Java.
+
+> Task :react-native-safe-area-context:compileDebugKotlin
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/react-native-safe-area-context/android/src/main/java/com/th3rdwave/safeareacontext/SafeAreaView.kt:9:8 'class UIManagerModule : ReactContextBaseJavaModule, OnBatchCompleteListener, LifecycleEventListener, UIManager' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/react-native-safe-area-context/android/src/main/java/com/th3rdwave/safeareacontext/SafeAreaView.kt:50:54 'class UIManagerModule : ReactContextBaseJavaModule, OnBatchCompleteListener, LifecycleEventListener, UIManager' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/react-native-safe-area-context/android/src/main/java/com/th3rdwave/safeareacontext/SafeAreaView.kt:59:23 'val uiImplementation: UIImplementation!' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/react-native-safe-area-context/android/src/main/java/com/th3rdwave/safeareacontext/SafeAreaViewShadowNode.kt:9:32 'class LayoutShadowNode : ReactShadowNodeImpl' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/react-native-safe-area-context/android/src/main/java/com/th3rdwave/safeareacontext/SafeAreaViewShadowNode.kt:110:61 'class NativeViewHierarchyOptimizer : Any' is deprecated. Deprecated in Java.
+
+> Task :react-native-gesture-handler:compileDebugKotlin
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/Extensions.kt:8:8 'class UIManagerModule : ReactContextBaseJavaModule, OnBatchCompleteListener, LifecycleEventListener, UIManager' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/Extensions.kt:13:29 'class UIManagerModule : ReactContextBaseJavaModule, OnBatchCompleteListener, LifecycleEventListener, UIManager' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/Extensions.kt:14:32 'class UIManagerModule : ReactContextBaseJavaModule, OnBatchCompleteListener, LifecycleEventListener, UIManager' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerModule.kt:173:53 This synthetic property is based on the getter function 'fun getRootViewTag(): Int' from Kotlin. In the future, synthetic properties will be available only if the base getter function came from Java. Consider replacing this property access with a 'getRootViewTag()' function call.
+
+> Task :app:mergeExtDexDebug
+> Task :react-native-reanimated:configureCMakeDebug[x86_64]
+> Task :react-native-reanimated:generateJsonModelDebug
+> Task :react-native-reanimated:prefabDebugConfigurePackage
+> Task :react-native-screens:compileDebugKotlin
+> Task :expo-modules-core:compileDebugKotlin
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/expo-modules-core/android/src/main/java/expo/modules/apploader/AppLoaderProvider.kt:34:52 Unchecked cast of 'Class<*>!' to 'Class<out HeadlessAppLoader>'.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/AppContext.kt:13:8 'class UIManagerModule : ReactContextBaseJavaModule, OnBatchCompleteListener, LifecycleEventListener, UIManager' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/AppContext.kt:21:8 'typealias ErrorManagerModule = JSLoggerModule' is deprecated. Use JSLoggerModule instead.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/AppContext.kt:59:13 'val hostingRuntimeContext: MainRuntime' is deprecated. Use AppContext.runtimeContext instead.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/AppContext.kt:257:21 'typealias ErrorManagerModule = JSLoggerModule' is deprecated. Use JSLoggerModule instead.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/AppContext.kt:366:21 'val DEFAULT: Int' is deprecated. UIManagerType.DEFAULT will be deleted in the next release of React Native. Use [LEGACY] instead.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/AppContext.kt:367:10 'class UIManagerModule : ReactContextBaseJavaModule, OnBatchCompleteListener, LifecycleEventListener, UIManager' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/defaultmodules/NativeModulesProxyModule.kt:16:5 'fun Constants(legacyConstantsProvider: () -> Map<String, Any?>): Unit' is deprecated. Use `Constant` or `Property` instead.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ViewDefinitionBuilder.kt:464:16 'val errorManager: JSLoggerModule?' is deprecated. Use AppContext.jsLogger instead.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ViewDefinitionBuilder.kt:464:30 'fun reportExceptionToLogBox(codedException: CodedException): Unit' is deprecated. Use appContext.jsLogger.error(...) instead.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ViewManagerDefinition.kt:41:16 'val errorManager: JSLoggerModule?' is deprecated. Use AppContext.jsLogger instead.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ViewManagerDefinition.kt:41:30 'fun reportExceptionToLogBox(codedException: CodedException): Unit' is deprecated. Use appContext.jsLogger.error(...) instead.
+
+> Task :app:processDebugResources
+> Task :react-native-gesture-handler:compileDebugJavaWithJavac
+> Task :react-native-gesture-handler:bundleLibCompileToJarDebug
+> Task :react-native-gesture-handler:bundleLibRuntimeToJarDebug
+> Task :react-native-gesture-handler:processDebugJavaRes
+
+> Task :react-native-google-signin_google-signin:compileDebugJavaWithJavac
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: F:\Arindam\Works\MissUPRO\node_modules\@react-native-google-signin\google
+-signin\android\src\main\java\com\reactnativegooglesignin\RNGoogleSigninModule.
+java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :react-native-google-signin_google-signin:bundleLibCompileToJarDebug
+> Task :react-native-google-signin_google-signin:bundleLibRuntimeToJarDebug
+> Task :react-native-google-signin_google-signin:processDebugJavaRes
+> Task :react-native-google-signin_google-signin:bundleLibRuntimeToDirDebug
+> Task :react-native-gesture-handler:bundleLibRuntimeToDirDebug
+> Task :expo-modules-core:buildCMakeDebug[x86_64]
+> Task :react-native-safe-area-context:compileDebugJavaWithJavac
+> Task :react-native-safe-area-context:bundleLibCompileToJarDebug
+> Task :react-native-safe-area-context:bundleLibRuntimeToJarDebug
+> Task :react-native-safe-area-context:processDebugJavaRes
+> Task :react-native-safe-area-context:bundleLibRuntimeToDirDebug
+
+> Task :react-native-screens:compileDebugKotlin
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/RNScreensPackage.kt:62:9 The corresponding parameter in the supertype 'BaseReactPackage' is named 'name'. This may cause problems when calling this function with named arguments.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/RNScreensPackage.kt:63:9 The corresponding parameter in the supertype 'BaseReactPackage' is named 'reactContext'. This may cause problems when calling this function with named arguments.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/RNScreensPackage.kt:76:17 'constructor(name: String, className: String, canOverrideExistingModule: Boolean, needsEagerInit: Boolean, hasConstants: Boolean, isCxxModule: Boolean, isTurboModule: Boolean): ReactModuleInfo' is deprecated. This constructor is deprecated and will be removed in the future. Use ReactModuleInfo(String, String, boolean, boolean, boolean, boolean)].
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/Screen.kt:24:8 'class UIManagerModule : ReactContextBaseJavaModule, OnBatchCompleteListener, LifecycleEventListener, UIManager' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/Screen.kt:54:77 Unchecked cast of '(CoordinatorLayout.Behavior<View!>?..CoordinatorLayout.Behavior<*>?)' to 'BottomSheetBehavior<Screen>'.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/Screen.kt:426:42 'class UIManagerModule : ReactContextBaseJavaModule, OnBatchCompleteListener, LifecycleEventListener, UIManager' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainerViewManager.kt:6:8 'class LayoutShadowNode : ReactShadowNodeImpl' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainerViewManager.kt:56:78 'class LayoutShadowNode : ReactShadowNodeImpl' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackFragment.kt:222:31 'var targetElevation: Float' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackFragment.kt:225:13 'fun setHasOptionsMenu(p0: Boolean): Unit' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackFragment.kt:404:18 This declaration overrides a deprecated member but is not marked as deprecated itself. Add the '@Deprecated' annotation or suppress the diagnostic.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackFragment.kt:411:22 'fun onPrepareOptionsMenu(p0: Menu): Unit' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackFragment.kt:414:18 This declaration overrides a deprecated member but is not marked as deprecated itself. Add the '@Deprecated' annotation or suppress the diagnostic.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackFragment.kt:419:22 'fun onCreateOptionsMenu(p0: Menu, p1: MenuInflater): Unit' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfig.kt:441:22 'val reactNativeHost: ReactNativeHost' is deprecated. You should not use ReactNativeHost directly in the New Architecture. Use ReactHost instead.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigShadowNode.kt:4:8 'class LayoutShadowNode : ReactShadowNodeImpl' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigShadowNode.kt:10:5 'class LayoutShadowNode : ReactShadowNodeImpl' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:9:8 'class LayoutShadowNode : ReactShadowNodeImpl' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:37:78 'class LayoutShadowNode : ReactShadowNodeImpl' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackViewManager.kt:6:8 'class LayoutShadowNode : ReactShadowNodeImpl' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackViewManager.kt:65:78 'class LayoutShadowNode : ReactShadowNodeImpl' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenWindowTraits.kt:48:42 'fun replaceSystemWindowInsets(p0: Int, p1: Int, p2: Int, p3: Int): WindowInsetsCompat' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenWindowTraits.kt:49:39 'val systemWindowInsetLeft: Int' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenWindowTraits.kt:51:39 'val systemWindowInsetRight: Int' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenWindowTraits.kt:52:39 'val systemWindowInsetBottom: Int' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreensShadowNode.kt:4:8 'class LayoutShadowNode : ReactShadowNodeImpl' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreensShadowNode.kt:5:8 'class NativeViewHierarchyManager : Any' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreensShadowNode.kt:6:8 'class NativeViewHierarchyOptimizer : Any' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreensShadowNode.kt:7:8 'class UIManagerModule : ReactContextBaseJavaModule, OnBatchCompleteListener, LifecycleEventListener, UIManager' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreensShadowNode.kt:11:5 'class LayoutShadowNode : ReactShadowNodeImpl' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreensShadowNode.kt:12:63 'class NativeViewHierarchyOptimizer : Any' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreensShadowNode.kt:14:34 'class UIManagerModule : ReactContextBaseJavaModule, OnBatchCompleteListener, LifecycleEventListener, UIManager' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreensShadowNode.kt:14:106 'class NativeViewHierarchyManager : Any' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/bottomsheet/BottomSheetDialogRootView.kt:7:8 'object ReactFeatureFlags : Any' is deprecated. Use com.facebook.react.internal.featureflags.ReactNativeFeatureFlags instead.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/bottomsheet/BottomSheetDialogRootView.kt:25:13 'object ReactFeatureFlags : Any' is deprecated. Use com.facebook.react.internal.featureflags.ReactNativeFeatureFlags instead.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/bottomsheet/BottomSheetDialogRootView.kt:32:9 The corresponding parameter in the supertype 'ReactViewGroup' is named 'left'. This may cause problems when calling this function with named arguments.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/bottomsheet/BottomSheetDialogRootView.kt:33:9 The corresponding parameter in the supertype 'ReactViewGroup' is named 'top'. This may cause problems when calling this function with named arguments.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/bottomsheet/BottomSheetDialogRootView.kt:34:9 The corresponding parameter in the supertype 'ReactViewGroup' is named 'right'. This may cause problems when calling this function with named arguments.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/bottomsheet/BottomSheetDialogRootView.kt:35:9 The corresponding parameter in the supertype 'ReactViewGroup' is named 'bottom'. This may cause problems when calling this function with named arguments.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/bottomsheet/BottomSheetDialogRootView.kt:71:9 The corresponding parameter in the supertype 'RootView' is named 'childView'. This may cause problems when calling this function with named arguments.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/bottomsheet/BottomSheetDialogRootView.kt:72:9 The corresponding parameter in the supertype 'RootView' is named 'ev'. This may cause problems when calling this function with named arguments.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/bottomsheet/BottomSheetDialogRootView.kt:79:46 The corresponding parameter in the supertype 'RootView' is named 'ev'. This may cause problems when calling this function with named arguments.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/bottomsheet/BottomSheetDialogRootView.kt:83:9 The corresponding parameter in the supertype 'RootView' is named 'childView'. This may cause problems when calling this function with named arguments.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/bottomsheet/BottomSheetDialogRootView.kt:84:9 The corresponding parameter in the supertype 'RootView' is named 'ev'. This may cause problems when calling this function with named arguments.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/bottomsheet/BottomSheetDialogRootView.kt:95:34 The corresponding parameter in the supertype 'RootView' is named 't'. This may cause problems when calling this function with named arguments.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/bottomsheet/DimmingView.kt:63:9 The corresponding parameter in the supertype 'ReactCompoundView' is named 'touchX'. This may cause problems when calling this function with named arguments.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/bottomsheet/DimmingView.kt:64:9 The corresponding parameter in the supertype 'ReactCompoundView' is named 'touchY'. This may cause problems when calling this function with named arguments.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/bottomsheet/DimmingView.kt:68:9 The corresponding parameter in the supertype 'ReactCompoundViewGroup' is named 'touchX'. This may cause problems when calling this function with named arguments.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/bottomsheet/DimmingView.kt:69:9 The corresponding parameter in the supertype 'ReactCompoundViewGroup' is named 'touchY'. This may cause problems when calling this function with named arguments.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/gamma/tabs/TabsHostViewManager.kt:37:9 The corresponding parameter in the supertype 'TabsHostViewManager' is named 'view'. This may cause problems when calling this function with named arguments.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/safearea/SafeAreaView.kt:19:8 'class UIManagerModule : ReactContextBaseJavaModule, OnBatchCompleteListener, LifecycleEventListener, UIManager' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/safearea/SafeAreaView.kt:153:45 'fun consumeDisplayCutout(): WindowInsetsCompat' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/safearea/SafeAreaView.kt:194:58 'class UIManagerModule : ReactContextBaseJavaModule, OnBatchCompleteListener, LifecycleEventListener, UIManager' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/safearea/SafeAreaView.kt:201:31 'val uiImplementation: UIImplementation!' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/safearea/paper/SafeAreaViewShadowNode.kt:7:8 'class LayoutShadowNode : ReactShadowNodeImpl' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/safearea/paper/SafeAreaViewShadowNode.kt:8:8 'class NativeViewHierarchyOptimizer : Any' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/safearea/paper/SafeAreaViewShadowNode.kt:14:32 'class LayoutShadowNode : ReactShadowNodeImpl' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/apps/mobile/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/safearea/paper/SafeAreaViewShadowNode.kt:83:63 'class NativeViewHierarchyOptimizer : Any' is deprecated. Deprecated in Java.
+
+> Task :react-native-screens:compileDebugJavaWithJavac
+> Task :react-native-screens:bundleLibRuntimeToJarDebug
+> Task :react-native-screens:bundleLibCompileToJarDebug
+> Task :react-native-screens:processDebugJavaRes
+> Task :app:configureCMakeDebug[x86_64]
+> Task :react-native-reanimated:buildCMakeDebug[x86_64][reanimated]
+> Task :react-native-screens:bundleLibRuntimeToDirDebug
+
+> Task :expo-modules-core:buildCMakeDebug[x86_64]
+C/C++: Hard link from 'C:\Users\arindam\.gradle\caches\8.13\transforms\dd989fbd48a109c696ae891fe15a5e74\transformed\react-android-0.83.2-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\build\intermediates\cxx\Debug\2a556jm6\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+C/C++: Hard link from 'C:\Users\arindam\.gradle\caches\8.13\transforms\dd989fbd48a109c696ae891fe15a5e74\transformed\react-android-0.83.2-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\build\intermediates\cxx\Debug\2a556jm6\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+
+> Task :expo-modules-core:compileDebugJavaWithJavac
+Note: F:\Arindam\Works\MissUPRO\node_modules\expo-modules-core\android\src\main
+\java\expo\modules\adapters\react\ModuleRegistryAdapter.java uses or overrides 
+a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :expo-modules-core:processDebugJavaRes
+> Task :expo-modules-core:bundleLibCompileToJarDebug
+> Task :expo-modules-core:mergeDebugNativeLibs
+> Task :expo-modules-core:copyDebugJniLibsProjectOnly
+> Task :expo-modules-core:bundleLibRuntimeToJarDebug
+
+> Task :expo-constants:compileDebugKotlin
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/expo-constants/android/src/main/java/expo/modules/constants/ConstantsModule.kt:13:5 'fun Constants(legacyConstantsProvider: () -> Map<String, Any?>): Unit' is deprecated. Use `Constant` or `Property` instead.
+
+> Task :expo-log-box:compileDebugKotlin
+> Task :react-native-gesture-handler:configureCMakeDebug[x86_64]
+> Task :expo-log-box:compileDebugJavaWithJavac
+> Task :expo-log-box:bundleLibCompileToJarDebug
+> Task :expo-log-box:bundleLibRuntimeToJarDebug
+> Task :expo-log-box:processDebugJavaRes
+> Task :expo-constants:compileDebugJavaWithJavac
+> Task :expo-constants:bundleLibCompileToJarDebug
+> Task :expo-constants:bundleLibRuntimeToJarDebug
+> Task :expo-constants:processDebugJavaRes
+> Task :expo-log-box:bundleLibRuntimeToDirDebug
+> Task :expo-constants:bundleLibRuntimeToDirDebug
+
+> Task :expo:compileDebugKotlin
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/expo/android/src/main/java/expo/modules/ExpoModulesPackage.kt:34:16 This declaration overrides a deprecated member but is not marked as deprecated itself. Add the '@Deprecated' annotation or suppress the diagnostic.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/expo/android/src/main/java/expo/modules/ReactActivityDelegateWrapper.kt:22:8 'class ReactInstanceManager : Any' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/expo/android/src/main/java/expo/modules/ReactActivityDelegateWrapper.kt:102:16 This declaration overrides a deprecated member but is not marked as deprecated itself. Add the '@Deprecated' annotation or suppress the diagnostic.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/expo/android/src/main/java/expo/modules/ReactActivityDelegateWrapper.kt:102:43 'class ReactInstanceManager : Any' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/expo/android/src/main/java/expo/modules/ReactActivityDelegateWrapper.kt:103:21 'val reactInstanceManager: ReactInstanceManager' is deprecated. Deprecated in Java.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/expo/android/src/main/java/expo/modules/fetch/ExpoFetchModule.kt:31:39 'constructor(reactContext: ReactContext): ForwardingCookieHandler' is deprecated. Use the default constructor.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/expo/android/src/main/java/expo/modules/fetch/NativeResponse.kt:42:16 This declaration overrides a deprecated member but is not marked as deprecated itself. Add the '@Deprecated' annotation or suppress the diagnostic.
+w: file:///F:/Arindam/Works/MissUPRO/node_modules/expo/android/src/main/java/expo/modules/fetch/NativeResponse.kt:44:11 'fun deallocate(): Unit' is deprecated. Use sharedObjectDidRelease() instead.
+
+> Task :expo:compileDebugJavaWithJavac
+> Task :expo:bundleLibCompileToJarDebug
+> Task :expo:bundleLibRuntimeToJarDebug
+> Task :expo:processDebugJavaRes
+> Task :expo-modules-core:bundleLibRuntimeToDirDebug
+> Task :expo:bundleLibRuntimeToDirDebug
+
+> Task :react-native-reanimated:buildCMakeDebug[x86_64][reanimated]
+C/C++: Hard link from 'C:\Users\arindam\.gradle\caches\8.13\transforms\dd989fbd48a109c696ae891fe15a5e74\transformed\react-android-0.83.2-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-reanimated\android\build\intermediates\cxx\Debug\4148212d\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+C/C++: Hard link from 'C:\Users\arindam\.gradle\caches\8.13\transforms\dd989fbd48a109c696ae891fe15a5e74\transformed\react-android-0.83.2-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-reanimated\android\build\intermediates\cxx\Debug\4148212d\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+
+> Task :react-native-reanimated:externalNativeBuildDebug
+C/C++: Hard link from 'C:\Users\arindam\.gradle\caches\8.13\transforms\dd989fbd48a109c696ae891fe15a5e74\transformed\react-android-0.83.2-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-reanimated\android\build\intermediates\cmake\debug\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+C/C++: Hard link from 'C:\Users\arindam\.gradle\caches\8.13\transforms\dd989fbd48a109c696ae891fe15a5e74\transformed\react-android-0.83.2-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-reanimated\android\build\intermediates\cmake\debug\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+
+> Task :react-native-reanimated:prefabDebugPackage
+> Task :react-native-reanimated:mergeDebugNativeLibs
+> Task :react-native-reanimated:copyDebugJniLibsProjectOnly
+> Task :app:mergeLibDexDebug FAILED
+> Task :app:compileDebugKotlin
+
+> Task :react-native-gesture-handler:buildCMakeDebug[x86_64]
+C/C++: Hard link from 'C:\Users\arindam\.gradle\caches\8.13\transforms\dd989fbd48a109c696ae891fe15a5e74\transformed\react-android-0.83.2-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'F:\Arindam\Works\MissUPRO\node_modules\react-native-gesture-handler\android\build\intermediates\cxx\Debug\1q2h213l\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+C/C++: Hard link from 'C:\Users\arindam\.gradle\caches\8.13\transforms\dd989fbd48a109c696ae891fe15a5e74\transformed\react-android-0.83.2-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'F:\Arindam\Works\MissUPRO\node_modules\react-native-gesture-handler\android\build\intermediates\cxx\Debug\1q2h213l\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+
+[Incubating] Problems report is available at: file:///F:/Arindam/Works/MissUPRO/apps/mobile/android/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:mergeLibDexDebug'.
+> Could not resolve all files for configuration ':app:debugRuntimeClasspath'.
+   > Failed to transform bundleLibRuntimeToDirDebug (project 
+:react-native-screens) to match attributes {artifactType=android-dex, 
+com.android.build.api.attributes.AgpVersionAttr=8.12.0, 
+com.android.build.api.attributes.BuildTypeAttr=debug, 
+com.android.build.gradle.internal.attributes.VariantAttr=debug, 
+dexing-component-attributes=ComponentSpecificParameters(minSdkVersion=24, 
+debuggable=true, enableCoreLibraryDesugaring=false, 
+enableGlobalSynthetics=true, enableApiModeling=false, 
+dependenciesClassesAreInstrumented=false, asmTransformComponent=null, 
+useJacocoTransformInstrumentation=false, enableDesugaring=true, 
+needsClasspath=false, useFullClasspath=false, 
+componentIfUsingFullClasspath=null), org.gradle.category=library, 
+org.gradle.jvm.environment=android, org.gradle.libraryelements=classes, 
+org.gradle.usage=java-runtime, org.jetbrains.kotlin.platform.type=androidJvm}.
+      > java.io.IOException: Unable to delete directory 'F:\Arindam\Works\MissU
+PRO\apps\mobile\node_modules\react-native-screens\android\build\.transforms\884
+88f2f1918ef64569c3c41d39c1577\transformed'
+          Failed to delete some children. This might happen because a process 
+has files open or has its working directory set in the target directory.
+          - F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-scr
+eens\android\build\.transforms\88488f2f1918ef64569c3c41d39c1577\transformed\bun
+dleLibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com\swmansion\rnscreens\
+fragment\restoration
+          - F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-scr
+eens\android\build\.transforms\88488f2f1918ef64569c3c41d39c1577\transformed\bun
+dleLibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com\swmansion\rnscreens\
+fragment
+          - F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-scr
+eens\android\build\.transforms\88488f2f1918ef64569c3c41d39c1577\transformed\bun
+dleLibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com\swmansion\rnscreens\
+gamma\stack\screen\event
+          - F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-scr
+eens\android\build\.transforms\88488f2f1918ef64569c3c41d39c1577\transformed\bun
+dleLibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com\swmansion\rnscreens\
+gamma\stack\screen
+          - F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-scr
+eens\android\build\.transforms\88488f2f1918ef64569c3c41d39c1577\transformed\bun
+dleLibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com\swmansion\rnscreens\
+gamma\stack
+          - F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-scr
+eens\android\build\.transforms\88488f2f1918ef64569c3c41d39c1577\transformed\bun
+dleLibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com\swmansion\rnscreens\
+gamma
+          - F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-scr
+eens\android\build\.transforms\88488f2f1918ef64569c3c41d39c1577\transformed\bun
+dleLibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com\swmansion\rnscreens
+          - F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-scr
+eens\android\build\.transforms\88488f2f1918ef64569c3c41d39c1577\transformed\bun
+dleLibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com\swmansion
+          - F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-scr
+eens\android\build\.transforms\88488f2f1918ef64569c3c41d39c1577\transformed\bun
+dleLibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex\com
+          - F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-scr
+eens\android\build\.transforms\88488f2f1918ef64569c3c41d39c1577\transformed\bun
+dleLibRuntimeToDirDebug\bundleLibRuntimeToDirDebug_dex
+          - F:\Arindam\Works\MissUPRO\apps\mobile\node_modules\react-native-scr
+eens\android\build\.transforms\88488f2f1918ef64569c3c41d39c1577\transformed\bun
+dleLibRuntimeToDirDebug
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.13/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 2m 3s
+326 actionable tasks: 298 executed, 28 up-to-date
+[android] Gradle build failed with exit code 1
+npm error Lifecycle script `android` failed with error:
+npm error code 1
+npm error path F:\Arindam\Works\MissUPRO\apps\mobile
+npm error workspace @missu/mobile@1.0.0
+npm error location F:\Arindam\Works\MissUPRO\apps\mobile
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c node 
+./scripts/run-android.js emulator

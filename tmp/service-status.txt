@@ -1,0 +1,18 @@
+Service Status Check - 2026-03-24T11:57:41.167Z
+
+=== PORT STATUS ===
+Port 3001: OPEN
+Port 3002: OPEN
+Port 4000: OPEN
+Port 4001: CLOSED
+Port 8081: OPEN
+
+=== API SERVER (4000) ===
+/health: {"status":200,"body":"{\"status\":\"ok\",\"timestamp\":\"2026-03-24T11:57:41.186Z\"}"}
+
+=== WEB APP ===
+Port 3001: status=undefined, bodyLength=0
+Port 3002: status=undefined, bodyLength=0
+
+=== METRO/EXPO (8081) ===
+/status: {"status":200,"body":"packager-status:running"}

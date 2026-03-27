@@ -1,0 +1,8 @@
+﻿
+
+Id          : 17256
+ProcessName : adb
+Path        : C:\Users\arindam\AppData\Local\Android\Sdk\platform-tools\adb.exe
+
+
+

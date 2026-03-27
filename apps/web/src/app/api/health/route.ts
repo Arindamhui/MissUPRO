@@ -20,7 +20,7 @@ async function checkDb(): Promise<ComponentHealth> {
       client.release();
     }
   } catch (error) {
-    return { status: "unhealthy", latencyMs: Date.now() - start, message: (error as Error).message };
+    return { status: "unhealthy", latencyMs: Date.now() - start, message: error instanceof Error ? error.message : "unknown_error" };
   }
 }
 

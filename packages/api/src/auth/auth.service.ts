@@ -276,7 +276,7 @@ export class AuthService {
       throw new Error("Failed to create account");
     }
 
-    await db.insert(profiles).values({ userId: createdUser.id }).onConflictDoNothing();
+    await db.insert(profiles).values({ userId: createdUser.id, displayName }).onConflictDoNothing();
     await this.walletService.getOrCreateWallet(createdUser.id);
     return this.createAuthMutationResult(createdUser, ip, userAgent);
   }
@@ -860,7 +860,7 @@ export class AuthService {
       throw new Error("Failed to create app user from Google identity");
     }
 
-    await db.insert(profiles).values({ userId: createdUser.id }).onConflictDoNothing();
+    await db.insert(profiles).values({ userId: createdUser.id, displayName }).onConflictDoNothing();
     await this.walletService.getOrCreateWallet(createdUser.id);
     return createdUser;
   }

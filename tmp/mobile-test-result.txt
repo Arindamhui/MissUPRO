@@ -1,0 +1,7 @@
+Mobile (Expo/Metro) Test - 2026-03-24T12:11:04.081Z
+
+--- Metro /status ---
+status=200 body=packager-status:running err=none
+
+--- Metro /json ---
+status=200 len=2 err=none

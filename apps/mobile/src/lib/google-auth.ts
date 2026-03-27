@@ -1,54 +1,55 @@
-import * as Google from "expo-auth-session/providers/google";
-import * as WebBrowser from "expo-web-browser";
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-WebBrowser.maybeCompleteAuthSession();
+let GoogleSignin: any = null;
+try {
+  GoogleSignin = require("@react-native-google-signin/google-signin").GoogleSignin;
+} catch {
+  // Native module not available (e.g., Expo Go)
+}
 
 const GOOGLE_WEB_CLIENT_ID =
+  process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ??
   process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ??
   "268507553885-8jgmola920skkvj3ago964mbeuevs058.apps.googleusercontent.com";
 
-const GOOGLE_ANDROID_CLIENT_ID =
-  process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ??
-  "268507553885-gstjmb0fgggotdimnuak06di0oe2b1lg.apps.googleusercontent.com";
-
-const GOOGLE_IOS_CLIENT_ID =
-  process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? GOOGLE_WEB_CLIENT_ID;
-
 export function useGoogleAuth() {
-  const [request, , promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: GOOGLE_WEB_CLIENT_ID,
-    webClientId: GOOGLE_WEB_CLIENT_ID,
-    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
-    iosClientId: GOOGLE_IOS_CLIENT_ID,
-    scopes: ["openid", "profile", "email"],
-  });
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    if (!GoogleSignin) return;
+    GoogleSignin.configure({
+      webClientId: GOOGLE_WEB_CLIENT_ID,
+      offlineAccess: false,
+    });
+    setIsReady(true);
+  }, []);
 
   const promptGoogleAuth = useCallback(async (): Promise<string | null> => {
-    if (!request) {
-      throw new Error("Google sign in is still loading. Try again in a moment.");
+    if (!GoogleSignin) {
+      throw new Error("Google Sign-In is not available in Expo Go. Use a development build.");
     }
 
-    const result = await promptAsync();
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
-    if (result.type === "dismiss" || result.type === "cancel") {
+    // Sign out first so the account picker always appears
+    try { await GoogleSignin.signOut(); } catch { /* ignore if not signed in */ }
+
+    const response = await GoogleSignin.signIn();
+
+    if ("type" in response && response.type === "cancelled") {
       return null;
     }
 
-    if (result.type !== "success") {
-      throw new Error("Google sign in did not complete successfully");
-    }
-
-    const idToken = result.params?.id_token;
+    const idToken = response.data?.idToken ?? null;
     if (!idToken) {
       throw new Error("Google did not return an ID token");
     }
 
     return idToken;
-  }, [promptAsync, request]);
+  }, []);
 
   return {
-    isReady: Boolean(request),
+    isReady,
     promptGoogleAuth,
   };
 }

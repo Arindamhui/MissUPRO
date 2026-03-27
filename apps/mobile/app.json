@@ -31,7 +31,8 @@
       "permissions": ["CAMERA", "RECORD_AUDIO"]
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "@react-native-google-signin/google-signin"
     ]
   }
 }

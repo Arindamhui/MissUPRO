@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { db } from "@missu/db";
+import { profiles } from "@missu/db/schema";
 import { getEnv } from "@missu/config";
 import { signAccessToken, signRefreshToken, hashToken, verifyRefreshToken } from "@missu/auth";
 import { setCache, userProfileCacheKey } from "@missu/cache";
@@ -156,7 +157,7 @@ export const authService = {
     // Generate username if not provided
     let username = input.username;
     if (!username) {
-      const base = normalizedEmail.split("@")[0]!.replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20) || "missuuser";
+      const base = (normalizedEmail.split("@")[0] ?? "").replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20) || "missuuser";
       username = base;
       let suffix = 1;
       while (await userRepository.existsByUsername(username)) {
@@ -229,6 +230,11 @@ export const authService = {
         detailsJson: { provider: "EMAIL", requestId: context.requestId },
       }, tx);
       await eventRepository.create({ ...userCreatedEvent, aggregateId: createdUser.id }, tx);
+
+      await tx.insert(profiles).values({
+        userId: createdUser.id,
+        displayName: input.displayName,
+      }).onConflictDoNothing();
 
       return { user: createdUser, sessionArtifacts: createdSession };
     });
@@ -327,7 +333,7 @@ export const authService = {
         : null;
 
     if (!user) {
-      const baseUsername = normalizedEmail.split("@")[0]!.replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20) || "missuuser";
+      const baseUsername = (normalizedEmail.split("@")[0] ?? "").replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20) || "missuuser";
       let username = baseUsername;
       let suffix = 1;
 
@@ -356,7 +362,7 @@ export const authService = {
       user = await db.transaction(async (tx) => {
         const createdUser = await userRepository.create({
           email: normalizedEmail,
-          displayName: googleProfile.name ?? normalizedEmail.split("@")[0]!,
+          displayName: googleProfile.name ?? normalizedEmail.split("@")[0] ?? "User",
           username,
           country: "US",
           preferredLocale: "en",
@@ -380,6 +386,12 @@ export const authService = {
         }
 
         await eventRepository.create({ ...createdEvent, aggregateId: createdUser.id }, tx);
+
+        await tx.insert(profiles).values({
+          userId: createdUser.id,
+          displayName: googleProfile.name ?? normalizedEmail.split("@")[0] ?? "User",
+        }).onConflictDoNothing();
+
         return createdUser;
       });
 

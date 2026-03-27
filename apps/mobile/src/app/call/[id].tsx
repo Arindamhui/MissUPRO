@@ -1,7 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, TouchableOpacity, Dimensions } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { RenderModeType, RtcSurfaceView, VideoSourceType } from "react-native-agora";
+
+let RenderModeType: any = {};
+let RtcSurfaceView: any = View;
+let VideoSourceType: any = {};
+try {
+  const agora = require("react-native-agora");
+  RenderModeType = agora.RenderModeType;
+  RtcSurfaceView = agora.RtcSurfaceView;
+  VideoSourceType = agora.VideoSourceType;
+} catch {
+  // react-native-agora not linked (Expo Go)
+}
 import { trpc } from "@/lib/trpc";
 import { useAuthStore, useCallStore, useWalletStore } from "@/store";
 import { useSocket } from "@/hooks/useSocket";

@@ -67,10 +67,10 @@ async function main() {
 
   const child = spawn(
     process.execPath,
-    [getExpoCliPath(), "start", "--port", String(metroPort), "--non-interactive", ...extraArgs],
+    [getExpoCliPath(), "start", "--port", String(metroPort), ...extraArgs],
     {
       cwd: projectRoot,
-      env: process.env,
+      env: { ...process.env, CI: "1" },
       stdio: "inherit",
     },
   );

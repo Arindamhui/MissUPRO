@@ -8,6 +8,7 @@ const path = require("node:path");
 const APP_ID = process.env.MOBILE_ANDROID_APPLICATION_ID || "com.missupro.app";
 const DEFAULT_METRO_PORT = Number(process.env.MOBILE_ANDROID_METRO_PORT || 8081);
 const FALLBACK_REACT_NATIVE_PORT = 8081;
+const EMPTY_DIR_NAME = ".android-clean-empty";
 const mode = process.argv[2] || "emulator";
 const extraArgs = process.argv.slice(3);
 
@@ -34,6 +35,146 @@ function getGradleCommand() {
 
 function getAndroidDir() {
   return path.resolve(__dirname, "..", "android");
+}
+
+function resolveJavaHome() {
+  if (process.env.JAVA_HOME) return process.env.JAVA_HOME;
+
+  const candidates = [
+    process.platform === "win32" && path.join(process.env.ProgramFiles || "C:\\Program Files", "Android", "Android Studio", "jbr"),
+    process.platform === "win32" && path.join(process.env.ProgramFiles || "C:\\Program Files", "Android", "Android Studio", "jre"),
+    process.platform === "darwin" && "/Applications/Android Studio.app/Contents/jbr/Contents/Home",
+    process.platform === "darwin" && "/Applications/Android Studio.app/Contents/jre/Contents/Home",
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    const javaBin = path.join(candidate, "bin", process.platform === "win32" ? "java.exe" : "java");
+    if (fs.existsSync(javaBin)) return candidate;
+  }
+
+  return null;
+}
+
+function ensureLocalProperties() {
+  const localPropsPath = path.join(getAndroidDir(), "local.properties");
+  if (fs.existsSync(localPropsPath)) return;
+
+  const sdkDir = process.env.ANDROID_HOME
+    || process.env.ANDROID_SDK_ROOT
+    || (process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "Android", "Sdk"));
+
+  if (sdkDir && fs.existsSync(sdkDir)) {
+    const escaped = sdkDir.replace(/\\/g, "\\\\");
+    fs.writeFileSync(localPropsPath, `sdk.dir=${escaped}\n`, "utf8");
+    console.log(`[android] Created local.properties with sdk.dir=${sdkDir}`);
+  }
+}
+
+function getWorkspaceRoot() {
+  return path.resolve(__dirname, "..", "..", "..");
+}
+
+function ensureEmptyMirrorDir() {
+  const emptyDir = path.join(getWorkspaceRoot(), "tmp", EMPTY_DIR_NAME);
+  if (!fs.existsSync(emptyDir)) {
+    fs.mkdirSync(emptyDir, { recursive: true });
+  }
+
+  return emptyDir;
+}
+
+function collectAndroidBuildDirs(baseDir, maxDepth = 4, depth = 0) {
+  if (!fs.existsSync(baseDir) || depth > maxDepth) {
+    return [];
+  }
+
+  const results = [];
+  const entries = fs.readdirSync(baseDir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+
+    const fullPath = path.join(baseDir, entry.name);
+    if (entry.name === "android") {
+      const buildDir = path.join(fullPath, "build");
+      if (fs.existsSync(buildDir)) {
+        results.push(buildDir);
+      }
+      continue;
+    }
+
+    if (entry.name === "build" && path.basename(baseDir) === "android") {
+      results.push(fullPath);
+      continue;
+    }
+
+    if (depth < maxDepth) {
+      results.push(...collectAndroidBuildDirs(fullPath, maxDepth, depth + 1));
+    }
+  }
+
+  return results;
+}
+
+function cleanDirWithRobocopy(sourceDir, targetDir) {
+  if (!fs.existsSync(targetDir)) {
+    return false;
+  }
+
+  const robocopyArgs = [
+    sourceDir,
+    targetDir,
+    "/MIR",
+    "/NFL",
+    "/NDL",
+    "/NJH",
+    "/NJS",
+    "/nc",
+    "/ns",
+    "/np",
+  ];
+
+  const result = run("robocopy", robocopyArgs, { stdio: "ignore", shell: true });
+  if (result.error && result.error.code !== "ENOENT") {
+    throw result.error;
+  }
+
+  return true;
+}
+
+function cleanAndroidBuildArtifacts() {
+  if (process.platform !== "win32") {
+    return;
+  }
+
+  const workspaceRoot = getWorkspaceRoot();
+  const emptyDir = ensureEmptyMirrorDir();
+  const targets = new Set([
+    path.join(getAndroidDir(), "build"),
+    path.join(getAndroidDir(), "app", "build"),
+  ]);
+
+  for (const nodeModulesDir of [
+    path.join(workspaceRoot, "node_modules"),
+    path.join(workspaceRoot, "apps", "mobile", "node_modules"),
+  ]) {
+    for (const buildDir of collectAndroidBuildDirs(nodeModulesDir)) {
+      targets.add(buildDir);
+    }
+  }
+
+  const existingTargets = [...targets].filter((target) => fs.existsSync(target));
+  if (existingTargets.length === 0) {
+    return;
+  }
+
+  console.log(`[android] Cleaning ${existingTargets.length} Android build directories.`);
+
+  for (const target of existingTargets) {
+    cleanDirWithRobocopy(emptyDir, target);
+  }
 }
 
 function getDebugApkPath() {
@@ -378,12 +519,24 @@ async function findFreePort(startPort, attempts = 20) {
 }
 
 async function main() {
+  const javaHome = resolveJavaHome();
+  if (!javaHome) {
+    throw new Error(
+      "JAVA_HOME is not set and could not be auto-detected. " +
+      "Install Android Studio or set JAVA_HOME to a JDK 17+ installation."
+    );
+  }
+  console.log(`[android] Using JAVA_HOME=${javaHome}`);
+
+  ensureLocalProperties();
+
   const adb = getAdbCommand();
   let metroPort = DEFAULT_METRO_PORT;
   const forceFreshMetro = extraArgs.includes("--clear");
 
   const env = {
     ...process.env,
+    JAVA_HOME: javaHome,
     NODE_ENV: process.env.NODE_ENV || "development",
     ORG_GRADLE_PROJECT_reactNativeArchitectures:
       mode === "device" ? "arm64-v8a,armeabi-v7a" : "x86_64",
@@ -424,6 +577,8 @@ async function main() {
     metroPort = startedMetro.metroPort;
     Object.assign(env, startedMetro.env);
   }
+
+  cleanAndroidBuildArtifacts();
 
   console.log(`[android] Building debug APK for ${serial}.`);
   const apkPath = buildApp(env, metroPort);

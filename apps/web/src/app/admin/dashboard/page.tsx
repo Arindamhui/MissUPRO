@@ -37,13 +37,14 @@ export default function AdminDashboardPage() {
       return json.data as Record<string, number>;
     },
     retry: false,
+    staleTime: 30_000,
   });
   const engagement = trpc.analytics.getEngagementMetrics.useQuery(
     { startDate: new Date(Date.now() - 14 * 86400000), endDate: new Date() },
-    { retry: false },
+    { retry: false, staleTime: 60_000 },
   );
-  const modelApplications = trpc.admin.listModelApplications.useQuery({ status: "PENDING", limit: 5 }, { retry: false });
-  const withdrawals = trpc.admin.listWithdrawRequests.useQuery({ status: "PENDING", limit: 5 }, { retry: false });
+  const modelApplications = trpc.admin.listModelApplications.useQuery({ status: "PENDING", limit: 5 }, { retry: false, staleTime: 15_000 });
+  const withdrawals = trpc.admin.listWithdrawRequests.useQuery({ status: "PENDING", limit: 5 }, { retry: false, staleTime: 15_000 });
   const approveApplication = trpc.admin.approveModelApplication.useMutation({
     onSuccess: async () => { notify.success("Host approved"); await Promise.all([modelApplications.refetch(), stats.refetch(), fullStats.refetch()]); },
     onError: (error: Error) => notify.error("Approval failed", error.message),

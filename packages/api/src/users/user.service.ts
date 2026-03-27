@@ -562,10 +562,12 @@ export class UserService {
     const completenessScore = [input.bio, input.locationDisplay].filter((value) => Boolean(value && String(value).trim())).length * 25;
     profilePatch.profileCompletenessScore = completenessScore;
 
+    const [profileUser] = await db.select({ displayName: users.displayName }).from(users).where(eq(users.id, userId)).limit(1);
     await db
       .insert(profiles)
       .values({
         userId,
+        displayName: profileUser?.displayName ?? "User",
         bio: input.bio ?? null,
         locationDisplay: input.locationDisplay ?? null,
         profileCompletenessScore: completenessScore,
