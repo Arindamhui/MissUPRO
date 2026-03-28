@@ -8,7 +8,7 @@ const authUserColumns = {
   id: users.id,
   publicId: users.publicId,
   publicUserId: users.publicUserId,
-  clerkId: users.clerkId,
+  identityKey: users.identityKey,
   googleId: users.googleId,
   email: users.email,
   phone: users.phone,

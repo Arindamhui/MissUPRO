@@ -1,3 +1,9 @@
 {
-  "typescript.tsdk": "node_modules/typescript/lib"
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "files.watcherExclude": {
+    "**/node_modules/**/android/build/**": true,
+    "**/android/app/build/**": true,
+    "**/android/build/**": true,
+    "**/.gradle/**": true
+  }
 }

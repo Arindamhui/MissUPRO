@@ -90,6 +90,27 @@ export class AuthController {
     }
   }
 
+  @Post("refresh")
+  async refreshToken(
+    @Body() body: unknown,
+    @Req() req: Request,
+  ) {
+    const parsed = body as { refreshToken?: string };
+    if (!parsed?.refreshToken || typeof parsed.refreshToken !== "string") {
+      throw new BadRequestException("Missing refreshToken in request body");
+    }
+
+    try {
+      return await this.authService.refreshAccessToken(
+        parsed.refreshToken,
+        this.getRequestIp(req),
+        String(req.headers["user-agent"] ?? ""),
+      );
+    } catch (error) {
+      throw new UnauthorizedException(error instanceof Error ? error.message : "Token refresh failed");
+    }
+  }
+
   @Get("session")
   async getSession(
     @Headers("authorization") authorization: string | undefined,

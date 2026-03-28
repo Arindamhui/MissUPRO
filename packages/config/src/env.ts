@@ -78,6 +78,23 @@ let _env: Env | null = null;
 export function getEnv(): Env {
   if (!_env) {
     _env = envSchema.parse(process.env);
+
+    // Production safety checks — ensure sensitive defaults are overridden
+    if (_env.NODE_ENV === "production") {
+      const criticalDefaults = [
+        { key: "JWT_SECRET", value: _env.JWT_SECRET, isDefault: _env.JWT_SECRET === "dev-jwt-secret-change-in-production-min32chars" },
+        { key: "JWT_REFRESH_SECRET", value: _env.JWT_REFRESH_SECRET, isDefault: _env.JWT_REFRESH_SECRET === "dev-refresh-secret-change-in-production32" },
+        { key: "DATABASE_URL", value: _env.DATABASE_URL, isDefault: _env.DATABASE_URL.includes("localhost:5432") },
+      ];
+
+      const unsafeKeys = criticalDefaults.filter((c) => c.isDefault).map((c) => c.key);
+      if (unsafeKeys.length > 0) {
+        throw new Error(
+          `FATAL: Production environment uses default values for: ${unsafeKeys.join(", ")}. ` +
+          `Set these in your .env file before deploying.`,
+        );
+      }
+    }
   }
   return _env;
 }

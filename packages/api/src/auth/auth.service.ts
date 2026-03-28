@@ -8,6 +8,7 @@ import { eq, and, gt, desc, or } from "drizzle-orm";
 import { randomBytes, createHash } from "node:crypto";
 import { normalizeEmail, isAllowedAdminEmail } from "./auth.constants";
 import { WalletService } from "../wallet/wallet.service";
+import { IdGenerationService } from "../common/id-generation.service";
 import {
   completeAgencySignupSchema,
   type AgencyModelLoginInput,
@@ -37,6 +38,7 @@ type ResolvedIdentity = {
 
 type AuthMutationResult = {
   token: string;
+  refreshToken: string;
   sessionId: string;
   user: {
     id: string;
@@ -88,14 +90,28 @@ type MobileSessionState = {
 export class AuthService {
   private readonly env = getEnv();
 
-  constructor(private readonly walletService: WalletService) {}
+  constructor(
+    private readonly walletService: WalletService,
+    private readonly idGen: IdGenerationService,
+  ) {}
 
-  private loadSharedAuth() {
-    return (0, eval)("import('@missu/auth')") as Promise<{
+  private _authModuleCache: {
+    hashToken: (value: string) => string;
+    signAccessToken: (actor: SessionActor, deviceId: string) => Promise<string>;
+    verifyAccessToken: (token: string) => Promise<{ sub: string; sid: string }>;
+  } | null = null;
+
+  private async loadSharedAuth() {
+    if (this._authModuleCache) return this._authModuleCache;
+    // Use Function constructor for ESM dynamic import in CJS context (avoids eval)
+    const importFn = new Function("specifier", "return import(specifier)") as (specifier: string) => Promise<any>;
+    const mod = await importFn("@missu/auth");
+    this._authModuleCache = mod;
+    return mod as {
       hashToken: (value: string) => string;
       signAccessToken: (actor: SessionActor, deviceId: string) => Promise<string>;
       verifyAccessToken: (token: string) => Promise<{ sub: string; sid: string }>;
-    }>;
+    };
   }
 
   async createSession(userId: string, ip: string, userAgent: string) {
@@ -244,18 +260,18 @@ export class AuthService {
     }
 
     const displayName = input.displayName.trim();
-    const publicUserId = await this.generateUniquePublicUserId();
+    const publicUserId = await this.idGen.generateUserId();
     const referralCode = await this.generateUniqueReferralCode();
     const username = await this.generateUniqueUsername(displayName, normalizedEmail);
     const referredByUserId = await this.resolveReferrerId(input.referralCode);
-    const passwordHash = await bcrypt.hash(input.password, 10);
+    const passwordHash = await bcrypt.hash(input.password, 12);
 
     const [createdUser] = await db
       .insert(users)
       .values({
         publicUserId,
         publicId: publicUserId,
-        clerkId: this.buildLegacyIdentityKey("local", normalizedEmail),
+        identityKey: this.buildLegacyIdentityKey("local", normalizedEmail),
         email: normalizedEmail,
         emailVerified: false,
         passwordHash,
@@ -343,7 +359,7 @@ export class AuthService {
 
     return this.completeAgencySignup({
       appUser,
-      identityKey: appUser.clerkId ?? "",
+      identityKey: appUser.identityKey ?? "",
       email: normalizeEmail(appUser.email),
       sessionId: null,
     }, input);
@@ -362,7 +378,7 @@ export class AuthService {
 
     return this.completeMobileOnboarding({
       appUser,
-      identityKey: appUser.clerkId ?? "",
+      identityKey: appUser.identityKey ?? "",
       email: normalizeEmail(appUser.email),
       sessionId: null,
     }, input);
@@ -421,12 +437,14 @@ export class AuthService {
 
     // Auto-provision admin record for allowlisted emails on first login
     if (!adminRecord && isAllowedAdminEmail(email)) {
+      const publicAdminId = await this.idGen.generateAdminId();
       const [created] = await db
         .insert(admins)
         .values({
+          publicAdminId,
           userId: identity.appUser.id,
           email,
-          clerkId: identity.identityKey,
+          identityKey: identity.identityKey,
           adminName: identity.appUser.displayName ?? email.split("@")[0] ?? "Admin",
           isActive: true,
           mfaEnabled: false,
@@ -561,7 +579,7 @@ export class AuthService {
         .insert(agencies)
         .values({
           userId: identity.appUser.id,
-          clerkId: identity.identityKey,
+          identityKey: identity.identityKey,
           agencyName: input.agencyName,
           publicId: agencyPublicId,
           agencyCode: agencyPublicId,
@@ -654,7 +672,7 @@ export class AuthService {
   private async createAuthMutationResult(appUser: typeof users.$inferSelect, ip: string, userAgent: string): Promise<AuthMutationResult> {
     const { signAccessToken } = await this.loadSharedAuth();
     const actor = await this.buildSessionActor(appUser);
-    const { session, deviceId } = await this.createSession(appUser.id, ip, userAgent);
+    const { session, refreshToken, deviceId } = await this.createSession(appUser.id, ip, userAgent);
     const token = await signAccessToken({ ...actor, sessionId: session.id }, deviceId);
 
     await db
@@ -664,6 +682,7 @@ export class AuthService {
 
     return {
       token,
+      refreshToken,
       sessionId: session.id,
       user: {
         id: appUser.id,
@@ -684,8 +703,8 @@ export class AuthService {
   }
 
   private resolveLegacyIdentityKey(appUser: typeof users.$inferSelect) {
-    if (appUser.clerkId) {
-      return appUser.clerkId;
+    if (appUser.identityKey) {
+      return appUser.identityKey;
     }
 
     if (appUser.googleId) {
@@ -776,7 +795,7 @@ export class AuthService {
     const [existingByGoogleIdentity] = await db
       .select()
       .from(users)
-      .where(or(eq(users.googleId, googleSub), eq(users.clerkId, legacyIdentityKey)))
+      .where(or(eq(users.googleId, googleSub), eq(users.identityKey, legacyIdentityKey)))
       .limit(1);
     const [existingByEmail] = await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1);
     if (existingByGoogleIdentity && existingByEmail && existingByGoogleIdentity.id !== existingByEmail.id) {
@@ -791,12 +810,12 @@ export class AuthService {
     const matchedUser = existingByGoogleIdentity ?? existingByEmail ?? null;
 
     if (matchedUser) {
-      const nextPublicUserId = matchedUser.publicUserId ?? await this.generateUniquePublicUserId();
+      const nextPublicUserId = matchedUser.publicUserId ?? await this.idGen.generateUserId();
       const nextPublicId = matchedUser.publicId ?? matchedUser.publicUserId ?? nextPublicUserId;
-      const nextClerkId = matchedUser.clerkId && !this.isLegacyIdentityKey(matchedUser.clerkId)
-        ? matchedUser.clerkId
+      const nextIdentityKey = matchedUser.identityKey && !this.isLegacyIdentityKey(matchedUser.identityKey)
+        ? matchedUser.identityKey
         : legacyIdentityKey;
-      const shouldSetLegacyKey = matchedUser.clerkId !== nextClerkId;
+      const shouldSetLegacyKey = matchedUser.identityKey !== nextIdentityKey;
       const shouldSetDisplayName = displayName.length > 0 && matchedUser.displayName !== displayName;
       const shouldSetAvatar = typeof googleProfile.picture === "string" && googleProfile.picture.length > 0 && matchedUser.avatarUrl !== googleProfile.picture;
       const shouldSetPublicIds = matchedUser.publicUserId !== nextPublicUserId || matchedUser.publicId !== nextPublicId;
@@ -809,7 +828,7 @@ export class AuthService {
           .set({
             publicUserId: nextPublicUserId,
             publicId: nextPublicId,
-            clerkId: nextClerkId,
+            identityKey: nextIdentityKey,
             googleId: googleSub,
             emailVerified: true,
             displayName: shouldSetDisplayName ? displayName : matchedUser.displayName,
@@ -828,7 +847,7 @@ export class AuthService {
       return matchedUser;
     }
 
-    const publicUserId = await this.generateUniquePublicUserId();
+    const publicUserId = await this.idGen.generateUserId();
     const generatedReferralCode = await this.generateUniqueReferralCode();
     const username = await this.generateUniqueUsername(displayName, normalizedEmail);
     const referredByUserId = await this.resolveReferrerId(referralCode);
@@ -838,7 +857,7 @@ export class AuthService {
       .values({
         publicUserId,
         publicId: publicUserId,
-        clerkId: legacyIdentityKey,
+        identityKey: legacyIdentityKey,
         googleId: googleSub,
         email: normalizedEmail,
         emailVerified: true,
@@ -932,27 +951,14 @@ export class AuthService {
   }
 
   private async generateUniquePublicUserId() {
-    for (let attempt = 0; attempt < 20; attempt++) {
-      const publicUserId = `U${this.randomDigits(9)}`;
-      const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.publicUserId, publicUserId)).limit(1);
-      if (!existing) {
-        return publicUserId;
-      }
-    }
-
-    return `U${Date.now().toString().slice(-9)}`;
+    // DEPRECATED: Use this.idGen.generateUserId() instead.
+    // Kept temporarily for any remaining call sites.
+    return this.idGen.generateUserId();
   }
 
   private async generateUniqueAgencyPublicId() {
-    for (let attempt = 0; attempt < 20; attempt++) {
-      const publicId = `A${this.randomDigits(9)}`;
-      const [existing] = await db.select({ id: agencies.id }).from(agencies).where(eq(agencies.publicId, publicId)).limit(1);
-      if (!existing) {
-        return publicId;
-      }
-    }
-
-    return `A${Date.now().toString().slice(-9)}`;
+    // DEPRECATED: Use this.idGen.generateAgencyCode() instead.
+    return this.idGen.generateAgencyCode();
   }
 
   private randomDigits(length: number) {
@@ -1063,7 +1069,7 @@ export class AuthService {
       .set({
         userId,
         email: normalizeEmail(email),
-        clerkId: identityKey,
+        identityKey: identityKey,
         lastLoginAt: new Date(),
         updatedAt: new Date(),
       })
@@ -1212,7 +1218,7 @@ export class AuthService {
   }) {
     const values = {
       userId,
-      clerkId: input.identityKey ?? null,
+      identityKey: input.identityKey ?? null,
       agencyId: input.agencyId ?? null,
       modelType: input.modelType,
       registrationStatus: "ACTIVE" as any,
@@ -1232,7 +1238,7 @@ export class AuthService {
       .onConflictDoUpdate({
         target: models.userId,
         set: {
-          clerkId: input.identityKey ?? null,
+          identityKey: input.identityKey ?? null,
           agencyId: input.agencyId ?? null,
           modelType: input.modelType as any,
           registrationStatus: "ACTIVE" as any,
@@ -1484,7 +1490,7 @@ export class AuthService {
     }
     return this.loginAsAgencyModel({
       appUser,
-      identityKey: appUser.clerkId ?? "",
+      identityKey: appUser.identityKey ?? "",
       email: appUser.email.trim().toLowerCase(),
       sessionId: null,
     }, input);
@@ -1624,5 +1630,76 @@ export class AuthService {
       .from(agencies)
       .where(eq(agencies.approvalStatus, "PENDING" as any))
       .orderBy(desc(agencies.createdAt));
+  }
+
+  /**
+   * Refresh an access token using a valid refresh token.
+   * Implements refresh token rotation: old token is invalidated, new one is issued.
+   */
+  async refreshAccessToken(refreshTokenValue: string, ip: string, userAgent: string) {
+    const { hashToken, signAccessToken } = await this.loadSharedAuth();
+    const tokenHash = hashToken(refreshTokenValue);
+
+    // Find the session by refresh token hash
+    const [session] = await db
+      .select()
+      .from(authSessions)
+      .where(
+        and(
+          eq(authSessions.refreshTokenHash, tokenHash),
+          eq(authSessions.sessionStatus, "ACTIVE" as any),
+          gt(authSessions.expiresAt, new Date()),
+        ),
+      )
+      .limit(1);
+
+    if (!session) {
+      throw new Error("Invalid or expired refresh token");
+    }
+
+    // Load user
+    const [appUser] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
+    if (!appUser) {
+      throw new Error("User not found");
+    }
+
+    // Generate new refresh token (rotation)
+    const newRefreshToken = randomBytes(48).toString("hex");
+    const newRefreshHash = hashToken(newRefreshToken);
+    const deviceId = session.deviceFingerprintHash ?? createHash("sha256").update(`${ip}:${userAgent}`).digest("hex");
+
+    // Rotate the refresh token in the session
+    await db
+      .update(authSessions)
+      .set({
+        refreshTokenHash: newRefreshHash,
+        lastSeenAt: new Date(),
+        ipHash: createHash("sha256").update(ip).digest("hex"),
+        userAgentHash: createHash("sha256").update(userAgent).digest("hex"),
+      })
+      .where(eq(authSessions.id, session.id));
+
+    // Build new access token
+    const actor = await this.buildSessionActor(appUser);
+    const fullActor: SessionActor = { ...actor, sessionId: session.id };
+    const accessToken = await signAccessToken(fullActor, deviceId);
+
+    await db
+      .update(users)
+      .set({ lastActiveAt: new Date() })
+      .where(eq(users.id, appUser.id));
+
+    return {
+      token: accessToken,
+      refreshToken: newRefreshToken,
+      sessionId: session.id,
+      user: {
+        id: appUser.id,
+        email: normalizeEmail(appUser.email),
+        displayName: appUser.displayName,
+        platformRole: actor.platformRole,
+        authProvider: appUser.authProvider as AuthProvider,
+      },
+    };
   }
 }

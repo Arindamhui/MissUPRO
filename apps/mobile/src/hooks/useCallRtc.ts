@@ -175,9 +175,12 @@ export function useCallRtc({ enabled, callType, credentials }: UseCallRtcArgs) {
             setRemoteUids([]);
           }
         },
-        onConnectionStateChanged: (_connection, state) => {
+        onConnectionStateChanged: (_connection, state, reason) => {
           if (!cancelled) {
             setConnectionState(state);
+            if (state === ConnectionStateType.ConnectionStateFailed && reason === 9 /* TOKEN_EXPIRED */) {
+              setError("RTC token expired. Refreshing...");
+            }
           }
         },
         onError: (err) => {

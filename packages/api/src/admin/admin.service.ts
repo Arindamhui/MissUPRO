@@ -128,7 +128,7 @@ export class AdminService {
           u.email,
           u.role,
           'UNKNOWN' as "authProvider",
-          null::text as "clerkId",
+          null::text as "identityKey",
           null::text as "platformRole",
           case
             when u.is_banned then 'BANNED'
@@ -175,7 +175,7 @@ export class AdminService {
         status: users.status, displayName: users.displayName,
         avatarUrl: users.avatarUrl, createdAt: users.createdAt,
         authProvider: users.authProvider,
-        clerkId: users.clerkId,
+        identityKey: users.identityKey,
         platformRole: users.platformRole,
       })
       .from(users)

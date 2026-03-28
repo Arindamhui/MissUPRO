@@ -171,9 +171,13 @@ export function useLiveRtc({ enabled, role, credentials }: UseLiveRtcArgs) {
             setRemoteUids([]);
           }
         },
-        onConnectionStateChanged: (_connection, state) => {
+        onConnectionStateChanged: (_connection, state, reason) => {
           if (!cancelled) {
             setConnectionState(state);
+            // Handle token expired — notify caller to refresh via renewToken
+            if (state === ConnectionStateType.ConnectionStateFailed && reason === 9 /* TOKEN_EXPIRED */) {
+              setError("RTC token expired. Refreshing...");
+            }
           }
         },
         onError: (err) => {
@@ -262,6 +266,15 @@ export function useLiveRtc({ enabled, role, credentials }: UseLiveRtcArgs) {
     engineRef.current.switchCamera();
   };
 
+  const renewToken = (token: string) => {
+    if (!engineRef.current) {
+      return;
+    }
+
+    engineRef.current.renewToken(token);
+    setError(null);
+  };
+
   return useMemo(() => ({
     joined,
     remoteUids,
@@ -272,5 +285,6 @@ export function useLiveRtc({ enabled, role, credentials }: UseLiveRtcArgs) {
     toggleLocalAudio,
     toggleLocalVideo,
     switchCamera,
+    renewToken,
   }), [connectionState, error, isLocalAudioMuted, isLocalVideoMuted, joined, remoteUids]);
 }

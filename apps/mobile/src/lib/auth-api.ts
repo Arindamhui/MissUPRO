@@ -117,3 +117,11 @@ export function logoutRequest(token: string) {
     },
   });
 }
+
+export function refreshAccessToken(refreshToken: string) {
+  return sendJson<MobileAuthSession>("/auth/refresh", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refreshToken }),
+  });
+}

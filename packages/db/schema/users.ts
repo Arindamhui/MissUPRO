@@ -7,7 +7,7 @@ import {
   authRoleEnum, authProviderEnum, platformRoleEnum,
   verificationTypeEnum, verificationStatusEnum,
   pushPlatformEnum, pushTokenStatusEnum,
-  accountDeletionStatusEnum,
+  accountDeletionStatusEnum, kycStatusEnum,
 } from "./enums";
 
 // ─── users ───
@@ -15,7 +15,8 @@ export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   publicUserId: text("public_user_id"),
   publicId: text("public_id"),
-  clerkId: text("clerk_id"),
+  /** Legacy identity key (was clerk_id). Kept as DB column name for backward compat. */
+  identityKey: text("clerk_id"),
   googleId: text("google_id"),
   email: text("email").notNull(),
   emailVerified: boolean("email_verified").default(false).notNull(),
@@ -39,6 +40,7 @@ export const users = pgTable("users", {
   gender: genderEnum("gender"),
   dateOfBirth: date("date_of_birth"),
   isVerified: boolean("is_verified").default(false).notNull(),
+  kycStatus: kycStatusEnum("kyc_status").default("NOT_STARTED").notNull(),
   vipType: text("vip_type"),
   vipExpiry: timestamp("vip_expiry"),
   referralCode: text("referral_code").notNull(),
@@ -50,7 +52,7 @@ export const users = pgTable("users", {
 }, (t) => [
   uniqueIndex("users_public_user_id_idx").on(t.publicUserId),
   uniqueIndex("users_public_id_idx").on(t.publicId),
-  uniqueIndex("users_clerk_id_idx").on(t.clerkId),
+  uniqueIndex("users_clerk_id_idx").on(t.identityKey),
   uniqueIndex("users_google_id_idx").on(t.googleId),
   uniqueIndex("users_email_idx").on(t.email),
   uniqueIndex("users_username_idx").on(t.username),

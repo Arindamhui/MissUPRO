@@ -14,11 +14,16 @@ export const auditLogs = pgTable("audit_logs", {
   beforeStateJson: jsonb("before_state_json"),
   afterStateJson: jsonb("after_state_json"),
   metadataJson: jsonb("metadata_json"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  deviceFingerprintHash: text("device_fingerprint_hash"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [
   index("audit_logs_actor_created_idx").on(t.actorUserId, t.createdAt),
   index("audit_logs_entity_created_idx").on(t.entityType, t.entityId, t.createdAt),
   index("audit_logs_tenant_created_idx").on(t.tenantAgencyId, t.createdAt),
+  index("audit_logs_action_created_idx").on(t.action, t.createdAt),
+  index("audit_logs_ip_created_idx").on(t.ipAddress, t.createdAt),
 ]);
 
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({

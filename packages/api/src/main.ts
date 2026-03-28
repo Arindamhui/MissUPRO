@@ -77,6 +77,30 @@ async function resolveApiPort() {
   return defaultPort;
 }
 
+// In-memory rate limiter fallback (when Redis is unavailable)
+const inMemoryBuckets = new Map<string, { count: number; resetAt: number }>();
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, bucket] of inMemoryBuckets) {
+    if (bucket.resetAt < now) {
+      inMemoryBuckets.delete(key);
+    }
+  }
+}, 60_000);
+
+function inMemoryRateLimitCheck(key: string, maxRequests: number, windowSeconds: number): boolean {
+  const now = Date.now();
+  const bucket = inMemoryBuckets.get(key);
+
+  if (!bucket || bucket.resetAt < now) {
+    inMemoryBuckets.set(key, { count: 1, resetAt: now + windowSeconds * 1000 });
+    return true;
+  }
+
+  bucket.count += 1;
+  return bucket.count <= maxRequests;
+}
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
   const expressApp = app.getHttpAdapter().getInstance();
@@ -105,10 +129,14 @@ async function bootstrap() {
   expressApp.use(async (req: any, res: any, next: any) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("X-XSS-Protection", "0");
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-    res.setHeader("Permissions-Policy", "camera=(self), microphone=(self)");
-    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-    res.setHeader("Content-Security-Policy", "default-src 'self'; frame-ancestors 'none'; base-uri 'self'");
+    res.setHeader("Permissions-Policy", "camera=(self), microphone=(self), geolocation=()");
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+    res.setHeader("Content-Security-Policy", "default-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+    res.setHeader("X-DNS-Prefetch-Control", "off");
+    res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+    res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
 
     const ip = String(req.headers["x-forwarded-for"] ?? req.ip ?? "unknown").split(",")[0]?.trim() || "unknown";
     const key = `ratelimit:api:${ip}`;
@@ -127,7 +155,11 @@ async function bootstrap() {
         return;
       }
     } catch {
-      // Redis unavailable — allow the request through without rate limiting
+      // Redis unavailable — fall through with in-memory rate limiting
+      if (!inMemoryRateLimitCheck(ip, 600, 60)) {
+        res.status(429).json({ error: "rate_limit_exceeded" });
+        return;
+      }
     }
 
     next();
@@ -135,8 +167,11 @@ async function bootstrap() {
 
   const corsOrigins = process.env["CORS_ORIGINS"] || "http://localhost:3000,http://localhost:3001";
   app.enableCors({
-    origin: corsOrigins.split(","),
+    origin: corsOrigins.split(",").map((o) => o.trim()).filter(Boolean),
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token", "X-Request-Id", "X-Device-Id", "Idempotency-Key"],
+    maxAge: 86400,
   });
 
   expressApp.use(

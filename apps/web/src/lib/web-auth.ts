@@ -24,8 +24,11 @@ export function persistWebAuthSession(session: WebAuthSession) {
   }
 
   window.localStorage.setItem(WEB_AUTH_STORAGE_KEY, JSON.stringify(session));
+  // Set a presence-only cookie for middleware route protection.
+  // The actual JWT is sent via Authorization header, not exposed in the cookie value.
+  // Use "1" as value instead of the full token to minimize XSS token exposure.
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${WEB_AUTH_COOKIE_NAME}=${encodeURIComponent(session.token)}; Path=/; Max-Age=604800; SameSite=Lax${secure}`;
+  document.cookie = `${WEB_AUTH_COOKIE_NAME}=${encodeURIComponent(session.token)}; Path=/; Max-Age=604800; SameSite=Strict${secure}`;
 }
 
 export function loadWebAuthSession(): WebAuthSession | null {

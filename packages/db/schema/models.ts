@@ -15,7 +15,8 @@ import { users } from "./users";
 export const models = pgTable("models", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").notNull().references(() => users.id),
-  clerkId: text("clerk_id"),
+  /** Legacy identity key (was clerk_id). */
+  identityKey: text("clerk_id"),
   agencyId: uuid("agency_id").references(() => agencies.id),
   modelType: modelProfileTypeEnum("model_type").default("INDEPENDENT").notNull(),
   registrationStatus: accessRecordStatusEnum("registration_status").default("ACTIVE").notNull(),
@@ -42,7 +43,7 @@ export const models = pgTable("models", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   uniqueIndex("models_user_id_idx").on(t.userId),
-  uniqueIndex("models_clerk_id_idx").on(t.clerkId),
+  uniqueIndex("models_clerk_id_idx").on(t.identityKey),
   index("models_agency_id_idx").on(t.agencyId),
   index("models_type_status_idx").on(t.modelType, t.registrationStatus),
   index("models_online_quality_idx").on(t.isOnline, t.qualityScore),

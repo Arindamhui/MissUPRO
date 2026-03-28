@@ -107,7 +107,7 @@ export class ComplianceService {
     await db
       .update(users)
       .set({
-        clerkId: null,
+        identityKey: null,
         email: deletedEmail,
         emailVerified: false,
         phone: null,

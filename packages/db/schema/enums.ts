@@ -264,3 +264,119 @@ export const partyActivityResultEnum = pgEnum("party_activity_result", ["WON", "
 export const agencyHostStatusEnum = pgEnum("agency_host_status", ["ACTIVE", "REMOVED"]);
 export const agencyApplicationStatusEnum = pgEnum("agency_application_status", ["PENDING", "APPROVED", "REJECTED"]);
 export const agencyCommissionStatusEnum = pgEnum("agency_commission_status", ["PENDING", "APPROVED", "PAID", "VOID"]);
+export const agencySettlementStatusEnum = pgEnum("agency_settlement_status", [
+  "PENDING", "APPROVED", "PROCESSING", "COMPLETED", "FAILED", "ON_HOLD",
+]);
+
+// === KYC ===
+export const kycStatusEnum = pgEnum("kyc_status", [
+  "NOT_STARTED", "PENDING", "DOCUMENTS_SUBMITTED", "UNDER_REVIEW",
+  "APPROVED", "REJECTED", "EXPIRED", "SUSPENDED",
+]);
+export const kycDocumentTypeEnum = pgEnum("kyc_document_type", [
+  "PASSPORT", "NATIONAL_ID", "DRIVERS_LICENSE", "RESIDENCE_PERMIT",
+  "SELFIE_WITH_ID", "ADDRESS_PROOF", "BANK_STATEMENT",
+]);
+export const kycDocumentStatusEnum = pgEnum("kyc_document_status", [
+  "UPLOADED", "UNDER_REVIEW", "APPROVED", "REJECTED", "EXPIRED",
+]);
+
+// === Admin RBAC ===
+export const adminLevelEnum = pgEnum("admin_level", [
+  "SUPER_ADMIN", "SENIOR_ADMIN", "ADMIN", "MODERATOR", "SUPPORT", "VIEWER",
+]);
+export const adminPermissionScopeEnum = pgEnum("admin_permission_scope", [
+  "GLOBAL", "COUNTRY", "AGENCY", "FEATURE",
+]);
+
+// === Revenue ===
+export const revenueSourceEnum = pgEnum("revenue_source", [
+  "COIN_PURCHASE", "CALL_FEE", "GIFT_COMMISSION", "LIVE_COMMISSION",
+  "GROUP_AUDIO_FEE", "PARTY_FEE", "GAME_FEE", "VIP_SUBSCRIPTION",
+  "PK_BATTLE_FEE", "ENTRY_FEE", "WITHDRAWAL_FEE", "OTHER",
+]);
+export const earningSourceEnum = pgEnum("earning_source", [
+  "CALL_AUDIO", "CALL_VIDEO", "GIFT_LIVE", "GIFT_CALL", "GIFT_CHAT",
+  "GIFT_PK", "GIFT_PARTY", "GIFT_GROUP_AUDIO", "PK_REWARD",
+  "GROUP_AUDIO_HOST", "PARTY_HOST", "GAME_REWARD", "REFERRAL_BONUS",
+  "EVENT_REWARD", "LEVEL_REWARD", "BONUS",
+]);
+export const settlementPeriodEnum = pgEnum("settlement_period", [
+  "DAILY", "WEEKLY", "BIWEEKLY", "MONTHLY",
+]);
+
+// === Withdrawal Logs ===
+export const withdrawalActionEnum = pgEnum("withdrawal_action", [
+  "REQUESTED", "AUTO_FRAUD_CHECK", "ADMIN_REVIEW_START", "APPROVED",
+  "REJECTED", "PROCESSING", "COMPLETED", "FAILED", "ON_HOLD", "ESCALATED",
+]);
+
+// === Device Tracking ===
+export const deviceTrustLevelEnum = pgEnum("device_trust_level", [
+  "TRUSTED", "NORMAL", "SUSPICIOUS", "BLOCKED",
+]);
+
+// === Currency ===
+export const currencyStatusEnum = pgEnum("currency_status", ["ACTIVE", "DISABLED"]);
+export const exchangeRateSourceEnum = pgEnum("exchange_rate_source", ["MANUAL", "API_FEED", "PROVIDER_RATE"]);
+
+// === Refunds ===
+export const refundStatusEnum = pgEnum("refund_status", [
+  "REQUESTED", "APPROVED", "REJECTED", "PROCESSING", "COMPLETED", "FAILED",
+]);
+export const refundReasonEnum = pgEnum("refund_reason", [
+  "USER_REQUEST", "DUPLICATE_CHARGE", "SERVICE_NOT_DELIVERED", "FRAUD",
+  "DISPUTE_LOST", "ADMIN_INITIATED", "IAP_REVOKED", "OTHER",
+]);
+export const refundMethodEnum = pgEnum("refund_method", [
+  "ORIGINAL_PAYMENT", "WALLET_CREDIT", "MANUAL",
+]);
+
+// === Subscriptions & Invoices ===
+export const subscriptionPlanIntervalEnum = pgEnum("subscription_plan_interval", [
+  "WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY",
+]);
+export const invoiceStatusEnum = pgEnum("invoice_status", [
+  "DRAFT", "OPEN", "PAID", "VOID", "UNCOLLECTIBLE", "PAST_DUE",
+]);
+export const iapPlatformEnum = pgEnum("iap_platform", ["APPLE", "GOOGLE"]);
+export const iapReceiptStatusEnum = pgEnum("iap_receipt_status", [
+  "VALID", "INVALID", "EXPIRED", "REVOKED", "PENDING_VERIFICATION",
+]);
+
+// === Localization ===
+export const localeStatusEnum = pgEnum("locale_status", ["ACTIVE", "DRAFT", "DISABLED"]);
+
+// === Background Jobs ===
+export const jobStatusEnum = pgEnum("job_status", [
+  "PENDING", "RUNNING", "COMPLETED", "FAILED", "RETRYING", "DEAD",
+]);
+export const jobPriorityEnum = pgEnum("job_priority", ["LOW", "NORMAL", "HIGH", "CRITICAL"]);
+
+// === System Logs ===
+export const logLevelEnum = pgEnum("log_level", ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"]);
+export const emailDeliveryStatusEnum = pgEnum("email_delivery_status", [
+  "QUEUED", "SENT", "DELIVERED", "BOUNCED", "FAILED", "SPAM_REPORTED",
+]);
+
+// === CMS ===
+export const cmsPageStatusEnum = pgEnum("cms_page_status", ["DRAFT", "PUBLISHED", "ARCHIVED"]);
+export const faqCategoryEnum = pgEnum("faq_category", [
+  "GENERAL", "ACCOUNT", "PAYMENTS", "STREAMING", "CALLS",
+  "GIFTS", "GAMES", "AGENCY", "VIP", "SAFETY", "TECHNICAL",
+]);
+
+// === User Consent ===
+export const consentTypeEnum = pgEnum("consent_type", [
+  "TERMS_OF_SERVICE", "PRIVACY_POLICY", "MARKETING_EMAIL",
+  "MARKETING_PUSH", "DATA_PROCESSING", "COOKIES", "AGE_VERIFICATION",
+]);
+export const consentActionEnum = pgEnum("consent_action", ["GRANTED", "REVOKED"]);
+
+// === Payout Accounts ===
+export const payoutAccountTypeEnum = pgEnum("payout_account_type", [
+  "BANK_ACCOUNT", "PAYPAL", "PAYONEER", "CRYPTO_WALLET", "UPI",
+]);
+export const payoutAccountStatusEnum = pgEnum("payout_account_status", [
+  "PENDING_VERIFICATION", "ACTIVE", "SUSPENDED", "REMOVED",
+]);

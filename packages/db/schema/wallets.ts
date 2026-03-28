@@ -12,6 +12,12 @@ export const wallets = pgTable("wallets", {
   userId: uuid("user_id").notNull().references(() => users.id),
   coinBalance: integer("coin_balance").default(0).notNull(),
   diamondBalance: integer("diamond_balance").default(0).notNull(),
+  withdrawableBalance: decimal("withdrawable_balance", { precision: 14, scale: 2 }).default("0").notNull(),
+  lockedBalance: decimal("locked_balance", { precision: 14, scale: 2 }).default("0").notNull(),
+  totalEarned: decimal("total_earned", { precision: 14, scale: 2 }).default("0").notNull(),
+  totalSpent: decimal("total_spent", { precision: 14, scale: 2 }).default("0").notNull(),
+  totalWithdrawn: decimal("total_withdrawn", { precision: 14, scale: 2 }).default("0").notNull(),
+  currency: text("currency").default("USD").notNull(),
   version: integer("version").default(1).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -19,6 +25,8 @@ export const wallets = pgTable("wallets", {
   uniqueIndex("wallets_user_id_idx").on(t.userId),
   check("wallets_coin_balance_check", sql`${t.coinBalance} >= 0`),
   check("wallets_diamond_balance_check", sql`${t.diamondBalance} >= 0`),
+  check("wallets_withdrawable_balance_check", sql`${t.withdrawableBalance} >= 0`),
+  check("wallets_locked_balance_check", sql`${t.lockedBalance} >= 0`),
 ]);
 
 // ─── coin_transactions ───

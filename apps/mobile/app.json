@@ -12,7 +12,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#6C5CE7"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "bundleIdentifier": "com.missupro.app",
       "supportsTablet": false,
@@ -28,11 +30,16 @@
         "backgroundColor": "#6C5CE7"
       },
       "package": "com.missupro.app",
-      "permissions": ["CAMERA", "RECORD_AUDIO"]
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      "expo-secure-store",
+      "expo-web-browser"
     ]
   }
 }
